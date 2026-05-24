@@ -8,7 +8,17 @@ $targets = @(
   (Join-Path $root '02-admin-erp\icons')
 )
 Add-Type -AssemblyName System.Drawing
-function Save-Resize([string]$in, [string]$out, [int]$maxW, [int]$maxH) {
+function Set-DarkTransparent([System.Drawing.Bitmap]$bmp, [int]$threshold = 72) {
+  for ($y = 0; $y -lt $bmp.Height; $y++) {
+    for ($x = 0; $x -lt $bmp.Width; $x++) {
+      $c = $bmp.GetPixel($x, $y)
+      if ($c.R -le $threshold -and $c.G -le $threshold -and $c.B -le $threshold) {
+        $bmp.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(0, $c.R, $c.G, $c.B))
+      }
+    }
+  }
+}
+function Save-Resize([string]$in, [string]$out, [int]$maxW, [int]$maxH, [switch]$TransparentBg) {
   $img = [System.Drawing.Image]::FromFile($in)
   $ratio = [Math]::Min($maxW / $img.Width, $maxH / $img.Height)
   if ($ratio -gt 1) { $ratio = 1 }
@@ -17,16 +27,20 @@ function Save-Resize([string]$in, [string]$out, [int]$maxW, [int]$maxH) {
   $bmp = New-Object System.Drawing.Bitmap $nw, $nh
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
   $g.Clear([System.Drawing.Color]::Transparent)
   $g.DrawImage($img, 0, 0, $nw, $nh)
+  $g.Dispose()
+  if ($TransparentBg) { Set-DarkTransparent $bmp }
   $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-  $g.Dispose(); $bmp.Dispose(); $img.Dispose()
+  $bmp.Dispose(); $img.Dispose()
 }
 foreach ($dir in $targets) {
   if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
   Copy-Item -LiteralPath $src -Destination (Join-Path $dir 'logo-source.jpeg') -Force
-  Save-Resize $src (Join-Path $dir 'logo-nav.png') 400 110
-  Save-Resize $src (Join-Path $dir 'logo.png') 300 80
+  Save-Resize $src (Join-Path $dir 'logo-nav.png') 520 144 -TransparentBg
+  Save-Resize $src (Join-Path $dir 'logo-nav@2x.png') 520 144 -TransparentBg
+  Save-Resize $src (Join-Path $dir 'logo.png') 400 110 -TransparentBg
   Save-Resize $src (Join-Path $dir 'favicon-32.png') 32 32
   Save-Resize $src (Join-Path $dir 'favicon-16.png') 16 16
   Save-Resize $src (Join-Path $dir 'favicon-48.png') 48 48
