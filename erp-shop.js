@@ -12,6 +12,7 @@
     token: 'azav_client_token',
     clientId: 'azav_client_id',
     clientName: 'azav_client_name',
+    clientEmail: 'azav_client_email',
     wishLocal: 'azav_wish_local'
   };
 
@@ -28,6 +29,15 @@
     token: '',
     clientId: '',
     clientName: '',
+    clientEmail: '',
+    clientPhone: '',
+    accountView: 'login',
+    regDraft: null,
+    otpTarget: '',
+    resetEmail: '',
+    profile: null,
+    addresses: [],
+    selectedOrder: null,
     promo: '',
     discAmount: 0,
     discPct: 0,
@@ -46,7 +56,9 @@
     loading: true,
     stripe: null,
     stripeElements: null,
-    stripePaymentElement: null
+    stripePaymentElement: null,
+    contactSent: false,
+    theme: 'dark'
   };
 
   function $(id) { return document.getElementById(id); }
@@ -72,10 +84,28 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function t() { return global.T[state.lang] || global.T.fr; }
-  function nm(p) { return state.lang === 'pt' ? p.pt : p.fr; }
-  function desc(p) { return state.lang === 'pt' ? p.dPt : p.dFr; }
-  function badge(p) { return state.lang === 'pt' ? p.badgePt : p.badgeFr; }
+  function t() { return (global.T && (global.T[state.lang] || global.T.fr)) || {}; }
+
+  function pickLocale(fields) {
+    var L = state.lang;
+    if (fields[L]) return fields[L];
+    if (L === 'en' || L === 'es') return fields.fr || fields.pt || fields.en || '';
+    if (L === 'pt') return fields.pt || fields.fr || '';
+    return fields.fr || fields.pt || '';
+  }
+
+  function nm(p) { return pickLocale({ fr: p.fr, pt: p.pt, en: p.en, es: p.es }); }
+  function desc(p) { return pickLocale({ fr: p.dFr, pt: p.dPt, en: p.dEn, es: p.dEs }); }
+  function badge(p) {
+    if (p.disponivel === false) return t().badgeSoldOut;
+    if (p.old) return t().badgeSale;
+    return null;
+  }
+
+  function productSizes(p) {
+    if (p.sizes && p.sizes.length) return p.sizes;
+    return [t().oneSize || '—'];
+  }
   function stars(r) { return '★'.repeat(Math.round(parseFloat(r) || 0)); }
 
   function cfgNum(key, fallback) {
@@ -95,6 +125,224 @@
   function shippingFlat() { return cfgNum('shipping_flat_rate', 7.9); }
 
   function normalizeCat(s) { return String(s || '').trim().toLowerCase(); }
+
+  var NAV_NEW = '__new__';
+  var NAV_SALE = '__sale__';
+
+  function resolveCategoryName(catKey) {
+    if (!catKey || catKey === 'all' || catKey === NAV_NEW || catKey === NAV_SALE) return '';
+    var hit = state.categories.find(function (c) {
+      return normalizeCat(c.nome) === catKey || String(c.category_id || '') === catKey;
+    });
+    if (hit) return hit.nome || '';
+    var prod = state.products.find(function (p) { return p.catKey === catKey; });
+    return prod ? prod.cat : catKey;
+  }
+
+  function findCategoryForNavLabel(label) {
+    var lab = String(label || '').toLowerCase();
+    var rules = [
+      [/femm|mulher|woman|mujer|femin/i, /femm|mulher|woman|mujer|femin/i],
+      [/homm|homem|\bmen\b|hombre|mascul/i, /homm|homem|\bmen\b|hombre|mascul/i],
+      [/access|acess|accessor|accesor/i, /access|acess|accessor|accesor/i]
+    ];
+    var rule = null;
+    for (var r = 0; r < rules.length; r++) {
+      if (rules[r][0].test(lab)) { rule = rules[r][1]; break; }
+    }
+    if (!rule) return null;
+    var hit = state.categories.find(function (c) {
+      return rule.test(String(c.nome || ''));
+    });
+    if (hit) return { id: normalizeCat(hit.nome), label: hit.nome };
+    var seen = {};
+    for (var i = 0; i < state.products.length; i++) {
+      var p = state.products[i];
+      if (!p.cat || seen[p.catKey]) continue;
+      if (rule.test(p.cat)) {
+        seen[p.catKey] = 1;
+        return { id: p.catKey, label: p.cat };
+      }
+    }
+    return null;
+  }
+
+  function getNavItems() {
+    var labels = (t().nav || []);
+    var items = [];
+    labels.forEach(function (label, i) {
+      if (i === 0) {
+        items.push({ label: label, cat: NAV_NEW });
+      } else if (i === labels.length - 1) {
+        items.push({ label: label, cat: NAV_SALE });
+      } else {
+        var cat = findCategoryForNavLabel(label);
+        items.push({ label: label, cat: cat ? cat.id : 'all' });
+      }
+    });
+    return items;
+  }
+
+  function updateNavActive() {
+    var ul = $('navUl');
+    if (!ul) return;
+    var items = ul.querySelectorAll('button[data-cat]');
+    for (var i = 0; i < items.length; i++) {
+      items[i].classList.toggle('active', items[i].getAttribute('data-cat') === state.cat);
+    }
+  }
+
+  function renderNav() {
+    var ul = $('navUl');
+    if (ul) {
+      ul.innerHTML = getNavItems().map(function (it) {
+        var cid = esc(it.cat).replace(/'/g, "\\'");
+        return '<li><button type="button" data-cat="' + esc(it.cat) + '" class="' + (state.cat === it.cat ? 'active' : '') + '" onclick="Shop.selectCat(\'' + cid + '\')">' + esc(it.label) + '</button></li>';
+      }).join('');
+    }
+    renderMobileNav();
+    updateMobBarLabels();
+  }
+
+  function updateMobBarLabels() {
+    var tx = t();
+    if ($('mobShopLbl') && tx.mobShop) $('mobShopLbl').textContent = tx.mobShop;
+    if ($('mobCartLbl') && tx.mobCart) $('mobCartLbl').textContent = tx.mobCart;
+    if ($('mobOrdersLbl') && tx.mobOrders) $('mobOrdersLbl').textContent = tx.mobOrders;
+    if ($('mobAccountLbl') && tx.mobAccount) $('mobAccountLbl').textContent = tx.mobAccount;
+    var menuHead = document.querySelector('.nav-mobile-head span');
+    if (menuHead && tx.navMenu) menuHead.textContent = tx.navMenu;
+    var menuBtn = $('btnNavMenu');
+    if (menuBtn && tx.navMenu) menuBtn.setAttribute('aria-label', tx.navMenu);
+  }
+
+  function renderFooterShop() {
+    var box = $('fShopL');
+    if (!box) return;
+    var links = [
+      { label: t().seeAll, cat: 'all' },
+      { label: (t().nav && t().nav[0]) || 'New', cat: NAV_NEW },
+      { label: (t().nav && t().nav[4]) || 'Sale', cat: NAV_SALE }
+    ];
+    getCatList().slice(1, 4).forEach(function (c) {
+      links.push({ label: c.label, cat: c.id });
+    });
+    box.innerHTML = links.map(function (l) {
+      var cid = esc(l.cat).replace(/'/g, "\\'");
+      return '<li><a href="#shop" onclick="event.preventDefault();Shop.selectCat(\'' + cid + '\')">' + esc(l.label) + '</a></li>';
+    }).join('');
+  }
+
+  function updateScrollLock() {
+    var lock = false;
+    ['cartBg', 'wishBg', 'qvBg', 'coBg', 'contactBg', 'accBg', 'navMobileBg'].forEach(function (id) {
+      var el = $(id);
+      if (el && el.classList.contains('open')) lock = true;
+    });
+    if ($('soEl') && $('soEl').classList.contains('open')) lock = true;
+    if (document.body) document.body.classList.toggle('scroll-lock', lock);
+  }
+
+  function closeAllOverlays() {
+    closeCart();
+    closeCo();
+    closeWish();
+    closeQv();
+    closeAccount();
+    closeContact();
+    closeMobileNav();
+    if (global.closeSo) global.closeSo();
+    updateScrollLock();
+  }
+
+  function isMobileViewport() {
+    return global.matchMedia && global.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function toggleMobileNav() {
+    var bg = $('navMobileBg');
+    if (!bg) return;
+    if (bg.classList.contains('open')) closeMobileNav();
+    else {
+      renderMobileNav();
+      bg.classList.add('open');
+      bg.setAttribute('aria-hidden', 'false');
+      var btn = $('btnNavMenu');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      updateScrollLock();
+    }
+  }
+
+  function closeMobileNav() {
+    var bg = $('navMobileBg');
+    if (!bg) return;
+    bg.classList.remove('open');
+    bg.setAttribute('aria-hidden', 'true');
+    var btn = $('btnNavMenu');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    updateScrollLock();
+  }
+
+  function renderMobileNav() {
+    var ul = $('navMobileUl');
+    if (!ul) return;
+    var items = getNavItems();
+    ul.innerHTML = items.map(function (it) {
+      var cid = esc(it.cat).replace(/'/g, "\\'");
+      return '<li><button type="button" data-cat="' + esc(it.cat) + '" class="' + (state.cat === it.cat ? 'active' : '') + '" onclick="Shop.selectCat(\'' + cid + '\');Shop.closeMobileNav()">' + esc(it.label) + '</button></li>';
+    }).join('');
+    var foot = $('navMobileFoot');
+    if (foot) {
+      var langs = ['fr', 'pt', 'en', 'es'];
+      var th = getTheme();
+      foot.innerHTML =
+        '<div class="lang-box" role="group">' + langs.map(function (l) {
+          return '<button type="button" class="' + (state.lang === l ? 'on' : '') + '" onclick="setLang(\'' + l + '\')">' + l.toUpperCase() + '</button>';
+        }).join('') + '</div>' +
+        '<div class="theme-box" role="group">' +
+        '<button type="button" class="' + (th === 'dark' ? 'on' : '') + '" onclick="setTheme(\'dark\')" title="' + esc(t().themeDark || 'Dark') + '">' +
+        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>' +
+        '<button type="button" class="' + (th === 'light' ? 'on' : '') + '" onclick="setTheme(\'light\')" title="' + esc(t().themeLight || 'Light') + '">' +
+        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button>' +
+        '</div>';
+    }
+  }
+
+  function scrollShop() {
+    var el = $('shop');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function selectCat(id) {
+    state.cat = id || 'all';
+    closeAllOverlays();
+    scrollShop();
+    renderCats();
+    updateNavActive();
+    refreshProducts();
+  }
+
+  function resetAll() {
+    state.cat = 'all';
+    if ($('srchIn')) $('srchIn').value = '';
+    if ($('soIn')) $('soIn').value = '';
+    if ($('sortSel')) $('sortSel').value = 'def';
+    closeAllOverlays();
+    renderCats();
+    updateNavActive();
+    refreshProducts();
+  }
+
+  function navGo(action) {
+    if (action === 'shop' || action === 'all') return resetAll();
+    if (action === 'new') return selectCat(NAV_NEW);
+    if (action === 'sale') return selectCat(NAV_SALE);
+    if (action === 'contact') return openContact();
+    if (action === 'orders') return openOrdersOrLogin();
+    if (action === 'account') { openAccount(); return; }
+    if (String(action).indexOf('cat:') === 0) return selectCat(action.slice(4));
+    selectCat(action);
+  }
 
   function colorCss(name) {
     if (!name || name === '—') return '#666';
@@ -133,24 +381,28 @@
       if (m) img = 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w800';
     }
     if (!img) img = 'https://picsum.photos/seed/' + encodeURIComponent(p.produto_id || 'x') + '/600/800';
+    var nome = p.nome || '';
+    var descr = p.descricao || '';
     return {
       id: p.produto_id,
       produto_id: p.produto_id,
-      fr: p.nome || '',
-      pt: p.nome || '',
+      fr: nome,
+      pt: nome,
+      en: nome,
+      es: nome,
       cat: p.categoria || '',
       catKey: normalizeCat(p.categoria),
       price: price,
       old: list,
       img: img,
       colors: (p.cores && p.cores.length) ? p.cores : ['—'],
-      sizes: (p.tamanhos && p.tamanhos.length) ? p.tamanhos : [state.lang === 'pt' ? 'Tamanho único' : 'Taille unique'],
+      sizes: (p.tamanhos && p.tamanhos.length) ? p.tamanhos : [],
       rate: 0,
       rev: 0,
-      dFr: p.descricao || '',
-      dPt: p.descricao || '',
-      badgeFr: p.disponivel === false ? 'Épuisé' : (list ? 'Offre' : null),
-      badgePt: p.disponivel === false ? 'Esgotado' : (list ? 'Saldo' : null),
+      dFr: descr,
+      dPt: descr,
+      dEn: descr,
+      dEs: descr,
       disponivel: p.disponivel !== false,
       variantes: p.variantes || [],
       _raw: p
@@ -163,6 +415,7 @@
       state.token = localStorage.getItem(LS.token) || '';
       state.clientId = localStorage.getItem(LS.clientId) || '';
       state.clientName = localStorage.getItem(LS.clientName) || '';
+      state.clientEmail = localStorage.getItem(LS.clientEmail) || '';
       var wl = localStorage.getItem(LS.wishLocal);
       state.wish = wl ? JSON.parse(wl) : [];
     } catch (e) { state.wish = []; }
@@ -174,9 +427,88 @@
       if (state.token) localStorage.setItem(LS.token, state.token);
       else localStorage.removeItem(LS.token);
       if (state.clientId) localStorage.setItem(LS.clientId, state.clientId);
+      else localStorage.removeItem(LS.clientId);
       if (state.clientName) localStorage.setItem(LS.clientName, state.clientName);
+      else localStorage.removeItem(LS.clientName);
+      if (state.clientEmail) localStorage.setItem(LS.clientEmail, state.clientEmail);
+      else localStorage.removeItem(LS.clientEmail);
       localStorage.setItem(LS.wishLocal, JSON.stringify(state.wish));
     } catch (e) { /* ignore */ }
+  }
+
+  function accT() {
+    var tr = t();
+    return tr.account || (global.T && global.T.fr && global.T.fr.account) || {};
+  }
+
+  function normEmail(e) { return String(e || '').trim().toLowerCase(); }
+
+  function validEmail(e) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normEmail(e));
+  }
+
+  function validPassword(p) {
+    return String(p || '').length >= 8;
+  }
+
+  function applySessionFromAuth(res, nomeFallback, emailOpt) {
+    state.token = res.token || '';
+    state.clientId = res.clientId || '';
+    state.clientName = res.nome || nomeFallback || '';
+    if (emailOpt) state.clientEmail = normEmail(emailOpt);
+    saveSession();
+  }
+
+  async function restoreClientSession() {
+    if (!state.token || !apiUrlConfigured()) return false;
+    try {
+      var v = await erpCall('validateToken', {}, state.token);
+      if (!v || !v.success || v.type !== 'client' || !v.clientId) {
+        logout(true);
+        return false;
+      }
+      state.clientId = v.clientId;
+      state.clientName = v.nome || state.clientName;
+      saveSession();
+      await loadClientProfile();
+      await loadWishlistServer();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function loadClientProfile() {
+    if (!state.clientId || !apiUrlConfigured()) return;
+    try {
+      var res = await erpCall('getClientProfile', { clientId: state.clientId });
+      if (res && res.success && res.client) {
+        state.profile = res.client;
+        state.clientName = res.client.nome || state.clientName;
+        state.clientEmail = res.client.email || state.clientEmail;
+        state.clientPhone = res.client.telefone || '';
+        saveSession();
+        prefillCheckoutFromProfile();
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function prefillCheckoutFromProfile() {
+    if (!state.profile && !state.clientName) return;
+    var p = state.profile || {};
+    if (!state.form.name && (p.nome || state.clientName)) state.form.name = p.nome || state.clientName;
+    if (!state.form.email && (p.email || state.clientEmail)) state.form.email = p.email || state.clientEmail;
+    if (!state.form.phone && (p.telefone || state.clientPhone)) state.form.phone = p.telefone || state.clientPhone;
+  }
+
+  async function loadClientAddresses() {
+    if (!state.clientId || !state.token) return;
+    try {
+      var res = await erpCall('getClientAddresses', { clientId: state.clientId }, state.token);
+      state.addresses = (res && res.success && res.addresses) ? res.addresses : [];
+    } catch (e) {
+      state.addresses = [];
+    }
   }
 
   async function loadStore() {
@@ -189,7 +521,10 @@
       if (cfg && cfg.success && cfg.config) state.config = cfg.config;
     } catch (e2) { /* ignore */ }
     if (state.store && state.store.defaultLang && !global._langSet) {
-      state.lang = state.store.defaultLang === 'pt' ? 'pt' : 'fr';
+      var dl = String(state.store.defaultLang).toLowerCase();
+      if (dl === 'pt' || dl === 'en' || dl === 'es' || dl === 'fr') state.lang = dl;
+      else state.lang = 'fr';
+      if (global.applyShopLang) global.applyShopLang(state.lang);
     }
     applyBrandUi();
     applyPromoBanner();
@@ -249,7 +584,14 @@
 
   async function loadProducts() {
     var filters = {};
-    if (state.cat !== 'all') filters.categoria = state.cat;
+    if (state.cat === NAV_SALE) {
+      filters.promo_only = true;
+    } else if (state.cat === NAV_NEW) {
+      filters.sort = 'date_desc';
+    } else if (state.cat !== 'all') {
+      var catName = resolveCategoryName(state.cat);
+      if (catName) filters.categoria = catName;
+    }
     var q = ($('srchIn') && $('srchIn').value) ? $('srchIn').value.trim() : '';
     if (q) filters.search = q;
     var sort = $('sortSel') ? $('sortSel').value : 'def';
@@ -298,11 +640,13 @@
       await loadProducts();
       showApiBanner(false);
     } catch (e) {
-      global.toast((state.lang === 'pt' ? 'Erro: ' : 'Erreur : ') + e.message, 'e');
+      global.toast((t().errorPrefix || '') + e.message, 'e');
       state.products = [];
     }
     state.loading = false;
     showLoader(false);
+    renderNav();
+    renderFooterShop();
     render();
   }
 
@@ -334,9 +678,11 @@
   function getList() {
     var q = ($('srchIn') && $('srchIn').value || '').toLowerCase();
     var sort = $('sortSel') ? $('sortSel').value : 'def';
+    if (state.cat === NAV_SALE) sort = sort === 'def' ? 'dsc' : sort;
     return state.products
       .filter(function (p) {
-        if (state.cat === 'all') return true;
+        if (state.cat === NAV_SALE) return !!p.old;
+        if (state.cat === NAV_NEW || state.cat === 'all') return true;
         return p.catKey === state.cat || normalizeCat(p.cat) === state.cat;
       })
       .filter(function (p) {
@@ -353,6 +699,8 @@
 
   function render() {
     if (state.loading) return;
+    renderCats();
+    updateNavActive();
     var list = getList();
     var n = list.length;
     if ($('resCount')) $('resCount').textContent = n + ' ' + (n > 1 ? t().plural : t().single);
@@ -394,6 +742,10 @@
     var n = cartCount();
     if ($('cBadge')) { $('cBadge').textContent = n; $('cBadge').style.display = n ? 'flex' : 'none'; }
     if ($('cDN')) $('cDN').textContent = n;
+    if ($('mobCartBadge')) {
+      $('mobCartBadge').textContent = n;
+      $('mobCartBadge').style.display = n ? 'flex' : 'none';
+    }
     var wn = state.wish.length;
     if ($('wBadge')) { $('wBadge').textContent = wn; $('wBadge').style.display = wn ? 'flex' : 'none'; }
     if ($('wDN')) $('wDN').textContent = wn;
@@ -403,10 +755,11 @@
     var p = state.products.find(function (x) { return x.id === id; });
     if (!p) return;
     if (!p.disponivel) {
-      global.toast(state.lang === 'pt' ? 'Artigo esgotado' : 'Article épuisé', 'e');
+      global.toast(t().soldOut, 'e');
       return;
     }
-    var size = sz || p.sizes[0];
+    var sizes = productSizes(p);
+    var size = sz || sizes[0];
     var color = cl || p.colors[0];
     var variant = findVariant(p, size, color);
     var price = variantPrice(p, variant);
@@ -444,6 +797,8 @@
         variante_id: varianteId,
         fr: p.fr,
         pt: p.pt,
+        en: p.en,
+        es: p.es,
         img: p.img,
         size: size,
         color: color,
@@ -473,8 +828,47 @@
     renderCart();
   }
 
-  function openCart() { $('cartBg').classList.add('open'); renderCart(); }
-  function closeCart() { $('cartBg').classList.remove('open'); }
+  async function syncCartFromServer() {
+    if (!state.cartId || !apiUrlConfigured() || state.cart.length) return;
+    try {
+      var res = await erpCall('getCart', { cartId: state.cartId });
+      if (!res || !res.success || !res.items || !res.items.length) return;
+      state.cart = [];
+      for (var i = 0; i < res.items.length; i++) {
+        var it = res.items[i];
+        var p = state.products.find(function (x) { return x.produto_id === it.produto_id; });
+        if (!p && it.produto_id) {
+          try {
+            var pr = await erpCall('getProduct', { id: it.produto_id });
+            if (pr && pr.success && pr.product) p = mapProduct(pr.product);
+          } catch (e1) { /* ignore */ }
+        }
+        if (!p) continue;
+        var size = it.tamanho || productSizes(p)[0];
+        var color = it.cor || p.colors[0];
+        var key = p.id + '-' + size + '-' + color;
+        state.cart.push({
+          key: key,
+          id: p.id,
+          produto_id: p.produto_id,
+          variante_id: it.variante_id || '',
+          fr: p.fr,
+          pt: p.pt,
+          en: p.en,
+          es: p.es,
+          img: p.img,
+          size: size,
+          color: color,
+          qty: parseInt(it.quantidade, 10) || 1,
+          price: parseFloat(it.preco) || p.price
+        });
+      }
+      updBadge();
+    } catch (e2) { /* ignore */ }
+  }
+
+  function openCart() { $('cartBg').classList.add('open'); renderCart(); updateScrollLock(); }
+  function closeCart() { $('cartBg').classList.remove('open'); updateScrollLock(); }
 
   function renderCart() {
     var db = $('cartDb'), df = $('cartDf');
@@ -489,7 +883,7 @@
       return '<div class="ci">' +
         '<img src="' + esc(it.img) + '" alt="' + esc(nm(it)) + '"/>' +
         '<div class="ci-body"><div><p class="ci-name">' + esc(nm(it)) + '</p>' +
-        '<p class="ci-meta">' + (state.lang === 'fr' ? 'Taille' : 'Tamanho') + ': ' + esc(it.size) + ' · ' +
+        '<p class="ci-meta">' + esc(t().sizeMeta) + ': ' + esc(it.size) + ' · ' +
         '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorCss(it.color) + ';vertical-align:middle;"></span></p></div>' +
         '<div class="ci-bot"><div class="qty">' +
         '<button onclick="Shop.updQty(\'' + esc(it.key).replace(/'/g, "\\'") + '\',-1)">−</button><span>' + it.qty + '</span>' +
@@ -588,8 +982,8 @@
     } catch (e) { /* ignore */ }
   }
 
-  function openWish() { $('wishBg').classList.add('open'); renderWish(); }
-  function closeWish() { $('wishBg').classList.remove('open'); }
+  function openWish() { $('wishBg').classList.add('open'); renderWish(); updateScrollLock(); }
+  function closeWish() { $('wishBg').classList.remove('open'); updateScrollLock(); }
 
   function renderWish() {
     if ($('wDN')) $('wDN').textContent = state.wish.length;
@@ -626,15 +1020,16 @@
     }
     if (!p) return;
     state.qvProd = p;
-    state.qvSize = p.sizes[0];
+    state.qvSize = productSizes(p)[0];
     state.qvColor = p.colors[0];
     state.qvTab = 'desc';
     state.qvGuide = false;
     renderQv();
     $('qvBg').classList.add('open');
+    updateScrollLock();
   }
 
-  function closeQv() { $('qvBg').classList.remove('open'); }
+  function closeQv() { $('qvBg').classList.remove('open'); updateScrollLock(); }
 
   function renderQv() {
     var p = state.qvProd;
@@ -667,7 +1062,7 @@
       '<span class="opt-label" style="margin:0;">' + esc(t().szLbl) + '</span>' +
       '<button style="background:none;border:none;color:var(--gold);font-size:8px;cursor:pointer;" onclick="Shop.toggleQvGuide()">' + esc(t().szGuide) + '</button></div>' +
       (state.qvGuide ? '<div class="size-guide"><span>XS · S · M · L · XL</span></div>' : '') +
-      '<div class="size-opts">' + p.sizes.map(function (s) {
+      '<div class="size-opts">' + productSizes(p).map(function (s) {
         return '<button class="sz-btn ' + (state.qvSize === s ? 'on' : '') + '" onclick="Shop.setQvSize(\'' + esc(s).replace(/'/g, "\\'") + '\')">' + esc(s) + '</button>';
       }).join('') + '</div>' +
       '<div class="m-cta">' +
@@ -706,18 +1101,18 @@
     var opts = [];
     if (cfgOn('pay_show_cod', true) && cfgOn('pay_cod_enabled', true)) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" ' + (state.payMethod === 'cod' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'cod\')"/> ' +
-        (state.lang === 'pt' ? 'Pagamento à entrega' : 'Paiement à la livraison') + '</label>');
+        esc(t().payCod) + '</label>');
     }
     if (cfgOn('pay_stripe_enabled', false) && cfgOn('pay_show_stripe', true) && STRIPE_PK) {
-      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> Stripe (carte)</label>');
+      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> ' + esc(t().payStripe) + '</label>');
     }
     if (cfgOn('pay_show_transfer', true)) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="transfer" ' + (state.payMethod === 'transfer' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'transfer\')"/> ' +
-        (state.lang === 'pt' ? 'Transferência bancária' : 'Virement bancaire') + '</label>');
+        esc(t().payTransfer) + '</label>');
     }
     if (!opts.length) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" checked/> ' +
-        (state.lang === 'pt' ? 'Encomenda (contacto posterior)' : 'Commande (contact ultérieur)') + '</label>');
+        esc(t().payContact) + '</label>');
     }
     return '<div class="pay-opts">' + opts.join('') + '</div>';
   }
@@ -731,14 +1126,16 @@
     closeCart();
     state.ordered = false;
     state.delStep = 0;
-    if (state.clientName) state.form.name = state.clientName;
+    prefillCheckoutFromProfile();
     renderCo();
     $('coBg').classList.add('open');
+    updateScrollLock();
   }
 
   function closeCo() {
     $('coBg').classList.remove('open');
     destroyStripeElement();
+    updateScrollLock();
   }
 
   function destroyStripeElement() {
@@ -752,7 +1149,8 @@
     if (!STRIPE_PK || !global.Stripe) return;
     destroyStripeElement();
     state.stripe = global.Stripe(STRIPE_PK);
-    state.stripeElements = state.stripe.elements({ appearance: { theme: 'night' } });
+    var stripeTheme = getTheme() === 'light' ? 'stripe' : 'night';
+    state.stripeElements = state.stripe.elements({ appearance: { theme: stripeTheme } });
     state.stripePaymentElement = state.stripeElements.create('payment');
     var mount = $('stripe-payment-element');
     if (mount) state.stripePaymentElement.mount('#stripe-payment-element');
@@ -778,14 +1176,15 @@
     var totals = orderTotals();
     var f = state.form;
     $('coBody').innerHTML =
-      '<div class="m-body" style="width:100%;padding:28px 32px;">' +
+      '<div class="m-body co-panel">' +
       '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;font-weight:300;margin-bottom:5px;">' + esc(t().coTitle) + '</h2>' +
       '<p style="font-size:10px;color:var(--muted);margin-bottom:18px;">' + esc(t().coSub) + '</p>' +
+      (!state.clientId ? '<p class="acc-hint" style="margin-bottom:14px;">' + esc(t().guestCheckout) + ' <button type="button" class="acc-link" onclick="Shop.closeCo();Shop.openAccount();">' + esc(t().guestCheckoutBtn) + '</button>' + esc(t().guestCheckoutSuffix) + '</p>' : '') +
       '<p class="form-title">' + esc(t().s1) + '</p>' +
       '<div class="fgrid">' +
       '<div class="field"><label>' + esc(t().fName) + '</label><input value="' + esc(f.name) + '" oninput="Shop.setForm(\'name\',this.value)" placeholder="Maria Silva"/></div>' +
       '<div class="field"><label>' + esc(t().fEmail) + '</label><input type="email" value="' + esc(f.email) + '" oninput="Shop.setForm(\'email\',this.value)" placeholder="email@exemplo.pt"/></div></div>' +
-      '<div class="field" style="margin-bottom:10px;"><label>' + (state.lang === 'pt' ? 'Telefone' : 'Téléphone') + '</label><input value="' + esc(f.phone) + '" oninput="Shop.setForm(\'phone\',this.value)" placeholder="+351 912 345 678"/></div>' +
+      '<div class="field" style="margin-bottom:10px;"><label>' + esc(t().phone) + '</label><input value="' + esc(f.phone) + '" oninput="Shop.setForm(\'phone\',this.value)" placeholder="+351 912 345 678"/></div>' +
       '<div class="fgrid one"><div class="field"><label>' + esc(t().fAddr) + '</label><input value="' + esc(f.addr) + '" oninput="Shop.setForm(\'addr\',this.value)"/></div></div>' +
       '<div class="fgrid">' +
       '<div class="field"><label>' + esc(t().fZip) + '</label><input value="' + esc(f.zip) + '" oninput="Shop.setForm(\'zip\',this.value)"/></div>' +
@@ -816,7 +1215,7 @@
       return;
     }
     if (!state.cart.length) {
-      global.toast(state.lang === 'pt' ? 'Cesto vazio' : 'Panier vide', 'e');
+      global.toast(t().cartEmptyToast, 'e');
       return;
     }
     if (!apiUrlConfigured()) {
@@ -831,7 +1230,7 @@
     try {
       var orderPayload = {
         clientId: state.clientId || 'guest',
-        email: f.email,
+        email: normEmail(f.email),
         telefone: f.phone || '',
         nome: f.name,
         endereco: endereco,
@@ -881,10 +1280,10 @@
           global.toast((confirmRes && confirmRes.error) || 'confirmStripePayment', 'e');
           return;
         }
-      } else if (state.payMethod === 'cod') {
+      } else if (state.payMethod === 'cod' || state.payMethod === 'transfer') {
         await erpCall('processPayment', {
           orderId: orderRes.orderId,
-          metodo: 'cod',
+          metodo: state.payMethod,
           valor: totals.total.toFixed(2),
           clientId: state.clientId || 'guest'
         });
@@ -907,98 +1306,690 @@
   }
 
   // ─── Account ───────────────────────────────────────────────────────────
-  function openAccount() { $('accBg').classList.add('open'); renderAccount(); }
-  function closeAccount() { $('accBg').classList.remove('open'); }
+  function openAccount() {
+    $('accBg').classList.add('open');
+    if (state.token && state.clientId && state.accountView !== 'track') state.accountView = 'dashboard';
+    renderAccount();
+    updateScrollLock();
+  }
+  function closeAccount() { $('accBg').classList.remove('open'); updateScrollLock(); }
 
-  function renderAccount() {
-    var logged = !!state.token;
-    $('accBody').innerHTML = logged ? (
-      '<div style="padding:28px;"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:8px;">' + esc(state.clientName || state.clientId) + '</h2>' +
-      '<p style="font-size:10px;color:var(--muted);margin-bottom:16px;">' + esc(state.clientId) + '</p>' +
-      '<button class="btn-gold" style="width:100%;margin-bottom:8px;" onclick="Shop.loadMyOrders()">' + (state.lang === 'pt' ? 'As minhas encomendas' : 'Mes commandes') + '</button>' +
-      '<button class="btn-ghost" style="width:100%;border-color:#444;color:#aaa;" onclick="Shop.logout()">' + (state.lang === 'pt' ? 'Terminar sessão' : 'Déconnexion') + '</button>' +
-      '<div id="accOrders" style="margin-top:16px;font-size:10px;color:var(--muted);"></div></div>'
-    ) : (
-      '<div style="padding:28px;"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:12px;">' + (state.lang === 'pt' ? 'A minha conta' : 'Mon compte') + '</h2>' +
-      '<p class="form-title">' + (state.lang === 'pt' ? 'Entrar' : 'Connexion') + '</p>' +
-      '<div class="fgrid one"><div class="field"><label>Email</label><input id="loginEmail" type="email"/></div>' +
-      '<div class="field"><label>' + (state.lang === 'pt' ? 'Palavra-passe' : 'Mot de passe') + '</label><input id="loginPass" type="password"/></div></div>' +
-      '<button class="btn-pay" style="margin-top:8px;" onclick="Shop.login()">' + (state.lang === 'pt' ? 'Entrar' : 'Se connecter') + '</button>' +
-      '<p class="form-title" style="margin-top:20px;">' + (state.lang === 'pt' ? 'Criar conta' : 'Créer un compte') + '</p>' +
-      '<div class="fgrid one"><div class="field"><label>' + esc(t().fName) + '</label><input id="regName"/></div>' +
-      '<div class="field"><label>Email</label><input id="regEmail" type="email"/></div>' +
-      '<div class="field"><label>' + (state.lang === 'pt' ? 'Palavra-passe' : 'Mot de passe') + '</label><input id="regPass" type="password"/></div></div>' +
-      '<button class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.register()">' + (state.lang === 'pt' ? 'Registar' : 'S\'inscrire') + '</button></div>'
-    );
+  function openOrdersOrLogin() {
+    closeAllOverlays();
+    if (state.token && state.clientId) {
+      state.accountView = 'dashboard';
+    } else {
+      state.accountView = 'track';
+    }
+    openAccount();
   }
 
-  async function login() {
-    var email = ($('loginEmail') && $('loginEmail').value) || '';
-    var password = ($('loginPass') && $('loginPass').value) || '';
+  function renderTrackForm() {
+    var a = accT();
+    return '<p class="form-title">' + esc(a.trackTitle) + '</p>' +
+      '<p class="acc-hint">' + esc(a.trackHint) + '</p>' +
+      '<div class="fgrid one">' +
+      '<div class="field"><label>' + esc(a.trackOrderId) + '</label><input id="trackOrderId" placeholder="ORD…" autocomplete="off"/></div>' +
+      '<div class="field"><label>' + esc(a.email) + '</label><input id="trackEmail" type="email" value="' + esc(state.form.email || state.clientEmail || '') + '"/></div></div>' +
+      '<button type="button" class="btn-pay" style="width:100%;margin-top:12px;" onclick="Shop.trackGuestOrder()">' + esc(a.trackBtn) + '</button>' +
+      '<p style="margin-top:14px;text-align:center;"><button type="button" class="acc-link" onclick="Shop.setAccountView(\'login\')">' + esc(a.login) + '</button></p>';
+  }
+
+  async function trackGuestOrder() {
+    var a = accT();
+    var orderId = ($('trackOrderId') && $('trackOrderId').value || '').trim().toUpperCase();
+    var email = normEmail($('trackEmail') && $('trackEmail').value);
+    if (!orderId || !email) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
     try {
-      var res = await erpCall('clientLogin', { email: email, password: password });
-      if (!res || !res.success) {
-        global.toast((res && res.error) || 'Login failed', 'e');
+      var res = await erpCall('getOrder', { orderId: orderId });
+      if (!res || !res.success || !res.order) {
+        global.toast(a.trackNotFound, 'e');
         return;
       }
-      state.token = res.token;
-      state.clientId = res.clientId;
-      state.clientName = res.nome || '';
-      saveSession();
-      await loadWishlistServer();
-      renderAccount();
-      global.toast(state.lang === 'pt' ? 'Sessão iniciada' : 'Connecté', 's');
-    } catch (e) { global.toast(e.message, 'e'); }
-  }
-
-  async function register() {
-    var nome = ($('regName') && $('regName').value) || '';
-    var email = ($('regEmail') && $('regEmail').value) || '';
-    var password = ($('regPass') && $('regPass').value) || '';
-    try {
-      var res = await erpCall('clientRegister', { nome: nome, email: email, password: password, newsletter: false });
-      if (!res || !res.success) {
-        global.toast((res && res.error) || 'Register failed', 'e');
+      var orderEmail = normEmail(res.order.email || res.order.cliente_email || '');
+      if (orderEmail && orderEmail !== email) {
+        global.toast(a.trackEmailMismatch, 'e');
         return;
       }
-      state.token = res.token;
-      state.clientId = res.clientId;
-      state.clientName = res.nome || nome;
-      saveSession();
+      state.selectedOrder = { order: res.order, details: res.details || [] };
+      state.accountView = 'orderDetail';
       renderAccount();
-      global.toast(state.lang === 'pt' ? 'Conta criada' : 'Compte créé', 's');
-    } catch (e) { global.toast(e.message, 'e'); }
+    } catch (e) {
+      global.toast(e.message, 'e');
+    }
   }
 
-  function logout() {
-    state.token = '';
-    state.clientId = '';
-    state.clientName = '';
-    saveSession();
+  function handleOrderHash() {
+    var h = (global.location && global.location.hash) || '';
+    if (h.indexOf('#order-') !== 0) return;
+    var orderId = h.replace('#order-', '').trim();
+    if (!orderId) return;
+    openAccount();
+    openOrderDetail(orderId);
+    try { global.history.replaceState(null, '', global.location.pathname + global.location.search); } catch (e) { /* ignore */ }
+  }
+
+  function setAccountView(v) {
+    state.accountView = v;
+    state.selectedOrder = null;
+    if (state.token && v === 'addresses') {
+      loadClientAddresses().then(renderAccount);
+      return;
+    }
+    if (state.token && v === 'profile' && !state.profile) {
+      loadClientProfile().then(renderAccount);
+      return;
+    }
     renderAccount();
   }
 
-  async function loadMyOrders() {
-    var box = $('accOrders');
-    if (!box) return;
+  function accountTabsHtml(active) {
+    var a = accT();
+  var tabs = [
+      { id: 'login', label: a.login },
+      { id: 'register', label: a.register }
+    ];
+    return '<div class="acc-tabs">' + tabs.map(function (tab) {
+      return '<button type="button" class="acc-tab' + (active === tab.id ? ' on' : '') + '" onclick="Shop.setAccountView(\'' + tab.id + '\')">' + esc(tab.label) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function renderLoginForm() {
+    var a = accT();
+    return accountTabsHtml('login') +
+      '<p class="form-title">' + esc(a.login) + '</p>' +
+      '<div class="fgrid one"><div class="field"><label>' + esc(a.email) + '</label><input id="loginEmail" type="email" autocomplete="email" value="' + esc(state.clientEmail || state.form.email || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.pass) + '</label><input id="loginPass" type="password" autocomplete="current-password"/></div></div>' +
+      '<p style="margin-bottom:12px;"><button type="button" class="acc-link" onclick="Shop.setAccountView(\'forgot\')">' + esc(a.forgot) + '</button></p>' +
+      '<button type="button" class="btn-pay" style="width:100%;" onclick="Shop.login()">' + esc(a.loginBtn) + '</button>';
+  }
+
+  function renderRegisterForm() {
+    var a = accT();
+    var d = state.regDraft || {};
+    return accountTabsHtml('register') +
+      '<p class="form-title">' + esc(a.register) + '</p>' +
+      '<p class="acc-hint">' + esc(a.passMin) + '</p>' +
+      '<div class="fgrid one">' +
+      '<div class="field"><label>' + esc(a.name) + ' *</label><input id="regName" value="' + esc(d.nome || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.email) + ' *</label><input id="regEmail" type="email" autocomplete="email" value="' + esc(d.email || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.phone) + '</label><input id="regPhone" type="tel" value="' + esc(d.telefone || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.pass) + ' *</label><input id="regPass" type="password" autocomplete="new-password"/></div>' +
+      '<div class="field"><label>' + esc(a.passConfirm) + ' *</label><input id="regPass2" type="password" autocomplete="new-password"/></div></div>' +
+      '<label class="acc-check"><input type="checkbox" id="regTerms"' + (d.terms ? ' checked' : '') + '/><span>' + esc(a.terms) + '</span></label>' +
+      '<label class="acc-check"><input type="checkbox" id="regNews"' + (d.newsletter ? ' checked' : '') + '/><span>' + esc(a.newsletter) + '</span></label>' +
+      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.startRegister()">' + esc(a.registerBtn) + '</button>';
+  }
+
+  function renderOtpForm() {
+    var a = accT();
+    return '<p class="form-title">' + esc(a.otpTitle) + '</p>' +
+      '<p class="acc-hint">' + esc(a.otpHint) + ' <strong>' + esc(state.otpTarget) + '</strong></p>' +
+      '<div class="field"><label>Code</label><input id="regOtp" class="acc-otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000"/></div>' +
+      '<button type="button" class="btn-pay" style="width:100%;margin:12px 0;" onclick="Shop.verifyRegisterOtp()">' + esc(a.otpVerify) + '</button>' +
+      '<p style="text-align:center;"><button type="button" class="acc-link" onclick="Shop.resendRegisterOtp()">' + esc(a.otpResend) + '</button> · ' +
+      '<button type="button" class="acc-link" onclick="Shop.setAccountView(\'register\')">' + esc(a.back) + '</button></p>';
+  }
+
+  function renderForgotForm() {
+    var a = accT();
+    return '<p class="form-title">' + esc(a.forgot) + '</p>' +
+      '<p class="acc-hint">' + esc(a.email) + '</p>' +
+      '<div class="field"><label>' + esc(a.email) + '</label><input id="forgotEmail" type="email" value="' + esc(state.resetEmail || state.clientEmail || state.form.email || '') + '"/></div>' +
+      '<button type="button" class="btn-pay" style="width:100%;margin-top:12px;" onclick="Shop.requestPasswordReset()">' + esc(a.forgotBtn) + '</button>' +
+      '<p style="margin-top:14px;text-align:center;"><button type="button" class="acc-link" onclick="Shop.setAccountView(\'login\')">' + esc(a.back) + '</button></p>';
+  }
+
+  function renderResetForm() {
+    var a = accT();
+    return '<p class="form-title">' + esc(a.forgot) + '</p>' +
+      '<p class="acc-hint">' + esc(state.resetEmail) + '</p>' +
+      '<div class="fgrid one">' +
+      '<div class="field"><label>Code</label><input id="resetCode" class="acc-otp" type="text" inputmode="numeric" maxlength="6"/></div>' +
+      '<div class="field"><label>' + esc(a.pass) + '</label><input id="resetPass" type="password" autocomplete="new-password"/></div>' +
+      '<div class="field"><label>' + esc(a.passConfirm) + '</label><input id="resetPass2" type="password"/></div></div>' +
+      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.confirmPasswordReset()">' + esc(a.resetBtn) + '</button>';
+  }
+
+  function renderDashboardNav(active) {
+    var a = accT();
+    var items = [
+      { id: 'dashboard', label: a.orders },
+      { id: 'profile', label: a.profile },
+      { id: 'addresses', label: a.addresses }
+    ];
+    return '<div class="acc-dash-nav">' + items.map(function (it) {
+      return '<button type="button" class="acc-dash-btn' + (active === it.id ? ' on' : '') + '" onclick="Shop.setAccountView(\'' + it.id + '\')">' + esc(it.label) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function renderOrdersPanel() {
+    var a = accT();
+    var boxId = 'accOrdersList';
+    setTimeout(function () { loadMyOrders(boxId); }, 0);
+    return renderDashboardNav('dashboard') + '<div id="' + boxId + '"><p class="acc-hint">' + esc(a.loading) + '</p></div>';
+  }
+
+  function renderProfilePanel() {
+    var a = accT();
+    var p = state.profile || {};
+    return renderDashboardNav('profile') +
+      '<div class="fgrid one">' +
+      '<div class="field"><label>' + esc(a.name) + '</label><input id="profName" value="' + esc(p.nome || state.clientName || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.email) + '</label><input id="profEmail" type="email" value="' + esc(p.email || state.clientEmail || '') + '" disabled style="opacity:.6"/></div>' +
+      '<div class="field"><label>' + esc(a.phone) + '</label><input id="profPhone" value="' + esc(p.telefone || state.clientPhone || '') + '"/></div></div>' +
+      '<button type="button" class="btn-gold" style="width:100%;" onclick="Shop.saveProfile()">' + esc(a.save) + '</button>';
+  }
+
+  function renderAddressesPanel() {
+    var a = accT();
+    var list = (state.addresses || []).map(function (ad) {
+      return '<div class="acc-addr"><strong>' + esc(ad.tipo || 'envio') + '</strong><br>' +
+        esc(ad.morada) + '<br>' + esc(ad.codigo_postal) + ' ' + esc(ad.cidade) + ', ' + esc(ad.pais || '') +
+        '<div class="acc-addr-actions">' +
+        '<button type="button" class="btn-ghost-sm" onclick="Shop.useAddress(\'' + esc(ad.address_id) + '\')">' + esc(a.useAddr) + '</button>' +
+        '<button type="button" class="btn-ghost-sm" onclick="Shop.deleteAddress(\'' + esc(ad.address_id) + '\')">' + esc(a.delete) + '</button></div></div>';
+    }).join('');
+    return renderDashboardNav('addresses') + list +
+      '<p class="form-title" style="margin-top:16px;">' + esc(a.addAddr) + '</p>' +
+      '<div class="fgrid one">' +
+      '<div class="field"><label>' + esc(a.addrLabel) + '</label><input id="addrMorada"/></div>' +
+      '<div class="fgrid"><div class="field"><label>' + esc(a.zip) + '</label><input id="addrZip"/></div>' +
+      '<div class="field"><label>' + esc(a.city) + '</label><input id="addrCity"/></div></div>' +
+      '<div class="field"><label>' + esc(a.country) + '</label><input id="addrCountry" value="Portugal" placeholder="Portugal / France"/></div></div>' +
+      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.saveNewAddress()">' + esc(a.save) + '</button>';
+  }
+
+  function renderOrderDetail(o, details) {
+    var a = accT();
+    var lines = (details || []).map(function (d) {
+      return '<li>' + esc(d.nome_produto || d.produto_id) + ' × ' + esc(d.quantidade) + ' — ' + esc(d.preco) + ' €</li>';
+    }).join('');
+    var backView = (state.token && state.clientId) ? 'dashboard' : 'track';
+    return '<button type="button" class="acc-link" style="margin-bottom:12px;" onclick="Shop.setAccountView(\'' + backView + '\')">← ' + esc(a.back) + '</button>' +
+      '<p class="acc-order-id">#' + esc(o.pedido_id) + '</p>' +
+      '<p style="font-size:10px;color:var(--muted);margin:8px 0;">' + esc(o.data) + '</p>' +
+      '<p style="font-size:10px;"><strong>' + esc(a.total) + ':</strong> ' + esc(o.total) + ' € · <strong>' + esc(a.status) + ':</strong> ' + esc(o.estado || '') + '</p>' +
+      '<p style="font-size:10px;"><strong>' + esc(a.pay) + ':</strong> ' + esc(o.estado_pagamento || '') + ' · <strong>' + esc(a.ship) + ':</strong> ' + esc(o.estado_envio || '') + '</p>' +
+      (o.tracking_number ? '<p style="font-size:10px;"><strong>' + esc(a.tracking) + ':</strong> ' + esc(o.tracking_number) + (o.transportadora ? ' (' + esc(o.transportadora) + ')' : '') + '</p>' : '') +
+      '<ul style="list-style:none;padding:12px 0 0;font-size:10px;color:var(--muted);">' + lines + '</ul>';
+  }
+
+  function renderLoggedIn() {
+    var a = accT();
+    var view = state.accountView;
+    if (view === 'orderDetail' && state.selectedOrder) {
+      return '<div class="acc-wrap"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
+        renderOrderDetail(state.selectedOrder.order, state.selectedOrder.details) + '</div>';
+    }
+    var panel = '';
+    if (view === 'profile') panel = renderProfilePanel();
+    else if (view === 'addresses') panel = renderAddressesPanel();
+    else panel = renderOrdersPanel();
+    return '<div class="acc-wrap">' +
+      '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:4px;">' + esc(a.welcome) + ', ' + esc(state.clientName || '') + '</h2>' +
+      '<p style="font-size:10px;color:var(--muted);margin-bottom:16px;">' + esc(state.clientEmail || '') + '</p>' +
+      panel +
+      '<button type="button" class="btn-ghost" style="width:100%;margin-top:20px;border-color:#444;color:#aaa;" onclick="Shop.logout()">' + esc(a.logout) + '</button></div>';
+  }
+
+  function renderAccount() {
+    var body = $('accBody');
+    if (!body) return;
+    var logged = !!(state.token && state.clientId);
+    if (logged) {
+      if (state.accountView === 'login' || state.accountView === 'register' || state.accountView === 'otp' || state.accountView === 'forgot' || state.accountView === 'reset') {
+        state.accountView = 'dashboard';
+      }
+      body.innerHTML = renderLoggedIn();
+      return;
+    }
+    var a = accT();
+    if (state.accountView === 'orderDetail' && state.selectedOrder) {
+      body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
+        renderOrderDetail(state.selectedOrder.order, state.selectedOrder.details) + '</div>';
+      return;
+    }
+    var inner = '';
+    if (state.accountView === 'track') inner = renderTrackForm();
+    else if (state.accountView === 'register') inner = renderRegisterForm();
+    else if (state.accountView === 'otp') inner = renderOtpForm();
+    else if (state.accountView === 'forgot') inner = renderForgotForm();
+    else if (state.accountView === 'reset') inner = renderResetForm();
+    else inner = renderLoginForm();
+    body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:12px;">' + esc(a.title) + '</h2>' + inner + '</div>';
+  }
+
+  async function login() {
+    var a = accT();
+    var email = normEmail(($('loginEmail') && $('loginEmail').value) || '');
+    var password = ($('loginPass') && $('loginPass').value) || '';
+    if (!email || !password) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
+    if (!validEmail(email)) {
+      global.toast(a.emailInvalid, 'e');
+      return;
+    }
     try {
-      var res = await erpCall('getOrders', { clientId: state.clientId, email: state.form.email || '' });
-      var orders = (res && res.orders) ? res.orders : [];
-      if (!orders.length) {
-        box.innerHTML = '<p>' + (state.lang === 'pt' ? 'Sem encomendas.' : 'Aucune commande.') + '</p>';
+      var res = await erpCall('clientLogin', { email: email, password: password });
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'Login', 'e');
         return;
       }
-      box.innerHTML = '<ul style="list-style:none;padding:0;">' + orders.slice(0, 10).map(function (o) {
-        return '<li style="padding:8px 0;border-bottom:1px solid #222;">#' + esc(o.pedido_id) + ' — ' + esc(o.total) + ' € · ' + esc(o.estado || '') + '</li>';
-      }).join('') + '</ul>';
+      applySessionFromAuth(res, '', email);
+      state.accountView = 'dashboard';
+      saveSession();
+      await loadClientProfile();
+      await loadWishlistServer();
+      prefillCheckoutFromProfile();
+      renderAccount();
+      global.toast(a.connected, 's');
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  function collectRegisterDraft() {
+    return {
+      nome: ($('regName') && $('regName').value.trim()) || '',
+      email: normEmail(($('regEmail') && $('regEmail').value) || ''),
+      telefone: ($('regPhone') && $('regPhone').value.trim()) || '',
+      password: ($('regPass') && $('regPass').value) || '',
+      password2: ($('regPass2') && $('regPass2').value) || '',
+      terms: !!($('regTerms') && $('regTerms').checked),
+      newsletter: !!($('regNews') && $('regNews').checked)
+    };
+  }
+
+  async function startRegister() {
+    var a = accT();
+    var d = collectRegisterDraft();
+    state.regDraft = d;
+    if (!d.nome || !d.email || !d.password) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
+    if (!validEmail(d.email)) {
+      global.toast(a.emailInvalid, 'e');
+      return;
+    }
+    if (!validPassword(d.password)) {
+      global.toast(a.passMin, 'e');
+      return;
+    }
+    if (d.password !== d.password2) {
+      global.toast(a.passMismatch, 'e');
+      return;
+    }
+    if (!d.terms) {
+      global.toast(a.termsRequired, 'e');
+      return;
+    }
+    try {
+      var otpRes = await erpCall('sendRegistrationOTP', { target: d.email });
+      if (!otpRes || !otpRes.success) {
+        global.toast((otpRes && otpRes.error) || 'OTP', 'e');
+        return;
+      }
+      state.otpTarget = d.email;
+      state.accountView = 'otp';
+      renderAccount();
+      global.toast(a.codeSent, 's');
+      if (otpRes.simulated_code) {
+        global.toast('DEV: ' + otpRes.simulated_code, 'i');
+      }
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  async function resendRegisterOtp() {
+    if (!state.regDraft || !state.otpTarget) {
+      setAccountView('register');
+      return;
+    }
+    await startRegister();
+  }
+
+  async function verifyRegisterOtp() {
+    var a = accT();
+    var code = normalizeOtp($('regOtp') && $('regOtp').value);
+    var d = state.regDraft;
+    if (!d || !state.otpTarget || code.length < 6) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('verifyRegistrationOTP', {
+        target: state.otpTarget,
+        code: code,
+        userData: {
+          nome: d.nome,
+          email: d.email,
+          telefone: d.telefone,
+          password: d.password,
+          newsletter: d.newsletter
+        }
+      });
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'OTP', 'e');
+        return;
+      }
+      applySessionFromAuth(res, d.nome, d.email);
+      state.clientPhone = d.telefone;
+      state.accountView = 'dashboard';
+      state.regDraft = null;
+      await loadClientProfile();
+      await loadWishlistServer();
+      prefillCheckoutFromProfile();
+      renderAccount();
+      global.toast(a.created, 's');
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  function normalizeOtp(v) {
+    return String(v == null ? '' : v).replace(/\D/g, '').slice(0, 6);
+  }
+
+  async function requestPasswordReset() {
+    var a = accT();
+    var email = normEmail(($('forgotEmail') && $('forgotEmail').value) || '');
+    if (!validEmail(email)) {
+      global.toast(a.emailInvalid, 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('requestPasswordReset', { email: email });
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'Reset', 'e');
+        return;
+      }
+      state.resetEmail = email;
+      state.accountView = 'reset';
+      renderAccount();
+      global.toast(a.resetSent, 's');
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  async function confirmPasswordReset() {
+    var a = accT();
+    var code = normalizeOtp($('resetCode') && $('resetCode').value);
+    var p1 = ($('resetPass') && $('resetPass').value) || '';
+    var p2 = ($('resetPass2') && $('resetPass2').value) || '';
+    if (!state.resetEmail || code.length < 6 || !p1) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
+    if (!validPassword(p1) || p1 !== p2) {
+      global.toast(p1 !== p2 ? a.passMismatch : a.passMin, 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('confirmPasswordReset', {
+        email: state.resetEmail,
+        code: code,
+        newPassword: p1
+      });
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'Reset', 'e');
+        return;
+      }
+      state.accountView = 'login';
+      state.resetEmail = '';
+      renderAccount();
+      global.toast(a.passReset, 's');
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  function logout(silent) {
+    state.token = '';
+    state.clientId = '';
+    state.clientName = '';
+    state.clientEmail = '';
+    state.clientPhone = '';
+    state.profile = null;
+    state.addresses = [];
+    state.accountView = 'login';
+    saveSession();
+    renderAccount();
+    if (!silent) global.toast(accT().logout, 'i');
+  }
+
+  async function saveProfile() {
+    var a = accT();
+    var nome = ($('profName') && $('profName').value.trim()) || '';
+    var telefone = ($('profPhone') && $('profPhone').value.trim()) || '';
+    if (!nome) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('updateClient', { clientId: state.clientId, nome: nome, telefone: telefone }, state.token);
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'Profile', 'e');
+        return;
+      }
+      state.clientName = nome;
+      state.clientPhone = telefone;
+      if (state.profile) {
+        state.profile.nome = nome;
+        state.profile.telefone = telefone;
+      }
+      saveSession();
+      prefillCheckoutFromProfile();
+      global.toast(a.profileSaved, 's');
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  async function saveNewAddress() {
+    var a = accT();
+    var morada = ($('addrMorada') && $('addrMorada').value.trim()) || '';
+    var cidade = ($('addrCity') && $('addrCity').value.trim()) || '';
+    var zip = ($('addrZip') && $('addrZip').value.trim()) || '';
+    var pais = ($('addrCountry') && $('addrCountry').value.trim()) || '';
+    if (!morada || !cidade || !zip) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('saveClientAddress', {
+        clientId: state.clientId,
+        tipo: 'envio',
+        morada: morada,
+        cidade: cidade,
+        codigo_postal: zip,
+        pais: pais
+      }, state.token);
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'Address', 'e');
+        return;
+      }
+      await loadClientAddresses();
+      renderAccount();
+      global.toast(a.addrSaved, 's');
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  function useAddress(addressId) {
+    var ad = (state.addresses || []).find(function (x) { return x.address_id === addressId; });
+    if (!ad) return;
+    state.form.addr = ad.morada || '';
+    state.form.city = ad.cidade || '';
+    state.form.zip = ad.codigo_postal || '';
+    closeAccount();
+    global.toast(accT().useAddr, 's');
+  }
+
+  async function deleteAddress(addressId) {
+    try {
+      var res = await erpCall('deleteClientAddress', { clientId: state.clientId, address_id: addressId }, state.token);
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'Delete', 'e');
+        return;
+      }
+      await loadClientAddresses();
+      renderAccount();
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  async function loadMyOrders(containerId) {
+    var box = $(containerId || 'accOrdersList');
+    if (!box || !state.clientId) return;
+    var a = accT();
+    try {
+      var res = await erpCall('getOrders', { clientId: state.clientId, email: state.clientEmail || state.form.email || '' }, state.token);
+      var orders = (res && res.orders) ? res.orders : [];
+      if (!orders.length) {
+        box.innerHTML = '<p class="acc-hint">' + esc(a.noOrders) + '</p>';
+        return;
+      }
+      box.innerHTML = orders.slice(0, 20).map(function (o) {
+        return '<div class="acc-order" onclick="Shop.openOrderDetail(\'' + esc(o.pedido_id) + '\')">' +
+          '<div class="acc-order-id">#' + esc(o.pedido_id) + '</div>' +
+          '<p style="font-size:10px;color:var(--muted);margin-top:4px;">' + esc(o.data) + ' · ' + esc(o.total) + ' €</p>' +
+          '<p style="font-size:9px;color:var(--gold);margin-top:4px;">' + esc(o.estado || '') + ' · ' + esc(o.estado_pagamento || '') + '</p></div>';
+      }).join('');
     } catch (e) { box.textContent = e.message; }
+  }
+
+  async function openOrderDetail(orderId) {
+    try {
+      var res = await erpCall('getOrder', { orderId: orderId });
+      if (!res || !res.success) {
+        global.toast((res && res.error) || 'Order', 'e');
+        return;
+      }
+      state.selectedOrder = { order: res.order, details: res.details || [] };
+      state.accountView = 'orderDetail';
+      if ($('accBg')) $('accBg').classList.add('open');
+      renderAccount();
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  // ─── Contact ───────────────────────────────────────────────────────────
+  function contactT() { return t().contact || {}; }
+
+  function contactEmailPublic() {
+    return state.config.contact_public_email || state.config.store_email || '';
+  }
+
+  function contactWhatsAppUrl() {
+    var wa = state.config.contact_whatsapp || '';
+    if (!wa) return '';
+    if (String(wa).indexOf('http') === 0) return wa;
+    var digits = String(wa).replace(/\D/g, '');
+    return digits ? 'https://wa.me/' + digits : '';
+  }
+
+  function openContact() {
+    state.contactSent = false;
+    $('contactBg').classList.add('open');
+    renderContact();
+    updateScrollLock();
+  }
+
+  function closeContact() {
+    $('contactBg').classList.remove('open');
+    updateScrollLock();
+  }
+
+  function renderContact() {
+    var body = $('contactBody');
+    if (!body) return;
+    var c = contactT();
+    if (state.contactSent) {
+      body.innerHTML =
+        '<div class="acc-wrap contact-sent"><span>✓</span><p style="font-size:11px;color:var(--muted);line-height:1.7;">' + esc(c.success) + '</p>' +
+        '<button type="button" class="btn-gold" style="width:100%;margin-top:16px;" onclick="Shop.closeContact()">OK</button></div>';
+      return;
+    }
+    var pubEmail = contactEmailPublic();
+    var waUrl = contactWhatsAppUrl();
+    var quick = '';
+    if (pubEmail || waUrl) {
+      quick = '<p class="acc-hint" style="margin-top:8px;">' + esc(c.or) + '</p><div class="contact-quick">';
+      if (pubEmail) {
+        quick += '<a href="mailto:' + esc(pubEmail) + '">✉ ' + esc(c.emailUs) + '</a>';
+      }
+      if (waUrl) {
+        quick += '<a href="' + esc(waUrl) + '" target="_blank" rel="noopener noreferrer">💬 ' + esc(c.whatsapp) + '</a>';
+      }
+      quick += '</div>';
+    }
+    var subjects = [
+      { v: '', l: '—' },
+      { v: 'order', l: c.subjectOrder },
+      { v: 'product', l: c.subjectProduct },
+      { v: 'return', l: c.subjectReturn },
+      { v: 'other', l: c.subjectOther }
+    ];
+    var subjHtml = subjects.map(function (s) {
+      return '<option value="' + esc(s.v) + '">' + esc(s.l) + '</option>';
+    }).join('');
+    body.innerHTML =
+      '<div class="acc-wrap">' +
+      '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:6px;">' + esc(c.title) + '</h2>' +
+      '<p class="acc-hint">' + esc(c.sub) + '</p>' + quick +
+      '<div class="fgrid one" style="margin-top:16px;">' +
+      '<div class="field"><label>' + esc(c.name) + '</label><input id="ctName" type="text" value="' + esc(state.clientName || state.form.name || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(c.email) + ' *</label><input id="ctEmail" type="email" value="' + esc(state.clientEmail || state.form.email || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(c.subject) + '</label><select id="ctSubject">' + subjHtml + '</select></div>' +
+      '<div class="field"><label>' + esc(c.message) + ' *</label><textarea id="ctMessage" placeholder="' + esc(c.messagePH) + '"></textarea></div></div>' +
+      '<button type="button" class="btn-pay" style="width:100%;margin-top:8px;" id="ctSubmitBtn" onclick="Shop.submitContact()">' + esc(c.send) + '</button></div>';
+  }
+
+  async function submitContact() {
+    var c = contactT();
+    var nome = ($('ctName') && $('ctName').value.trim()) || '';
+    var email = normEmail(($('ctEmail') && $('ctEmail').value) || '');
+    var subjKey = ($('ctSubject') && $('ctSubject').value) || '';
+    var msg = ($('ctMessage') && $('ctMessage').value.trim()) || '';
+    if (!email || !msg) {
+      global.toast(t().tReq, 'e');
+      return;
+    }
+    if (!validEmail(email)) {
+      global.toast(accT().emailInvalid, 'e');
+      return;
+    }
+  var subjLabel = '';
+    if (subjKey === 'order') subjLabel = c.subjectOrder;
+    else if (subjKey === 'product') subjLabel = c.subjectProduct;
+    else if (subjKey === 'return') subjLabel = c.subjectReturn;
+    else if (subjKey === 'other') subjLabel = c.subjectOther;
+    var fullMsg = subjLabel ? '[' + subjLabel + ']\n\n' + msg : msg;
+    var btn = $('ctSubmitBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = c.sending;
+    }
+    if (!apiUrlConfigured()) {
+      global.toast((t().apiErrorPrefix || 'API: ') + (state.lang === 'pt' ? 'não configurada' : state.lang === 'es' ? 'no configurada' : state.lang === 'en' ? 'not configured' : 'non configurée'), 'e');
+      if (btn) { btn.disabled = false; btn.textContent = c.send; }
+      return;
+    }
+    try {
+      var res = await erpCall('sendContactMessage', { name: nome, email: email, message: fullMsg });
+      if (!res || !res.success) {
+        global.toast((res && res.error) || c.send, 'e');
+        if (btn) { btn.disabled = false; btn.textContent = c.send; }
+        return;
+      }
+      state.contactSent = true;
+      renderContact();
+      global.toast(c.success, 's');
+    } catch (e) {
+      global.toast(e.message, 'e');
+      if (btn) { btn.disabled = false; btn.textContent = c.send; }
+    }
   }
 
   async function subscribeNewsletter(email) {
     if (!email || !apiUrlConfigured()) return;
     try {
       await erpCall('subscribeNewsletter', { email: email });
-      global.toast(state.lang === 'pt' ? 'Subscrição confirmada!' : 'Abonnement confirmé !', 's');
+      global.toast(t().newsletterOk, 's');
     } catch (e) { global.toast(e.message, 'e'); }
   }
 
@@ -1009,8 +2000,22 @@
     } catch (e) { return false; }
   }
 
+  function getTheme() {
+    if (global.getTheme) return global.getTheme();
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+
+  function onThemeChange(theme) {
+    state.theme = theme;
+    if (state.payMethod === 'stripe' && $('coBg') && $('coBg').classList.contains('open') && !state.ordered) {
+      destroyStripeElement();
+      initStripeElement();
+    }
+  }
+
   // ─── Init ──────────────────────────────────────────────────────────────
   async function init() {
+    state.theme = getTheme();
     loadSession();
     showApiBanner(!apiUrlConfigured());
     if (!apiUrlConfigured()) {
@@ -1025,22 +2030,35 @@
       await loadStore();
       await loadCategories();
       await loadProducts();
+      await syncCartFromServer();
+      if (state.token) await restoreClientSession();
       if (state.clientId) await loadWishlistServer();
       showApiBanner(false);
     } catch (e) {
       showApiBanner(true);
-      global.toast((state.lang === 'pt' ? 'API: ' : 'API : ') + e.message, 'e');
+      global.toast((t().apiErrorPrefix || 'API: ') + e.message, 'e');
     }
     state.loading = false;
     showLoader(false);
     if (global.boot) global.boot();
+    renderNav();
+    renderFooterShop();
     render();
+    handleOrderHash();
   }
 
   function setLang(l) {
     window._langSet = true;
-    state.lang = l;
+    state.lang = (global.T && global.T[l]) ? l : 'fr';
     if (global.boot) global.boot();
+    if ($('accBg') && $('accBg').classList.contains('open')) renderAccount();
+    if ($('coBg') && $('coBg').classList.contains('open') && !state.ordered) renderCo();
+    if ($('cartBg') && $('cartBg').classList.contains('open')) renderCart();
+    if ($('wishBg') && $('wishBg').classList.contains('open')) renderWish();
+    if (state.qvProd && $('qvBg') && $('qvBg').classList.contains('open')) renderQv();
+    if ($('contactBg') && $('contactBg').classList.contains('open')) renderContact();
+    renderNav();
+    renderFooterShop();
   }
 
   global.Shop = {
@@ -1049,6 +2067,14 @@
     scrollShop: scrollShop,
     selectCat: selectCat,
     resetAll: resetAll,
+    navGo: navGo,
+    renderNav: renderNav,
+    renderFooterShop: renderFooterShop,
+    toggleMobileNav: toggleMobileNav,
+    closeMobileNav: closeMobileNav,
+    updateScrollLock: updateScrollLock,
+    openOrdersOrLogin: openOrdersOrLogin,
+    trackGuestOrder: trackGuestOrder,
     refreshProducts: refreshProducts,
     renderCats: renderCats,
     render: render,
@@ -1077,11 +2103,25 @@
     submitOrder: submitOrder,
     openAccount: openAccount,
     closeAccount: closeAccount,
+    setAccountView: setAccountView,
     login: login,
-    register: register,
+    startRegister: startRegister,
+    verifyRegisterOtp: verifyRegisterOtp,
+    resendRegisterOtp: resendRegisterOtp,
+    requestPasswordReset: requestPasswordReset,
+    confirmPasswordReset: confirmPasswordReset,
     logout: logout,
+    saveProfile: saveProfile,
+    saveNewAddress: saveNewAddress,
+    useAddress: useAddress,
+    deleteAddress: deleteAddress,
     loadMyOrders: loadMyOrders,
-    subscribeNewsletter: subscribeNewsletter
+    openOrderDetail: openOrderDetail,
+    subscribeNewsletter: subscribeNewsletter,
+    onThemeChange: onThemeChange,
+    openContact: openContact,
+    closeContact: closeContact,
+    submitContact: submitContact
   };
 
   document.addEventListener('DOMContentLoaded', function () {
