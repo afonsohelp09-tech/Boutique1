@@ -8,6 +8,9 @@
 <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png"/>
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
 <link rel="manifest" href="site.webmanifest"/>
+<link rel="preconnect" href="https://drive.google.com" crossorigin/>
+<link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin/>
+<link rel="dns-prefetch" href="https://drive.google.com"/>
 <meta name="theme-color" content="#0b0a09" id="metaThemeColor"/>
 <meta property="og:image" content="icons/icon-512.png"/>
 <title>AZAVISION — Boutique en ligne</title>
@@ -390,11 +393,14 @@ nav{
   position:relative;aspect-ratio:3/4;overflow:hidden;
   background:var(--card-img-bg);border-radius:2px;margin-bottom:12px;
 }
-.card-img img{
+.card-img img,
+.card-img .shop-img{
   width:100%;height:100%;object-fit:cover;object-position:top;
-  transition:transform .7s ease;display:block;
+  transition:transform .7s ease, opacity .22s ease;display:block;
 }
-.card:hover .card-img img{transform:scale(1.07)}
+.card-img .shop-img{opacity:0}
+.card-img .shop-img.loaded,.card-img .shop-img.img-fallback{opacity:1}
+.card:hover .card-img img,.card:hover .card-img .shop-img{transform:scale(1.07)}
 
 /* Overlay */
 .card-overlay{
@@ -527,7 +533,9 @@ nav{
   background:var(--bg-card);border:1px solid var(--border-hard);
   border-radius:2px;padding:13px;display:flex;gap:12px;
 }
-.ci img{width:68px;height:82px;object-fit:cover;object-position:top;border-radius:2px}
+.ci img,.ci .shop-img{width:68px;height:82px;object-fit:cover;object-position:top;border-radius:2px;flex-shrink:0;display:block}
+.ci .shop-img{opacity:0;transition:opacity .2s ease}
+.ci .shop-img.loaded,.ci .shop-img.img-fallback{opacity:1}
 .ci-body{flex:1;display:flex;flex-direction:column;justify-content:space-between}
 .ci-name{
   font-family:'Cormorant Garamond',serif;
@@ -616,7 +624,9 @@ nav{
 .modal-close:hover{color:var(--text)}
 .modal-close svg{width:18px;height:18px;stroke-width:1.5}
 .m-img{width:45%;min-height:420px}
-.m-img img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.m-img img,.m-img .shop-img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.m-img .shop-img{opacity:0;transition:opacity .25s ease;min-height:420px}
+.m-img .shop-img.loaded,.m-img .shop-img.img-fallback{opacity:1}
 .m-body{width:55%;padding:36px 36px 28px;display:flex;flex-direction:column}
 .m-cat{font-size:8px;color:var(--gold);letter-spacing:4px;text-transform:uppercase;font-weight:600;margin-bottom:9px}
 .m-name{
@@ -1043,7 +1053,7 @@ footer{
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <button class="brand brand-with-logo brand-dynamic" onclick="Shop.resetAll()" title="AZAVISION">
-        <img class="brand-logo" src="icons/logo-nav.png" alt="AZAVISION" width="160" height="44"/>
+        <img class="brand-logo" src="icons/logo-nav.png" alt="AZAVISION" width="160" height="44" decoding="async" data-fallback="icons/logo-nav.png" onerror="typeof Shop!=='undefined'&&Shop.imgError&&Shop.imgError(this)"/>
       </button>
     </div>
     <ul class="nav-ul" id="navUl" aria-label="Navigation"></ul>
@@ -1168,7 +1178,7 @@ footer{
 <footer>
   <div class="footer-grid">
     <div>
-      <img class="f-logo" src="icons/logo.png" alt="AZAVISION" width="140" height="32"/>
+      <img class="f-logo" src="icons/logo.png" alt="AZAVISION" width="140" height="32" decoding="async" data-fallback="icons/logo.png" onerror="typeof Shop!=='undefined'&&Shop.imgError&&Shop.imgError(this)"/>
       <p class="f-desc" id="fDesc"></p>
       <div class="social-row">
         <button class="soc">I</button><button class="soc">P</button>
