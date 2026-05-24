@@ -377,7 +377,8 @@
     errorPrefix: 'Erreur : ', apiErrorPrefix: 'API : ',
     newsletterOk: 'Abonnement confirmé !', shopLoader: 'Chargement du catalogue…',
     apiBanner: '⚠️ <strong>API non configurée</strong> — Ouvrez <code>01-vitrine-client/index.html</code>, allez <strong>en bas du fichier</strong> et remplacez <code>INSEREZ_VOTRE</code> par l’URL <code>/exec</code> de votre Web App.',
-    themeLight: 'Mode clair', themeDark: 'Mode sombre'
+    themeLight: 'Mode clair', themeDark: 'Mode sombre',
+    themeLightShort: 'Clair', themeDarkShort: 'Sombre', themeAria: 'Apparence clair / sombre'
   };
 
   var PT = {
@@ -442,7 +443,8 @@
     errorPrefix: 'Erro: ', apiErrorPrefix: 'API: ',
     newsletterOk: 'Subscrição confirmada!', shopLoader: 'A carregar o catálogo…',
     apiBanner: '⚠️ <strong>API não configurada</strong> — Abra <code>01-vitrine-client/index.html</code>, vá ao <strong>fim do ficheiro</strong> e substitua <code>INSEREZ_VOTRE</code> pelo URL <code>/exec</code> da Web App.',
-    themeLight: 'Modo claro', themeDark: 'Modo escuro'
+    themeLight: 'Modo claro', themeDark: 'Modo escuro',
+    themeLightShort: 'Claro', themeDarkShort: 'Escuro', themeAria: 'Aparência claro / escuro'
   };
 
   var EN = {
@@ -507,7 +509,8 @@
     errorPrefix: 'Error: ', apiErrorPrefix: 'API: ',
     newsletterOk: 'Subscription confirmed!', shopLoader: 'Loading catalogue…',
     apiBanner: '⚠️ <strong>API not configured</strong> — Open <code>01-vitrine-client/index.html</code>, go to the <strong>bottom of the file</strong> and replace <code>INSEREZ_VOTRE</code> with your Web App <code>/exec</code> URL.',
-    themeLight: 'Light mode', themeDark: 'Dark mode'
+    themeLight: 'Light mode', themeDark: 'Dark mode',
+    themeLightShort: 'Light', themeDarkShort: 'Dark', themeAria: 'Light / dark appearance'
   };
 
   var ES = {
@@ -572,7 +575,8 @@
     errorPrefix: 'Error: ', apiErrorPrefix: 'API: ',
     newsletterOk: '¡Suscripción confirmada!', shopLoader: 'Cargando catálogo…',
     apiBanner: '⚠️ <strong>API no configurada</strong> — Abra <code>01-vitrine-client/index.html</code>, vaya al <strong>final del archivo</strong> y sustituya <code>INSEREZ_VOTRE</code> por la URL <code>/exec</code> de su Web App.',
-    themeLight: 'Modo claro', themeDark: 'Modo oscuro'
+    themeLight: 'Modo claro', themeDark: 'Modo oscuro',
+    themeLightShort: 'Claro', themeDarkShort: 'Oscuro', themeAria: 'Apariencia claro / oscuro'
   };
 
   global.T = {
