@@ -352,6 +352,145 @@
     return '#' + (h & 0xffffff).toString(16).padStart(6, '0');
   }
 
+  var PLACEHOLDER_IMG = 'data:image/svg+xml,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400"><rect fill="#1a1918" width="300" height="400"/>' +
+    '<text x="150" y="205" font-family="system-ui,sans-serif" font-size="14" fill="#bda061" text-anchor="middle">AZAVISION</text></svg>'
+  );
+
+  function extractDriveFileId(url) {
+    if (!url) return '';
+    var s = String(url).trim();
+    var m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+    if (m) return m[1];
+    m = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    m = s.match(/thumbnail\?id=([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+    if (m) return m[1];
+    return '';
+  }
+
+  function driveThumbUrl(fileId, width) {
+    if (!fileId) return '';
+    var w = Math.min(Math.max(parseInt(width, 10) || 400, 120), 1600);
+    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w' + w;
+  }
+
+  function optimizeImageUrl(url, width) {
+    if (!url) return '';
+    var u = String(url).trim();
+    if (/^data:image\//i.test(u)) return u;
+    if (u.indexOf('drive.google.com') >= 0 || u.indexOf('googleusercontent.com') >= 0) {
+      var id = extractDriveFileId(u);
+      if (id) return driveThumbUrl(id, width);
+    }
+    if (/^https?:\/\//i.test(u)) return u;
+    return '';
+  }
+
+  function placeholderImage() { return PLACEHOLDER_IMG; }
+
+  function resolveProductDriveId(p) {
+    var id = extractDriveFileId((p && p.imagem) || '');
+    if (id) return id;
+    var vars = (p && p.variantes) || [];
+    for (var i = 0; i < vars.length; i++) {
+      id = extractDriveFileId(vars[i].imagem_variante || '');
+      if (id) return id;
+    }
+    return '';
+  }
+
+  function productImageSet(p) {
+    var driveId = resolveProductDriveId(p);
+    if (driveId) {
+      return {
+        driveId: driveId,
+        grid: driveThumbUrl(driveId, 480),
+        md: driveThumbUrl(driveId, 800),
+        lg: driveThumbUrl(driveId, 1200),
+        sm: driveThumbUrl(driveId, 200),
+        srcset: driveThumbUrl(driveId, 320) + ' 320w, ' + driveThumbUrl(driveId, 480) + ' 480w, ' + driveThumbUrl(driveId, 640) + ' 640w'
+      };
+    }
+    var raw = (p && p.imagem) || '';
+    var grid = optimizeImageUrl(raw, 480) || placeholderImage();
+    return { driveId: '', grid: grid, md: grid, lg: grid, sm: grid, srcset: '' };
+  }
+
+  function variantImageUrl(p, variant, width) {
+    if (variant && variant.imagem_variante) {
+      var vid = extractDriveFileId(variant.imagem_variante);
+      if (vid) return driveThumbUrl(vid, width || 800);
+      var vu = optimizeImageUrl(variant.imagem_variante, width || 800);
+      if (vu) return vu;
+    }
+    if (!p) return placeholderImage();
+    if (width && width >= 900) return p.imgLg || p.img || placeholderImage();
+    if (width && width <= 220) return p.imgSm || p.img || placeholderImage();
+    return p.imgMd || p.img || placeholderImage();
+  }
+
+  function qvProductImage(p, size, color) {
+    if (!p) return placeholderImage();
+    return variantImageUrl(p, findVariant(p, size, color), 1200);
+  }
+
+  function imgHtml(src, alt, opts) {
+    opts = opts || {};
+    var url = src || placeholderImage();
+    var cls = 'shop-img' + (opts.className ? ' ' + opts.className : '');
+    var parts = [
+      'class="' + cls + '"',
+      'src="' + esc(url) + '"',
+      'alt="' + esc(alt || '') + '"',
+      'decoding="async"',
+      opts.eager ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"',
+      'onload="this.classList.add(\'loaded\')"',
+      'onerror="typeof Shop!==\'undefined\'&&Shop.imgError&&Shop.imgError(this)"'
+    ];
+    if (opts.fallback && opts.fallback !== url) {
+      parts.push('data-fallback="' + esc(opts.fallback) + '"');
+    }
+    if (opts.srcset) {
+      parts.push('srcset="' + esc(opts.srcset) + '"');
+      parts.push('sizes="' + esc(opts.sizes || '(max-width:768px) 46vw, 300px') + '"');
+    }
+    return '<img ' + parts.join(' ') + '/>';
+  }
+
+  function imgError(el) {
+    if (!el) return;
+    var fb = el.getAttribute('data-fallback');
+    if (fb && el.src !== fb && el.getAttribute('data-fb-tried') !== '1') {
+      el.setAttribute('data-fb-tried', '1');
+      el.src = fb;
+      return;
+    }
+    if (el.classList && el.classList.contains('brand-logo')) {
+      el.style.display = 'none';
+      return;
+    }
+    if (el.classList && el.classList.contains('f-logo')) {
+      el.style.display = 'none';
+      return;
+    }
+    el.src = placeholderImage();
+    el.classList.add('loaded', 'img-fallback');
+  }
+
+  function preloadProductImages(list, max) {
+    (list || []).slice(0, max || 10).forEach(function (p) {
+      if (!p || !p.img) return;
+      try {
+        var im = new Image();
+        im.decoding = 'async';
+        im.src = p.img;
+      } catch (e) { /* ignore */ }
+    });
+  }
+
   function findVariant(prod, size, color) {
     var vars = prod.variantes || (prod._raw && prod._raw.variantes) || [];
     if (!vars.length) return null;
@@ -375,12 +514,7 @@
     var price = parseFloat(p.preco_final) || 0;
     var list = parseFloat(p.preco);
     if (isNaN(list) || list <= price) list = null;
-    var img = p.imagem || '';
-    if (img && img.indexOf('drive.google.com') > -1 && img.indexOf('thumbnail') === -1) {
-      var m = img.match(/[-\w]{25,}/);
-      if (m) img = 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w800';
-    }
-    if (!img) img = 'https://picsum.photos/seed/' + encodeURIComponent(p.produto_id || 'x') + '/600/800';
+    var imgs = productImageSet(p);
     var nome = p.nome || '';
     var descr = p.descricao || '';
     return {
@@ -394,7 +528,12 @@
       catKey: normalizeCat(p.categoria),
       price: price,
       old: list,
-      img: img,
+      img: imgs.grid,
+      imgMd: imgs.md,
+      imgLg: imgs.lg,
+      imgSm: imgs.sm,
+      imgSrcset: imgs.srcset,
+      _driveId: imgs.driveId,
       colors: (p.cores && p.cores.length) ? p.cores : ['—'],
       sizes: (p.tamanhos && p.tamanhos.length) ? p.tamanhos : [],
       rate: 0,
@@ -540,12 +679,20 @@
       el.innerHTML = esc(name) + '<span>.</span>';
     });
     var navLogo = document.querySelector('.brand-logo');
-    if (navLogo && state.store && state.store.logoUrl && /^https?:\/\//i.test(state.store.logoUrl)) {
-      navLogo.src = state.store.logoUrl;
-    }
     var footLogo = document.querySelector('.f-logo');
-    if (footLogo && state.store && state.store.logoUrl && /^https?:\/\//i.test(state.store.logoUrl)) {
-      footLogo.src = state.store.logoUrl;
+    var localNav = 'icons/logo-nav.png';
+    var localFoot = 'icons/logo.png';
+    if (navLogo) {
+      navLogo.setAttribute('data-fallback', localNav);
+      var remoteNav = (state.store && state.store.logoUrl) ? optimizeImageUrl(state.store.logoUrl, 400) : '';
+      navLogo.src = remoteNav || localNav;
+      navLogo.style.display = '';
+    }
+    if (footLogo) {
+      footLogo.setAttribute('data-fallback', localFoot);
+      var remoteFoot = (state.store && state.store.logoUrl) ? optimizeImageUrl(state.store.logoUrl, 300) : '';
+      footLogo.src = remoteFoot || localFoot;
+      footLogo.style.display = '';
     }
     if (state.store && state.store.colors) {
       var root = document.documentElement;
@@ -601,6 +748,7 @@
     var res = await erpCall('getProducts', filters);
     if (!res || !res.success) throw new Error((res && res.error) || 'getProducts');
     state.products = (res.products || []).map(mapProduct);
+    preloadProductImages(state.products, 12);
     await enrichReviews();
   }
 
@@ -709,15 +857,19 @@
         '<button class="btn-gold" style="margin:0 auto;" onclick="Shop.resetAll()">' + esc(t().noBtn) + '</button></div>';
       return;
     }
-    $('grid').innerHTML = list.map(function (p) {
+    $('grid').innerHTML = list.map(function (p, idx) {
       var b = badge(p);
       var faved = state.wish.some(function (x) { return x.id === p.id; });
       var pid = esc(p.id).replace(/'/g, "\\'");
-      return '<div class="card">' +
+      return '<div class="card" onclick="Shop.openQv(\'' + pid + '\')">' +
         '<div class="card-img">' +
-        '<img src="' + esc(p.img) + '" alt="' + esc(nm(p)) + '" loading="lazy"/>' +
+        imgHtml(p.img, nm(p), {
+          eager: idx < 6,
+          srcset: p.imgSrcset || '',
+          fallback: p.imgMd || p.imgLg || ''
+        }) +
         '<div class="card-overlay"><div class="ov-btns">' +
-        '<button class="btn-qv" onclick="Shop.openQv(\'' + pid + '\')">' + esc(t().qv) + '</button>' +
+        '<button class="btn-qv" onclick="event.stopPropagation();Shop.openQv(\'' + pid + '\')">' + esc(t().qv) + '</button>' +
         '<button class="btn-add-ov" onclick="Shop.addCart(\'' + pid + '\',\'\',\'\');event.stopPropagation()">' +
         '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></button>' +
         '</div></div>' +
@@ -764,6 +916,7 @@
     var variant = findVariant(p, size, color);
     var price = variantPrice(p, variant);
     var varianteId = variant ? variant.variante_id : '';
+    var lineImg = variantImageUrl(p, variant, 200) || p.imgSm || p.img;
 
     if (apiUrlConfigured()) {
       try {
@@ -799,7 +952,7 @@
         pt: p.pt,
         en: p.en,
         es: p.es,
-        img: p.img,
+        img: lineImg,
         size: size,
         color: color,
         qty: 1,
@@ -846,6 +999,8 @@
         if (!p) continue;
         var size = it.tamanho || productSizes(p)[0];
         var color = it.cor || p.colors[0];
+        var cartVar = findVariant(p, size, color);
+        var cartImg = variantImageUrl(p, cartVar, 200) || p.imgSm || p.img;
         var key = p.id + '-' + size + '-' + color;
         state.cart.push({
           key: key,
@@ -856,7 +1011,7 @@
           pt: p.pt,
           en: p.en,
           es: p.es,
-          img: p.img,
+          img: cartImg,
           size: size,
           color: color,
           qty: parseInt(it.quantidade, 10) || 1,
@@ -881,7 +1036,7 @@
     }
     db.innerHTML = state.cart.map(function (it) {
       return '<div class="ci">' +
-        '<img src="' + esc(it.img) + '" alt="' + esc(nm(it)) + '"/>' +
+        imgHtml(it.img, nm(it), { className: '', fallback: it.img }) +
         '<div class="ci-body"><div><p class="ci-name">' + esc(nm(it)) + '</p>' +
         '<p class="ci-meta">' + esc(t().sizeMeta) + ': ' + esc(it.size) + ' · ' +
         '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorCss(it.color) + ';vertical-align:middle;"></span></p></div>' +
@@ -994,7 +1149,7 @@
     }
     $('wishDb').innerHTML = state.wish.map(function (it) {
       var pid = esc(it.id).replace(/'/g, "\\'");
-      return '<div class="ci"><img src="' + esc(it.img) + '" alt="' + esc(nm(it)) + '"/>' +
+      return '<div class="ci">' + imgHtml(it.img, nm(it), { fallback: it.imgMd || it.img }) +
         '<div class="ci-body"><div><p class="ci-name">' + esc(nm(it)) + '</p><p class="ci-price" style="margin-top:5px;">' + it.price.toFixed(2) + ' €</p></div>' +
         '<div class="ci-bot"><button class="btn-gold" style="font-size:8px;padding:8px 10px;" onclick="Shop.addCart(\'' + pid + '\',\'\',\'\');Shop.toggleWish(\'' + pid + '\')">' + esc(t().addCart) + '</button>' +
         '<button class="btn-rm" onclick="Shop.toggleWish(\'' + pid + '\')">' + esc(t().remove) + '</button></div></div></div>';
@@ -1043,7 +1198,7 @@
 
     $('qvModal').innerHTML =
       '<button class="modal-close" onclick="Shop.closeQv()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
-      '<div class="m-img"><img src="' + esc(p.img) + '" alt="' + esc(nm(p)) + '"/></div>' +
+      '<div class="m-img">' + imgHtml(qvProductImage(p, state.qvSize, state.qvColor), nm(p), { eager: true, fallback: p.imgMd || p.imgLg || p.img }) + '</div>' +
       '<div class="m-body"><p class="m-cat">' + esc(catLabel) + '</p>' +
       '<h2 class="m-name">' + esc(nm(p)) + '</h2>' +
       '<p class="m-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ')</span></p>' +
@@ -2121,7 +2276,8 @@
     onThemeChange: onThemeChange,
     openContact: openContact,
     closeContact: closeContact,
-    submitContact: submitContact
+    submitContact: submitContact,
+    imgError: imgError
   };
 
   document.addEventListener('DOMContentLoaded', function () {
