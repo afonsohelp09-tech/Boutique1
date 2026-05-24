@@ -296,15 +296,11 @@
       var langs = ['fr', 'pt', 'en', 'es'];
       var th = getTheme();
       foot.innerHTML =
-        '<div class="lang-box" role="group">' + langs.map(function (l) {
+        '<div class="lang-switch lang-box" role="group">' + langs.map(function (l) {
           return '<button type="button" class="' + (state.lang === l ? 'on' : '') + '" onclick="setLang(\'' + l + '\')">' + l.toUpperCase() + '</button>';
         }).join('') + '</div>' +
-        '<div class="theme-box" role="group">' +
-        '<button type="button" class="' + (th === 'dark' ? 'on' : '') + '" onclick="setTheme(\'dark\')" title="' + esc(t().themeDark || 'Dark') + '">' +
-        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>' +
-        '<button type="button" class="' + (th === 'light' ? 'on' : '') + '" onclick="setTheme(\'light\')" title="' + esc(t().themeLight || 'Light') + '">' +
-        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button>' +
-        '</div>';
+        (typeof buildThemeSwitchHtml === 'function' ? buildThemeSwitchHtml() : '');
+      if (typeof updateThemeButtons === 'function') updateThemeButtons();
     }
   }
 
@@ -468,12 +464,9 @@
       el.src = fb;
       return;
     }
-    if (el.classList && el.classList.contains('brand-logo')) {
-      el.style.display = 'none';
-      return;
-    }
-    if (el.classList && el.classList.contains('f-logo')) {
-      el.style.display = 'none';
+    if (el.classList && (el.classList.contains('brand-logo') || el.classList.contains('f-logo'))) {
+      el.style.display = '';
+      el.style.opacity = '1';
       return;
     }
     el.src = placeholderImage();
