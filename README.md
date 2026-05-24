@@ -8,6 +8,8 @@ Boutique en ligne basée sur le modèle **L'ATELIER** (`SITE/latelier-shop.html`
 |---------|------|
 | `index.html` | Page boutique (design + traductions FR/PT + **configuration API**) |
 | `erp-shop.js` | Logique ERP : produits, panier, commandes, compte, Stripe |
+| `i18n.js` | Traductions interface : **FR**, **PT (Portugal)**, **EN**, **ES** |
+| Thème | **Clair / Sombre** — sélecteur dans la barre de navigation (préférence enregistrée) |
 | `icons/` | Favicons et logos (depuis `LOGO/aza vision logos3.jpeg`) |
 | `favicon.ico` | Icône onglet |
 | `site.webmanifest` | PWA (icônes 192 / 512) |
@@ -58,7 +60,8 @@ Ouvrir `index.html` et modifier le bloc **en bas du fichier** (Ctrl+End) :
 | Code promo | `validateCoupon` |
 | Commande | `createOrder`, `processPayment` |
 | Paiement Stripe | `createStripePaymentIntent`, `confirmStripePayment` |
-| Compte client | `clientRegister`, `clientLogin`, `getOrders` |
+| Compte client | Inscription OTP (`sendRegistrationOTP`, `verifyRegistrationOTP`), `clientLogin`, mot de passe oublié, profil, adresses, `getOrders` / `getOrder` |
+| Contact | Bouton flottant + formulaire → API `sendContactMessage` (e-mail admin + réponse au client) |
 | Favoris (si connecté) | `addToWishlist`, `getWishlist`, `removeFromWishlist` |
 | Newsletter | `subscribeNewsletter` |
 | Marque / config | `getPublicBrand`, `getConfig`, `ping` |
