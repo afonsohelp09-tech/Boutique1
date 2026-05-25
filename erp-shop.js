@@ -807,6 +807,8 @@
       target.style.setProperty('--hero-bg-pos', 'center 10%');
       target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.08' : '1.16');
       target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '7px' : '14px');
+      target.style.setProperty('--hero-media-shift-x', '4px');
+      target.style.setProperty('--hero-media-shift-y', '-16px');
       target.style.setProperty('--hero-photo-pos', 'center 10%');
       target.style.setProperty('--hero-photo-scale', '1');
       target.style.setProperty('--hero-photo-opacity', '1');
@@ -816,6 +818,8 @@
       target.style.setProperty('--hero-bg-pos', 'center 18%');
       target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.06' : '1.12');
       target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '6px' : '12px');
+      target.style.setProperty('--hero-media-shift-x', '5px');
+      target.style.setProperty('--hero-media-shift-y', '-12px');
       target.style.setProperty('--hero-photo-pos', 'center 12%');
       target.style.setProperty('--hero-photo-scale', '1');
       target.style.setProperty('--hero-photo-opacity', '.99');
@@ -825,6 +829,8 @@
       target.style.setProperty('--hero-bg-pos', 'center center');
       target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.1' : '1.18');
       target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '5px' : '10px');
+      target.style.setProperty('--hero-media-shift-x', '14px');
+      target.style.setProperty('--hero-media-shift-y', '-3px');
       target.style.setProperty('--hero-photo-pos', 'center center');
       target.style.setProperty('--hero-photo-scale', '1');
       target.style.setProperty('--hero-photo-opacity', '.98');
@@ -834,6 +840,8 @@
       target.style.setProperty('--hero-bg-pos', 'center center');
       target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.08' : '1.16');
       target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '5px' : '9px');
+      target.style.setProperty('--hero-media-shift-x', '12px');
+      target.style.setProperty('--hero-media-shift-y', '-4px');
       target.style.setProperty('--hero-photo-pos', 'center center');
       target.style.setProperty('--hero-photo-scale', '1.01');
       target.style.setProperty('--hero-photo-opacity', '.98');
@@ -843,6 +851,8 @@
       target.style.setProperty('--hero-bg-pos', 'center 28%');
       target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.07' : '1.14');
       target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '6px' : '10px');
+      target.style.setProperty('--hero-media-shift-x', '9px');
+      target.style.setProperty('--hero-media-shift-y', '-8px');
       target.style.setProperty('--hero-photo-pos', 'center 22%');
       target.style.setProperty('--hero-photo-scale', '1.005');
       target.style.setProperty('--hero-photo-opacity', '.98');
