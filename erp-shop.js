@@ -521,6 +521,8 @@
     var imgs = productImageSet(p);
     var nome = p.nome || '';
     var descr = p.descricao || '';
+    var rate = parseFloat(p.reviews_average);
+    var rev = parseInt(p.reviews_count, 10);
     return {
       id: p.produto_id,
       produto_id: p.produto_id,
@@ -540,8 +542,8 @@
       _driveId: imgs.driveId,
       colors: (p.cores && p.cores.length) ? p.cores : ['—'],
       sizes: (p.tamanhos && p.tamanhos.length) ? p.tamanhos : [],
-      rate: 0,
-      rev: 0,
+      rate: isNaN(rate) ? 0 : rate,
+      rev: isNaN(rev) ? 0 : rev,
       dFr: descr,
       dPt: descr,
       dEn: descr,
@@ -655,14 +657,37 @@
   }
 
   async function loadStore() {
-    try {
-      var brand = await erpCall('getPublicBrand', {});
-      if (brand && brand.success && brand.brand) state.store = brand.brand;
-    } catch (e) { /* ignore */ }
-    try {
-      var cfg = await erpCall('getConfig', {});
-      if (cfg && cfg.success && cfg.config) state.config = cfg.config;
-    } catch (e2) { /* ignore */ }
+    var brandRes = null;
+    try { brandRes = await erpCall('getPublicBrand', {}); } catch (e) { /* ignore */ }
+    if (brandRes && brandRes.success && brandRes.brand) {
+      state.store = brandRes.brand;
+      if (brandRes.brand.config && typeof brandRes.brand.config === 'object') {
+        state.config = brandRes.brand.config;
+      }
+    }
+    if (!state.config || !Object.keys(state.config).length) {
+      try {
+        var cfg = await erpCall('getConfig', {});
+        if (cfg && cfg.success && cfg.config) state.config = cfg.config;
+      } catch (e2) { /* ignore */ }
+    }
+    if (!state.store) state.store = {};
+    if (!state.store.heroBgUrl && state.config && state.config.vitrine_hero_bg_url) {
+      state.store.heroBgUrl = String(state.config.vitrine_hero_bg_url).trim();
+    }
+    if (!state.store.logoUrl && state.config && state.config.store_logo_url) {
+      state.store.logoUrl = String(state.config.store_logo_url).trim();
+    }
+    if ((!state.store.defaultLang || ['pt', 'fr', 'en', 'es'].indexOf(String(state.store.defaultLang).toLowerCase()) === -1) && state.config) {
+      state.store.defaultLang = state.config.boutique_default_lang || state.config.default_lang || state.store.defaultLang || 'pt';
+    }
+    if (!state.store.colors) state.store.colors = {};
+    if (!state.store.colors.main && state.config && state.config.color_main) {
+      state.store.colors.main = state.config.color_main;
+    }
+    if (!state.store.colors.accent && state.config && state.config.color_accent) {
+      state.store.colors.accent = state.config.color_accent;
+    }
     if (state.store && state.store.defaultLang && !global._langSet) {
       var dl = String(state.store.defaultLang).toLowerCase();
       if (dl === 'pt' || dl === 'en' || dl === 'es' || dl === 'fr') state.lang = dl;
@@ -744,8 +769,9 @@
       if (state.store.colors.accent) root.style.setProperty('--gold', state.store.colors.accent);
     }
     var heroBg = document.querySelector('.hero-bg');
-    if (heroBg && state.store && state.store.heroBgUrl) {
-      heroBg.style.backgroundImage = 'url("' + String(state.store.heroBgUrl).replace(/"/g, '') + '")';
+    var heroUrl = (state.store && state.store.heroBgUrl) || (state.config && state.config.vitrine_hero_bg_url) || '';
+    if (heroBg && heroUrl) {
+      heroBg.style.backgroundImage = 'url("' + String(optimizeImageUrl(heroUrl, 1600) || heroUrl).replace(/"/g, '') + '")';
     }
     var social = (state.store && state.store.social) || {};
     wireSocialBtn('socInsta', social.instagram);
@@ -804,20 +830,6 @@
     if (!res || !res.success) throw new Error((res && res.error) || 'getProducts');
     state.products = (res.products || []).map(mapProduct);
     preloadProductImages(state.products, 12);
-    await enrichReviews();
-  }
-
-  async function enrichReviews() {
-    for (var i = 0; i < Math.min(state.products.length, 40); i++) {
-      var p = state.products[i];
-      try {
-        var rv = await erpCall('getReviews', { productId: p.produto_id });
-        if (rv && rv.success) {
-          p.rate = parseFloat(rv.average) || 0;
-          p.rev = (rv.reviews && rv.reviews.length) || 0;
-        }
-      } catch (e) { /* ignore */ }
-    }
   }
 
   function showLoader(on) {
@@ -2237,9 +2249,7 @@
     try {
       var ok = await pingApi();
       if (!ok) throw new Error('ping failed');
-      await loadStore();
-      await loadCategories();
-      await loadProducts();
+      await Promise.all([loadStore(), loadCategories(), loadProducts()]);
       await syncCartFromServer();
       if (state.token) await restoreClientSession();
       if (state.clientId) await loadWishlistServer();
