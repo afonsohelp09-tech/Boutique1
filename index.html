@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-PT" data-theme="dark">
 <head>
 <meta charset="UTF-8"/>
@@ -343,8 +343,13 @@ nav{
 }
 .hero-bg{
   position:absolute;inset:0;
-  background:center/cover no-repeat;
-  transform:scale(1.06);transition:transform 9s ease, background-image .4s ease;
+  background-position:var(--hero-bg-pos,center center);
+  background-size:cover;
+  background-repeat:no-repeat;
+  transform:scale(var(--hero-motion-scale,1.06));
+  transform-origin:center center;
+  transition:transform 9s ease, background-image .4s ease, background-position .4s ease;
+  will-change:transform,background-position;
 }
 .hero:hover .hero-bg{transform:scale(1)}
 .hero-grad{
@@ -756,6 +761,21 @@ nav{
 }
 .sz-btn:hover{border-color:var(--text);color:var(--text)}
 .sz-btn.on{background:var(--gold);color:#000;border-color:var(--gold)}
+.qv-selection-box{
+  background:var(--bg-card);border:1px solid var(--border-hard);
+  border-radius:2px;padding:12px 14px;margin-bottom:16px;
+}
+.qv-selection-row{
+  display:flex;justify-content:space-between;gap:12px;
+  font-size:9px;color:var(--muted);margin-bottom:8px;
+}
+.qv-selection-row:last-of-type{margin-bottom:0}
+.qv-selection-row strong{color:var(--text);font-size:10px}
+.qv-selection-row.missing strong{color:var(--gold)}
+.qv-selection-note{
+  margin-top:10px;font-size:9px;line-height:1.5;color:var(--gold);
+}
+.qv-selection-note.ok{color:#22c55e}
 .m-cta{margin-top:auto;display:flex;flex-direction:column;gap:7px}
 .btn-madd{
   background:var(--gold);color:#000;border:none;padding:15px;
@@ -764,6 +784,9 @@ nav{
   cursor:pointer;border-radius:2px;transition:background .2s;
 }
 .btn-madd:hover{background:var(--gold-lt)}
+.btn-madd.disabled,.btn-madd:disabled{
+  background:#6f6240;color:#1a1a1a;cursor:not-allowed;opacity:.65;
+}
 .btn-mfav{
   background:transparent;color:var(--muted);border:1px solid var(--border-hard);
   padding:9px;font-family:'Montserrat',sans-serif;
@@ -892,6 +915,34 @@ nav{
 .ok-emoji{font-size:52px}
 .ok-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--gold)}
 .ok-sub{font-size:11px;color:var(--muted);max-width:400px;line-height:1.75}
+.order-ref-card{
+  width:100%;max-width:480px;background:var(--bg-card);border:1px solid var(--border-hard);
+  border-radius:3px;padding:18px 20px;text-align:left;
+}
+.order-ref-label{
+  font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:10px;
+}
+.order-ref-row{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.order-ref-row strong{
+  font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--text);
+}
+.order-ref-help{font-size:9px;color:var(--muted);line-height:1.6;margin-top:10px}
+.btn-copy-ref,.btn-order-secondary{
+  padding:10px 14px;border-radius:2px;font-family:'Montserrat',sans-serif;
+  font-size:8px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+}
+.btn-copy-ref{
+  background:transparent;border:1px solid var(--gold);color:var(--gold);
+}
+.btn-copy-ref:hover,.btn-order-secondary:hover{border-color:var(--gold);color:var(--gold)}
+.order-ok-actions{
+  width:100%;max-width:480px;display:flex;flex-direction:column;gap:10px;
+}
+.btn-order-secondary{
+  background:transparent;border:1px solid var(--border-hard);color:var(--muted);
+}
 .tracking{
   background:var(--bg-card);border:1px solid var(--border-hard);
   border-radius:3px;padding:20px 22px;width:100%;max-width:480px;text-align:left;
@@ -1064,6 +1115,8 @@ footer{
   .acc-tab,.acc-dash-btn{min-height:44px;padding:12px 10px}
   .acc-order{padding:14px;min-height:48px}
   .btn-pay,.btn-checkout,.btn-madd,.btn-gold{min-height:48px;padding:16px;font-size:10px}
+  .order-ref-row{align-items:flex-start}
+  .order-ref-row strong{font-size:20px}
   .pay-opt{padding:10px 0;min-height:44px}
   .qty button{min-width:40px;min-height:40px;padding:8px 12px}
   .cat-pill{padding:11px 16px;min-height:44px}
