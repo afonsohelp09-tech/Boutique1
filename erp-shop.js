@@ -766,58 +766,117 @@
 
   function resetHeroBackgroundTuning(heroBg) {
     if (!heroBg) return;
-    heroBg.style.removeProperty('--hero-bg-pos');
-    heroBg.style.removeProperty('--hero-motion-scale');
-    heroBg.style.removeProperty('--hero-photo-pos');
-    heroBg.style.removeProperty('--hero-photo-scale');
-    heroBg.style.removeProperty('--hero-photo-opacity');
+    var host = heroBg.closest ? heroBg.closest('.hero') : null;
+    var target = host || heroBg;
+    target.style.removeProperty('--hero-bg-pos');
+    target.style.removeProperty('--hero-motion-scale');
+    target.style.removeProperty('--hero-bg-blur');
+    target.style.removeProperty('--hero-photo-pos');
+    target.style.removeProperty('--hero-photo-scale');
+    target.style.removeProperty('--hero-photo-opacity');
+    target.style.removeProperty('--hero-photo-width');
+    target.style.removeProperty('--hero-photo-max-height');
     try { delete heroBg.dataset.heroProbe; } catch (e) { /* ignore */ }
   }
 
-  function tuneHeroBackground(heroBg, rawUrl) {
-    if (!heroBg || !rawUrl) return;
-    var tunedUrl = String(optimizeImageUrl(rawUrl, 2200) || rawUrl).trim();
-    if (!tunedUrl) return;
-    heroBg.dataset.heroProbe = tunedUrl;
+  function isCompactViewport() {
+    return global.matchMedia && global.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function getHeroBackgroundWidth() {
+    var vw = Math.max(global.innerWidth || 0, document.documentElement.clientWidth || 0, 1280);
+    var dpr = Math.min(global.devicePixelRatio || 1, 2);
+    var target = Math.round(vw * dpr * (isCompactViewport() ? 0.9 : 0.85));
+    return Math.max(960, Math.min(target, isCompactViewport() ? 1400 : 1800));
+  }
+
+  function getHeroPhotoWidth() {
+    var vw = Math.max(global.innerWidth || 0, document.documentElement.clientWidth || 0, 1440);
+    var dpr = Math.min(global.devicePixelRatio || 1, 2);
+    var target = Math.round(vw * dpr * 1.2);
+    return Math.max(1400, Math.min(target, isCompactViewport() ? 1800 : 2600));
+  }
+
+  function applyHeroTuningForRatio(heroBg, token, ratio) {
+    if (!heroBg || heroBg.dataset.heroProbe !== token) return;
     resetHeroBackgroundTuning(heroBg);
-    heroBg.dataset.heroProbe = tunedUrl;
-    var probe = new Image();
-    probe.decoding = 'async';
-    probe.onload = function () {
-      if (heroBg.dataset.heroProbe !== tunedUrl) return;
-      var w = probe.naturalWidth || 0;
-      var h = probe.naturalHeight || 0;
-      if (!w || !h) return;
-      var ratio = w / h;
-      if (ratio < 0.95) {
-        heroBg.style.setProperty('--hero-bg-pos', 'center 18%');
-        heroBg.style.setProperty('--hero-motion-scale', '1.12');
-        heroBg.style.setProperty('--hero-photo-pos', 'center 12%');
-        heroBg.style.setProperty('--hero-photo-scale', '1');
-        heroBg.style.setProperty('--hero-photo-opacity', '.99');
-      } else if (ratio > 1.8) {
-        heroBg.style.setProperty('--hero-bg-pos', 'center center');
-        heroBg.style.setProperty('--hero-motion-scale', '1.16');
-        heroBg.style.setProperty('--hero-photo-pos', 'center center');
-        heroBg.style.setProperty('--hero-photo-scale', '1.01');
-        heroBg.style.setProperty('--hero-photo-opacity', '.97');
-      } else {
-        heroBg.style.setProperty('--hero-bg-pos', 'center 28%');
-        heroBg.style.setProperty('--hero-motion-scale', '1.14');
-        heroBg.style.setProperty('--hero-photo-pos', 'center 22%');
-        heroBg.style.setProperty('--hero-photo-scale', '1.005');
-        heroBg.style.setProperty('--hero-photo-opacity', '.98');
+    heroBg.dataset.heroProbe = token;
+    var host = heroBg.closest ? heroBg.closest('.hero') : null;
+    var target = host || heroBg;
+    if (ratio < 0.72) {
+      target.style.setProperty('--hero-bg-pos', 'center 10%');
+      target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.08' : '1.16');
+      target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '7px' : '14px');
+      target.style.setProperty('--hero-photo-pos', 'center 10%');
+      target.style.setProperty('--hero-photo-scale', '1');
+      target.style.setProperty('--hero-photo-opacity', '1');
+      target.style.setProperty('--hero-photo-width', 'min(88vw,760px)');
+      target.style.setProperty('--hero-photo-max-height', 'min(86vh,980px)');
+    } else if (ratio < 0.95) {
+      target.style.setProperty('--hero-bg-pos', 'center 18%');
+      target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.06' : '1.12');
+      target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '6px' : '12px');
+      target.style.setProperty('--hero-photo-pos', 'center 12%');
+      target.style.setProperty('--hero-photo-scale', '1');
+      target.style.setProperty('--hero-photo-opacity', '.99');
+      target.style.setProperty('--hero-photo-width', 'min(92vw,920px)');
+      target.style.setProperty('--hero-photo-max-height', 'min(84vh,960px)');
+    } else if (ratio > 2.2) {
+      target.style.setProperty('--hero-bg-pos', 'center center');
+      target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.1' : '1.18');
+      target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '5px' : '10px');
+      target.style.setProperty('--hero-photo-pos', 'center center');
+      target.style.setProperty('--hero-photo-scale', '1');
+      target.style.setProperty('--hero-photo-opacity', '.98');
+      target.style.setProperty('--hero-photo-width', 'min(99vw,1900px)');
+      target.style.setProperty('--hero-photo-max-height', 'min(64vh,740px)');
+    } else if (ratio > 1.8) {
+      target.style.setProperty('--hero-bg-pos', 'center center');
+      target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.08' : '1.16');
+      target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '5px' : '9px');
+      target.style.setProperty('--hero-photo-pos', 'center center');
+      target.style.setProperty('--hero-photo-scale', '1.01');
+      target.style.setProperty('--hero-photo-opacity', '.98');
+      target.style.setProperty('--hero-photo-width', 'min(98vw,1760px)');
+      target.style.setProperty('--hero-photo-max-height', 'min(72vh,820px)');
+    } else {
+      target.style.setProperty('--hero-bg-pos', 'center 28%');
+      target.style.setProperty('--hero-motion-scale', isCompactViewport() ? '1.07' : '1.14');
+      target.style.setProperty('--hero-bg-blur', isCompactViewport() ? '6px' : '10px');
+      target.style.setProperty('--hero-photo-pos', 'center 22%');
+      target.style.setProperty('--hero-photo-scale', '1.005');
+      target.style.setProperty('--hero-photo-opacity', '.98');
+      target.style.setProperty('--hero-photo-width', 'min(96vw,1600px)');
+      target.style.setProperty('--hero-photo-max-height', 'min(82vh,900px)');
+    }
+  }
+
+  function applyHeroTuningFallback(heroBg, token) {
+    applyHeroTuningForRatio(heroBg, token, 1.35);
+  }
+
+  function tuneHeroBackground(heroBg, heroPhoto, token) {
+    if (!heroBg || !token) return;
+    heroBg.dataset.heroProbe = token;
+    function applyFromImage(img) {
+      var w = img && img.naturalWidth || 0;
+      var h = img && img.naturalHeight || 0;
+      if (!w || !h) {
+        applyHeroTuningFallback(heroBg, token);
+        return;
       }
-    };
-    probe.onerror = function () {
-      if (heroBg.dataset.heroProbe !== tunedUrl) return;
-      heroBg.style.setProperty('--hero-bg-pos', 'center center');
-      heroBg.style.setProperty('--hero-motion-scale', '1.14');
-      heroBg.style.setProperty('--hero-photo-pos', 'center center');
-      heroBg.style.setProperty('--hero-photo-scale', '1.005');
-      heroBg.style.setProperty('--hero-photo-opacity', '.98');
-    };
-    probe.src = tunedUrl;
+      applyHeroTuningForRatio(heroBg, token, w / h);
+    }
+    if (heroPhoto) {
+      if (heroPhoto.complete) {
+        applyFromImage(heroPhoto);
+        return;
+      }
+      heroPhoto.onload = function () { applyFromImage(heroPhoto); };
+      heroPhoto.onerror = function () { applyHeroTuningFallback(heroBg, token); };
+      return;
+    }
+    applyHeroTuningFallback(heroBg, token);
   }
 
   function applyBrandUi() {
@@ -854,13 +913,14 @@
     var heroPhoto = $('heroPhoto');
     var heroUrl = (state.store && state.store.heroBgUrl) || (state.config && state.config.vitrine_hero_bg_url) || '';
     if (heroBg && heroUrl) {
-      var tunedHeroUrl = String(optimizeImageUrl(heroUrl, 2200) || heroUrl).replace(/"/g, '');
-      heroBg.style.backgroundImage = 'url("' + tunedHeroUrl + '")';
+      var tunedHeroBgUrl = String(optimizeImageUrl(heroUrl, getHeroBackgroundWidth()) || heroUrl).replace(/"/g, '');
+      var tunedHeroPhotoUrl = String(optimizeImageUrl(heroUrl, getHeroPhotoWidth()) || heroUrl).replace(/"/g, '');
+      heroBg.style.backgroundImage = 'url("' + tunedHeroBgUrl + '")';
       if (heroPhoto) {
-        heroPhoto.src = tunedHeroUrl;
+        heroPhoto.src = tunedHeroPhotoUrl;
         heroPhoto.style.display = '';
       }
-      tuneHeroBackground(heroBg, tunedHeroUrl);
+      tuneHeroBackground(heroBg, heroPhoto, tunedHeroPhotoUrl);
     } else if (heroBg) {
       heroBg.style.backgroundImage = '';
       resetHeroBackgroundTuning(heroBg);
@@ -2464,7 +2524,8 @@
     try {
       var ok = await pingApi();
       if (!ok) throw new Error('ping failed');
-      await Promise.all([loadStore(), loadCategories(), loadProducts()]);
+      await loadStore();
+      await Promise.all([loadCategories(), loadProducts()]);
       await syncCartFromServer();
       if (state.token) await restoreClientSession();
       if (state.clientId) await loadWishlistServer();

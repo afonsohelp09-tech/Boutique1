@@ -339,16 +339,24 @@ nav{
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .hero{
   position:relative;height:88vh;min-height:560px;
+  --hero-bg-pos:center center;
+  --hero-motion-scale:1.12;
+  --hero-bg-blur:10px;
+  --hero-photo-pos:center center;
+  --hero-photo-scale:1.01;
+  --hero-photo-opacity:.98;
+  --hero-photo-width:min(96vw,1600px);
+  --hero-photo-max-height:min(82vh,900px);
   display:flex;align-items:center;justify-content:center;overflow:hidden;
 }
 .hero-bg{
   position:absolute;inset:0;
-  background-position:var(--hero-bg-pos,center center);
+  background-position:var(--hero-bg-pos);
   background-size:cover;
   background-repeat:no-repeat;
-  filter:blur(14px) saturate(1.04) brightness(.78);
+  filter:blur(var(--hero-bg-blur)) saturate(1.04) brightness(.78);
   opacity:.9;
-  transform:scale(var(--hero-motion-scale,1.12));
+  transform:scale(var(--hero-motion-scale));
   transform-origin:center center;
   transition:transform 9s ease, background-image .4s ease, background-position .4s ease;
   will-change:transform,background-position;
@@ -361,15 +369,15 @@ nav{
   pointer-events:none;
 }
 .hero-photo{
-  width:min(96vw,1600px);
+  width:var(--hero-photo-width);
   max-width:100%;
-  max-height:min(82vh,900px);
+  max-height:var(--hero-photo-max-height);
   object-fit:contain;
-  object-position:var(--hero-photo-pos,center center);
-  transform:scale(var(--hero-photo-scale,1.01));
+  object-position:var(--hero-photo-pos);
+  transform:scale(var(--hero-photo-scale));
   transition:transform 9s ease, opacity .35s ease, object-position .35s ease;
   filter:drop-shadow(0 20px 50px rgba(0,0,0,.35));
-  opacity:var(--hero-photo-opacity,.98);
+  opacity:var(--hero-photo-opacity);
 }
 .hero:hover .hero-photo{transform:scale(1)}
 .hero-grad{
@@ -1156,9 +1164,14 @@ footer{
   .services{padding:32px 16px}
   .footer-grid{grid-template-columns:1fr}
   footer{padding:40px 16px calc(72px + env(safe-area-inset-bottom,0)) 20px}
-  .hero{height:auto;min-height:72vh;max-height:92vh}
+  .hero{
+    height:auto;min-height:72vh;max-height:92vh;
+    --hero-bg-blur:6px;
+    --hero-photo-width:min(100vw,900px);
+    --hero-photo-max-height:68vh;
+  }
+  .hero-bg{will-change:auto}
   .hero-media{padding:20px 14px 28px}
-  .hero-photo{width:min(100vw,900px);max-height:68vh}
   .hero-btns{flex-direction:column;width:100%;max-width:280px}
   .hero-btns .btn-gold,.hero-btns .btn-ghost{width:100%;min-height:48px}
   .order-ok{padding:28px 16px}
@@ -1307,7 +1320,7 @@ footer{
 <!-- HERO -->
 <header class="hero">
   <div class="hero-bg"></div>
-  <div class="hero-media"><img class="hero-photo" id="heroPhoto" alt="" decoding="async" loading="eager"/></div>
+  <div class="hero-media"><img class="hero-photo" id="heroPhoto" alt="" decoding="async" loading="eager" fetchpriority="high"/></div>
   <div class="hero-grad"></div>
   <div class="hero-content">
     <p class="hero-eyebrow" id="hEye"></p>
