@@ -312,6 +312,8 @@
       apiErrorPrefix: lang.apiErrorPrefix,
       newsletterOk: lang.newsletterOk,
       shopLoader: lang.shopLoader,
+      loadMore: lang.loadMore,
+      loadMoreLoading: lang.loadMoreLoading,
       apiBanner: lang.apiBanner,
       themeLight: lang.themeLight,
       themeDark: lang.themeDark,
@@ -394,6 +396,7 @@
     guestCheckoutSuffix: ' pour lier la commande à votre compte.',
     errorPrefix: 'Erreur : ', apiErrorPrefix: 'API : ',
     newsletterOk: 'Abonnement confirmé !', shopLoader: 'Chargement du catalogue…',
+    loadMore: 'Voir plus d\'articles', loadMoreLoading: 'Chargement…',
     apiBanner: '⚠️ <strong>API non configurée</strong> — Ouvrez <code>01-vitrine-client/index.html</code>, allez <strong>en bas du fichier</strong> et remplacez <code>INSEREZ_VOTRE</code> par l’URL <code>/exec</code> de votre Web App.',
     themeLight: 'Mode clair', themeDark: 'Mode sombre',
     themeLightShort: 'Clair', themeDarkShort: 'Sombre', themeAria: 'Apparence clair / sombre'
@@ -469,6 +472,7 @@
     guestCheckout: 'Já tem conta?', guestCheckoutBtn: 'Entrar', guestCheckoutSuffix: ' para associar a encomenda ao seu perfil.',
     errorPrefix: 'Erro: ', apiErrorPrefix: 'API: ',
     newsletterOk: 'Subscrição confirmada!', shopLoader: 'A carregar o catálogo…',
+    loadMore: 'Ver mais artigos', loadMoreLoading: 'A carregar…',
     apiBanner: '⚠️ <strong>API não configurada</strong> — Abra <code>01-vitrine-client/index.html</code>, vá ao <strong>fim do ficheiro</strong> e substitua <code>INSEREZ_VOTRE</code> pelo URL <code>/exec</code> da Web App.',
     themeLight: 'Modo claro', themeDark: 'Modo escuro',
     themeLightShort: 'Claro', themeDarkShort: 'Escuro', themeAria: 'Aparência claro / escuro'
@@ -544,6 +548,7 @@
     guestCheckout: 'Already have an account?', guestCheckoutBtn: 'Sign in', guestCheckoutSuffix: ' to link this order to your profile.',
     errorPrefix: 'Error: ', apiErrorPrefix: 'API: ',
     newsletterOk: 'Subscription confirmed!', shopLoader: 'Loading catalogue…',
+    loadMore: 'Load more items', loadMoreLoading: 'Loading…',
     apiBanner: '⚠️ <strong>API not configured</strong> — Open <code>01-vitrine-client/index.html</code>, go to the <strong>bottom of the file</strong> and replace <code>INSEREZ_VOTRE</code> with your Web App <code>/exec</code> URL.',
     themeLight: 'Light mode', themeDark: 'Dark mode',
     themeLightShort: 'Light', themeDarkShort: 'Dark', themeAria: 'Light / dark appearance'
@@ -619,6 +624,7 @@
     guestCheckout: '¿Ya tiene cuenta?', guestCheckoutBtn: 'Iniciar sesión', guestCheckoutSuffix: ' para vincular el pedido a su cuenta.',
     errorPrefix: 'Error: ', apiErrorPrefix: 'API: ',
     newsletterOk: '¡Suscripción confirmada!', shopLoader: 'Cargando catálogo…',
+    loadMore: 'Ver más artículos', loadMoreLoading: 'Cargando…',
     apiBanner: '⚠️ <strong>API no configurada</strong> — Abra <code>01-vitrine-client/index.html</code>, vaya al <strong>final del archivo</strong> y sustituya <code>INSEREZ_VOTRE</code> por la URL <code>/exec</code> de su Web App.',
     themeLight: 'Modo claro', themeDark: 'Modo oscuro',
     themeLightShort: 'Claro', themeDarkShort: 'Oscuro', themeAria: 'Apariencia claro / oscuro'
