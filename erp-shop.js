@@ -55,7 +55,6 @@
     qvProd: null,
     qvSize: '',
     qvColor: '',
-    qvTab: 'desc',
     qvGuide: false,
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '' },
     payMethod: 'cod',
@@ -373,12 +372,73 @@
     selectCat(action);
   }
 
-  function colorCss(name) {
-    if (!name || name === '—') return '#666';
-    if (String(name).charAt(0) === '#') return name;
+  var COLOR_PALETTE = [
+    { id: 'noir', hex: '#000000', fr: 'Noir', pt: 'Preto', en: 'Black', es: 'Negro' },
+    { id: 'anthracite', hex: '#374151', fr: 'Anthracite', pt: 'Antracite', en: 'Anthracite', es: 'Antracita' },
+    { id: 'gris', hex: '#9CA3AF', fr: 'Gris', pt: 'Cinza', en: 'Grey', es: 'Gris' },
+    { id: 'blanc', hex: '#FFFFFF', fr: 'Blanc', pt: 'Branco', en: 'White', es: 'Blanco', border: true },
+    { id: 'creme', hex: '#FEF3C7', fr: 'Crème', pt: 'Creme', en: 'Cream', es: 'Crema', border: true },
+    { id: 'beige', hex: '#D6D3D1', fr: 'Beige', pt: 'Bege', en: 'Beige', es: 'Beige' },
+    { id: 'marron', hex: '#78350F', fr: 'Marron', pt: 'Marrom', en: 'Brown', es: 'Marrón' },
+    { id: 'rouge', hex: '#EF4444', fr: 'Rouge', pt: 'Vermelho', en: 'Red', es: 'Rojo' },
+    { id: 'bordeaux', hex: '#7F1D1D', fr: 'Bordeaux', pt: 'Bordô', en: 'Burgundy', es: 'Burdeos' },
+    { id: 'rose', hex: '#EC4899', fr: 'Rose', pt: 'Rosa', en: 'Pink', es: 'Rosa' },
+    { id: 'rose_pale', hex: '#FBCFE8', fr: 'Rose Pâle', pt: 'Rosa Pálido', en: 'Pale pink', es: 'Rosa pálido', border: true },
+    { id: 'orange', hex: '#F97316', fr: 'Orange', pt: 'Laranja', en: 'Orange', es: 'Naranja' },
+    { id: 'jaune', hex: '#EAB308', fr: 'Jaune', pt: 'Amarelo', en: 'Yellow', es: 'Amarillo' },
+    { id: 'or', hex: '#D4AF37', fr: 'Or', pt: 'Ouro', en: 'Gold', es: 'Oro' },
+    { id: 'vert', hex: '#10B981', fr: 'Vert', pt: 'Verde', en: 'Green', es: 'Verde' },
+    { id: 'kaki', hex: '#3F6212', fr: 'Kaki', pt: 'Caqui', en: 'Khaki', es: 'Caqui' },
+    { id: 'bleu', hex: '#3B82F6', fr: 'Bleu', pt: 'Azul', en: 'Blue', es: 'Azul' },
+    { id: 'marine', hex: '#1E3A8A', fr: 'Marine', pt: 'Marinho', en: 'Navy', es: 'Marino' },
+    { id: 'ciel', hex: '#7DD3FC', fr: 'Ciel', pt: 'Céu', en: 'Sky', es: 'Cielo' },
+    { id: 'violet', hex: '#8B5CF6', fr: 'Violet', pt: 'Roxo', en: 'Violet', es: 'Violeta' }
+  ];
+
+  function normalizeColorKey(name) {
+    return String(name || '').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function findColorByName(name) {
+    var n = normalizeColorKey(name);
+    if (!n) return null;
+    for (var i = 0; i < COLOR_PALETTE.length; i++) {
+      var c = COLOR_PALETTE[i];
+      if (c.id === n) return c;
+      if (normalizeColorKey(c.fr) === n) return c;
+      if (normalizeColorKey(c.pt) === n) return c;
+      if (normalizeColorKey(c.en) === n) return c;
+      if (normalizeColorKey(c.es) === n) return c;
+    }
+    return null;
+  }
+
+  function resolveColor(name) {
+    if (!name || name === '—') return { hex: '#666666', border: false };
+    var raw = String(name).trim();
+    if (raw.charAt(0) === '#') {
+      var hex = raw.length === 4
+        ? '#' + raw.charAt(1) + raw.charAt(1) + raw.charAt(2) + raw.charAt(2) + raw.charAt(3) + raw.charAt(3)
+        : raw;
+      return { hex: hex, border: /^#(fff|ffffff|fef3c7|fbcfe8)$/i.test(hex) };
+    }
+    var hit = findColorByName(raw);
+    if (hit) return { hex: hit.hex, border: !!hit.border };
     var h = 0;
-    for (var i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-    return '#' + (h & 0xffffff).toString(16).padStart(6, '0');
+    for (var i = 0; i < raw.length; i++) h = raw.charCodeAt(i) + ((h << 5) - h);
+    return { hex: '#' + (h & 0xffffff).toString(16).padStart(6, '0'), border: false };
+  }
+
+  function colorCss(name) {
+    return resolveColor(name).hex;
+  }
+
+  function colorSwatchStyle(name) {
+    var r = resolveColor(name);
+    var s = 'background:' + r.hex;
+    if (r.border) s += ';box-shadow:inset 0 0 0 1px rgba(128,128,128,.4),0 0 0 1px var(--border-hard)';
+    return s;
   }
 
   var PLACEHOLDER_IMG = 'data:image/svg+xml,' + encodeURIComponent(
@@ -1271,7 +1331,7 @@
       '<div class="card-price"><span class="price-c">' + p.price.toFixed(2) + ' €</span>' +
       (p.old ? '<span class="price-o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div>' +
       '<div class="swatches">' + p.colors.map(function (c) {
-        return '<span class="sw" style="background:' + colorCss(c) + '" title="' + esc(c) + '"></span>';
+        return '<span class="sw" style="' + colorSwatchStyle(c) + '" title="' + esc(c) + '"></span>';
       }).join('') + '</div></div></div>';
   }
 
@@ -1525,7 +1585,7 @@
         imgHtml(it.img, nm(it), { className: '', fallback: it.img }) +
         '<div class="ci-body"><div><p class="ci-name">' + esc(nm(it)) + '</p>' +
         '<p class="ci-meta">' + esc(t().sizeMeta) + ': ' + esc(it.size) + ' · ' +
-        '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorCss(it.color) + ';vertical-align:middle;"></span></p></div>' +
+        '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;' + colorSwatchStyle(it.color) + '"></span></p></div>' +
         '<div class="ci-bot"><div class="qty">' +
         '<button onclick="Shop.updQty(\'' + esc(it.key).replace(/'/g, "\\'") + '\',-1)">−</button><span>' + it.qty + '</span>' +
         '<button onclick="Shop.updQty(\'' + esc(it.key).replace(/'/g, "\\'") + '\',1)">+</button></div>' +
@@ -1680,7 +1740,6 @@
     state.qvProd = p;
     state.qvSize = hasSizeOptions(p) ? '' : (normalizeOptionValue(productSizes(p)[0]) || (t().oneSize || '—'));
     state.qvColor = hasColorOptions(p) ? '' : (normalizeOptionValue((p.colors || [])[0]) || '—');
-    state.qvTab = 'desc';
     state.qvGuide = false;
     renderQv();
     $('qvBg').classList.add('open');
@@ -1712,14 +1771,11 @@
       '<p class="m-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ')</span></p>' +
       '<div class="m-price"><span class="c">' + displayPrice.toFixed(2) + ' €</span>' +
       (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div>' +
-      '<div class="tab-bar">' +
-      '<button class="tab-btn ' + (state.qvTab === 'desc' ? 'on' : '') + '" onclick="Shop.setTab(\'desc\')">' + esc(t().tabDesc) + '</button>' +
-      '<button class="tab-btn ' + (state.qvTab === 'comp' ? 'on' : '') + '" onclick="Shop.setTab(\'comp\')">' + esc(t().tabComp) + '</button></div>' +
-      '<div class="tab-panel">' + (state.qvTab === 'desc' ? '<p>' + esc(desc(p)) + '</p>' : '<ul>' + t().comp.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>') + '</div>' +
+      '<div class="tab-panel"><p>' + esc(desc(p)) + '</p></div>' +
       (colorOptions.length ? '<span class="opt-label">' + esc(t().colLbl) + '</span>' +
       '<div class="color-opts">' + colorOptions.map(function (c) {
         var on = state.qvColor === c ? ' on' : '';
-        return '<button class="col-btn' + on + '" type="button" title="' + esc(c) + '" aria-label="' + esc(c) + '" style="background:' + colorCss(c) + '" onclick="Shop.setQvColor(\'' + esc(c).replace(/'/g, "\\'") + '\')"></button>';
+        return '<button class="col-btn' + on + '" type="button" title="' + esc(c) + '" aria-label="' + esc(c) + '" style="' + colorSwatchStyle(c) + '" onclick="Shop.setQvColor(\'' + esc(c).replace(/'/g, "\\'") + '\')"></button>';
       }).join('') + '</div>' : '') +
       (sizeOptions.length ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">' +
       '<span class="opt-label" style="margin:0;">' + esc(t().szLbl) + '</span>' +
@@ -1737,7 +1793,6 @@
       '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' + (faved ? esc(t().favAdded) : esc(t().favAdd)) + '</button></div></div>';
   }
 
-  function setTab(tab) { state.qvTab = tab; renderQv(); }
   function setQvSize(s) { state.qvSize = s; renderQv(); }
   function setQvColor(c) { state.qvColor = c; renderQv(); }
   function toggleQvGuide() { state.qvGuide = !state.qvGuide; renderQv(); }
@@ -2829,7 +2884,6 @@
     openQv: openQv,
     closeQv: closeQv,
     renderQv: renderQv,
-    setTab: setTab,
     setQvSize: setQvSize,
     setQvColor: setQvColor,
     toggleQvGuide: toggleQvGuide,
