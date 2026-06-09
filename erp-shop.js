@@ -876,6 +876,56 @@
     }
   }
 
+  var VITRINE_LANGS = ['pt', 'fr', 'en', 'es'];
+
+  function buildVitrineContentFromConfig(cfg) {
+    cfg = cfg || {};
+    var content = {};
+    VITRINE_LANGS.forEach(function (lg) {
+      content[lg] = {
+        hEye: String(cfg['vitrine_hero_eyebrow_' + lg] || '').trim(),
+        hTitle: String(cfg['vitrine_hero_title_' + lg] || '').trim(),
+        hSub: String(cfg['vitrine_hero_sub_' + lg] || '').trim(),
+        hBtn1: String(cfg['vitrine_hero_btn1_' + lg] || '').trim(),
+        hBtn2: String(cfg['vitrine_hero_btn2_' + lg] || '').trim(),
+        shopLabel: String(cfg['vitrine_shop_label_' + lg] || '').trim(),
+        shopTitle: String(cfg['vitrine_shop_title_' + lg] || '').trim(),
+        fDesc: String(cfg['vitrine_footer_desc_' + lg] || cfg.boutique_footer_tagline || '').trim()
+      };
+    });
+    return content;
+  }
+
+  function buildSocialFromConfig(cfg) {
+    cfg = cfg || {};
+    return {
+      instagram: String(cfg.social_instagram || '').trim(),
+      facebook: String(cfg.social_facebook || '').trim(),
+      pinterest: String(cfg.social_pinterest || '').trim(),
+      tiktok: String(cfg.social_tiktok || '').trim()
+    };
+  }
+
+  function hydrateStoreFromConfig() {
+    if (!state.store) state.store = {};
+    if (!state.config) state.config = {};
+    if (!state.store.storeName && state.config.site_name) {
+      state.store.storeName = String(state.config.site_name).trim();
+    }
+    if (!state.store.heroBgUrl && state.config.vitrine_hero_bg_url) {
+      state.store.heroBgUrl = String(state.config.vitrine_hero_bg_url).trim();
+    }
+    if (!state.store.logoUrl && state.config.store_logo_url) {
+      state.store.logoUrl = String(state.config.store_logo_url).trim();
+    }
+    if (!state.store.content || !Object.keys(state.store.content).length) {
+      state.store.content = buildVitrineContentFromConfig(state.config);
+    }
+    if (!state.store.social || !Object.keys(state.store.social).length) {
+      state.store.social = buildSocialFromConfig(state.config);
+    }
+  }
+
   async function loadStore() {
     var brandRes = null;
     try { brandRes = await erpCall('getPublicBrand', {}); } catch (e) { /* ignore */ }
@@ -891,7 +941,22 @@
         if (cfg && cfg.success && cfg.config) state.config = cfg.config;
       } catch (e2) { /* ignore */ }
     }
+    try {
+      var sd = await erpCall('getStoreData', {});
+      if (sd && sd.success) {
+        if (sd.settings && typeof sd.settings === 'object') {
+          state.config = Object.assign({}, state.config || {}, sd.settings);
+        }
+        if (!state.store.storeName && sd.storeName) state.store.storeName = sd.storeName;
+        if (!state.store.logoUrl && sd.logoUrl) state.store.logoUrl = sd.logoUrl;
+        if (!state.store.heroBgUrl && sd.heroBgUrl) state.store.heroBgUrl = sd.heroBgUrl;
+        if (sd.content && Object.keys(sd.content).length) state.store.content = sd.content;
+        if (sd.social && Object.keys(sd.social).length) state.store.social = sd.social;
+        if (sd.colors) state.store.colors = sd.colors;
+      }
+    } catch (e3) { /* ignore */ }
     if (!state.store) state.store = {};
+    hydrateStoreFromConfig();
     if (!state.store.heroBgUrl && state.config && state.config.vitrine_hero_bg_url) {
       state.store.heroBgUrl = String(state.config.vitrine_hero_bg_url).trim();
     }
