@@ -117,19 +117,34 @@
     return null;
   }
 
+  var SIZE_LIST = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'TU'];
+
   function productSizes(p) {
-    if (p.sizes && p.sizes.length) return p.sizes;
+    var sizes = productSizeOptions(p);
+    if (sizes.length) return sizes;
     return [t().oneSize || '—'];
   }
   function normalizeOptionValue(v) {
     var val = String(v || '').trim();
     return val && val !== '—' ? val : '';
   }
+  function sortSizeOptions(list) {
+    return (list || []).slice().sort(function (a, b) {
+      var ia = SIZE_LIST.indexOf(a);
+      var ib = SIZE_LIST.indexOf(b);
+      if (ia >= 0 && ib >= 0) return ia - ib;
+      if (ia >= 0) return -1;
+      if (ib >= 0) return 1;
+      return String(a).localeCompare(String(b));
+    });
+  }
   function productColorOptions(p) {
-    return (p.colors || []).map(normalizeOptionValue).filter(Boolean);
+    var raw = (p.colors || p.cores || []).map(normalizeOptionValue).filter(Boolean);
+    return sortColorOptions(raw);
   }
   function productSizeOptions(p) {
-    return ((p && p.sizes) || []).map(normalizeOptionValue).filter(Boolean);
+    var raw = ((p && p.sizes) || (p && p.tamanhos) || []).map(normalizeOptionValue).filter(Boolean);
+    return sortSizeOptions(raw);
   }
   function hasColorOptions(p) { return productColorOptions(p).length > 0; }
   function hasSizeOptions(p) { return productSizeOptions(p).length > 0; }
@@ -400,6 +415,13 @@
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
+  function findColorById(id) {
+    for (var i = 0; i < COLOR_PALETTE.length; i++) {
+      if (COLOR_PALETTE[i].id === id) return COLOR_PALETTE[i];
+    }
+    return null;
+  }
+
   function findColorByName(name) {
     var n = normalizeColorKey(name);
     if (!n) return null;
@@ -414,6 +436,49 @@
     return null;
   }
 
+  function colorCanonicalKey(nameOrId) {
+    var raw = String(nameOrId || '').trim();
+    if (!raw) return '';
+    var byId = findColorById(raw);
+    if (byId) return byId.id;
+    var byName = findColorByName(raw);
+    if (byName) return byName.id;
+    return normalizeColorKey(raw);
+  }
+
+  function colorsMatch(a, b) {
+    if (!a || !b) return !a && !b;
+    return colorCanonicalKey(a) === colorCanonicalKey(b);
+  }
+
+  function colorDisplayName(nameOrId) {
+    var raw = String(nameOrId || '').trim();
+    if (!raw) return '—';
+    var hit = findColorById(raw) || findColorByName(raw);
+    if (hit) {
+      var L = state.lang;
+      return hit[L] || hit.pt || hit.fr || hit.id;
+    }
+    return raw;
+  }
+
+  function sortColorOptions(list) {
+    return (list || []).slice().sort(function (a, b) {
+      var ka = colorCanonicalKey(a);
+      var kb = colorCanonicalKey(b);
+      var ia = -1;
+      var ib = -1;
+      for (var i = 0; i < COLOR_PALETTE.length; i++) {
+        if (COLOR_PALETTE[i].id === ka) ia = i;
+        if (COLOR_PALETTE[i].id === kb) ib = i;
+      }
+      if (ia >= 0 && ib >= 0) return ia - ib;
+      if (ia >= 0) return -1;
+      if (ib >= 0) return 1;
+      return String(a).localeCompare(String(b));
+    });
+  }
+
   function resolveColor(name) {
     if (!name || name === '—') return { hex: '#666666', border: false };
     var raw = String(name).trim();
@@ -423,7 +488,7 @@
         : raw;
       return { hex: hex, border: /^#(fff|ffffff|fef3c7|fbcfe8)$/i.test(hex) };
     }
-    var hit = findColorByName(raw);
+    var hit = findColorById(raw) || findColorByName(raw);
     if (hit) return { hex: hit.hex, border: !!hit.border };
     var h = 0;
     for (var i = 0; i < raw.length; i++) h = raw.charCodeAt(i) + ((h << 5) - h);
@@ -645,10 +710,10 @@
     var hit = vars.find(function (v) {
       var ts = String(v.tamanho || '').trim();
       var tc = String(v.cor || '').trim();
-      return (!sz || ts === sz || !ts) && (!cl || tc === cl || !tc);
+      return (!sz || ts === sz || !ts) && (!cl || colorsMatch(tc, cl) || !tc);
     });
     if (!hit && sz) hit = vars.find(function (v) { return String(v.tamanho || '').trim() === sz; });
-    if (!hit && cl) hit = vars.find(function (v) { return String(v.cor || '').trim() === cl; });
+    if (!hit && cl) hit = vars.find(function (v) { return colorsMatch(v.cor, cl); });
     return hit || vars[0];
   }
 
@@ -689,8 +754,8 @@
       imagemThumbMd: p.imagem_thumb_md || '',
       imagemThumbLg: p.imagem_thumb_lg || '',
       imagemUpdatedAt: p.imagem_updated_at || '',
-      colors: (p.cores && p.cores.length) ? p.cores : ['—'],
-      sizes: (p.tamanhos && p.tamanhos.length) ? p.tamanhos : [],
+      colors: productColorOptions({ colors: p.cores || [], cores: p.cores || [] }),
+      sizes: productSizeOptions({ sizes: p.tamanhos || [], tamanhos: p.tamanhos || [] }),
       rate: isNaN(rate) ? 0 : rate,
       rev: isNaN(rev) ? 0 : rev,
       dFr: descr,
@@ -1330,9 +1395,9 @@
       '<p class="card-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ' ' + esc(t().reviews) + ')</span></p>' +
       '<div class="card-price"><span class="price-c">' + p.price.toFixed(2) + ' €</span>' +
       (p.old ? '<span class="price-o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div>' +
-      '<div class="swatches">' + p.colors.map(function (c) {
-        return '<span class="sw" style="' + colorSwatchStyle(c) + '" title="' + esc(c) + '"></span>';
-      }).join('') + '</div></div></div>';
+      (productColorOptions(p).length ? '<div class="swatches">' + productColorOptions(p).map(function (c) {
+        return '<span class="sw" style="' + colorSwatchStyle(c) + '" title="' + esc(colorDisplayName(c)) + '"></span>';
+      }).join('') + '</div>' : '') + '</div></div>';
   }
 
   function renderLoadMore() {
@@ -1447,7 +1512,7 @@
     var size = normalizeOptionValue(sz);
     var color = normalizeOptionValue(cl);
     if (!size && !hasSizeOptions(p)) size = normalizeOptionValue(sizes[0]) || (t().oneSize || '—');
-    if (!color && !hasColorOptions(p)) color = normalizeOptionValue((p.colors || [])[0]) || '—';
+    if (!color && !hasColorOptions(p)) color = normalizeOptionValue(productColorOptions(p)[0]) || '—';
     if (requiresVariantSelection(p) && !hasValidVariantSelection(p, size, color)) {
       openQv(id);
       global.toast(t().selectOptionsNotice, 'i');
@@ -1584,7 +1649,7 @@
       return '<div class="ci">' +
         imgHtml(it.img, nm(it), { className: '', fallback: it.img }) +
         '<div class="ci-body"><div><p class="ci-name">' + esc(nm(it)) + '</p>' +
-        '<p class="ci-meta">' + esc(t().sizeMeta) + ': ' + esc(it.size) + ' · ' +
+        '<p class="ci-meta">' + esc(t().sizeMeta) + ': ' + esc(it.size) + ' · ' + esc(colorDisplayName(it.color)) + ' ' +
         '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;' + colorSwatchStyle(it.color) + '"></span></p></div>' +
         '<div class="ci-bot"><div class="qty">' +
         '<button onclick="Shop.updQty(\'' + esc(it.key).replace(/'/g, "\\'") + '\',-1)">−</button><span>' + it.qty + '</span>' +
@@ -1774,18 +1839,19 @@
       '<div class="tab-panel"><p>' + esc(desc(p)) + '</p></div>' +
       (colorOptions.length ? '<span class="opt-label">' + esc(t().colLbl) + '</span>' +
       '<div class="color-opts">' + colorOptions.map(function (c) {
-        var on = state.qvColor === c ? ' on' : '';
-        return '<button class="col-btn' + on + '" type="button" title="' + esc(c) + '" aria-label="' + esc(c) + '" style="' + colorSwatchStyle(c) + '" onclick="Shop.setQvColor(\'' + esc(c).replace(/'/g, "\\'") + '\')"></button>';
+        var on = colorsMatch(state.qvColor, c) ? ' on' : '';
+        var label = colorDisplayName(c);
+        return '<button class="col-btn' + on + '" type="button" title="' + esc(label) + '" aria-label="' + esc(label) + '" style="' + colorSwatchStyle(c) + '" onclick="Shop.setQvColor(\'' + esc(c).replace(/'/g, "\\'") + '\')"></button>';
       }).join('') + '</div>' : '') +
       (sizeOptions.length ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">' +
       '<span class="opt-label" style="margin:0;">' + esc(t().szLbl) + '</span>' +
       '<button style="background:none;border:none;color:var(--gold);font-size:8px;cursor:pointer;" onclick="Shop.toggleQvGuide()">' + esc(t().szGuide) + '</button></div>' +
-      (state.qvGuide ? '<div class="size-guide"><span>XS · S · M · L · XL</span></div>' : '') +
+      (state.qvGuide ? '<div class="size-guide"><span>' + esc(SIZE_LIST.join(' · ')) + '</span></div>' : '') +
       '<div class="size-opts">' + sizeOptions.map(function (s) {
         return '<button class="sz-btn ' + (state.qvSize === s ? 'on' : '') + '" type="button" onclick="Shop.setQvSize(\'' + esc(s).replace(/'/g, "\\'") + '\')">' + esc(s) + '</button>';
       }).join('') + '</div>' : '') +
       ((colorOptions.length || sizeOptions.length) ? '<div class="qv-selection-box">' +
-      (colorOptions.length ? '<div class="qv-selection-row' + (state.qvColor ? '' : ' missing') + '"><span>' + esc(t().colLbl) + '</span><strong>' + esc(state.qvColor || t().selectColorPrompt) + '</strong></div>' : '') +
+      (colorOptions.length ? '<div class="qv-selection-row' + (state.qvColor ? '' : ' missing') + '"><span>' + esc(t().colLbl) + '</span><strong>' + esc(state.qvColor ? colorDisplayName(state.qvColor) : t().selectColorPrompt) + '</strong></div>' : '') +
       (sizeOptions.length ? '<div class="qv-selection-row' + (state.qvSize ? '' : ' missing') + '"><span>' + esc(t().szLbl) + '</span><strong>' + esc(state.qvSize || t().selectSizePrompt) + '</strong></div>' : '') +
       '<p class="qv-selection-note' + (canAdd ? ' ok' : '') + '">' + esc(canAdd ? t().selectionReady : t().selectOptionsNotice) + '</p></div>' : '') +
       '<div class="m-cta">' +
@@ -2268,7 +2334,7 @@
     var lines = (details || []).map(function (d) {
       var meta = [];
       if (normalizeOptionValue(d.tamanho)) meta.push(t().sizeMeta + ': ' + d.tamanho);
-      if (normalizeOptionValue(d.cor)) meta.push(t().colorMeta + ': ' + d.cor);
+      if (normalizeOptionValue(d.cor)) meta.push(t().colorMeta + ': ' + colorDisplayName(d.cor));
       return '<li><strong>' + esc(d.nome_produto || d.produto_id) + '</strong> × ' + esc(d.quantidade) + ' — ' + esc(d.preco) + ' €' +
         (meta.length ? '<br><span style="font-size:9px;color:var(--muted);">' + esc(meta.join(' · ')) + '</span>' : '') + '</li>';
     }).join('');
