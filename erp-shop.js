@@ -56,6 +56,7 @@
     qvSize: '',
     qvColor: '',
     qvGuide: false,
+    qvGalleryIndex: 0,
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '' },
     payMethod: 'cod',
     ordered: false,
@@ -282,7 +283,7 @@
 
   function updateScrollLock() {
     var lock = false;
-    ['cartBg', 'wishBg', 'qvBg', 'coBg', 'contactBg', 'accBg', 'navMobileBg'].forEach(function (id) {
+    ['cartBg', 'wishBg', 'qvBg', 'coBg', 'contactBg', 'accBg', 'navMobileBg', 'imgZoomBg'].forEach(function (id) {
       var el = $(id);
       if (el && el.classList.contains('open')) lock = true;
     });
@@ -622,6 +623,156 @@
     return variantImageUrl(p, findVariant(p, size, color), 1200);
   }
 
+  function productGalleryList(p) {
+    if (!p) return [];
+    var raw = p.gallery || p.imagens || (p._raw && p._raw.imagens) || [];
+    if (raw && raw.length) {
+      return raw.map(function (img, idx) {
+        var url = typeof img === 'string' ? img : (img.url || '');
+        if (!url) return null;
+        var md = (typeof img === 'object' && (img.thumb_md || img.thumbMd)) || optimizeImageUrl(url, 480);
+        var lg = (typeof img === 'object' && (img.thumb_lg || img.thumbLg)) || optimizeImageUrl(url, 900);
+        return { url: url, md: md, lg: lg, ordem: (typeof img === 'object' && img.ordem != null) ? img.ordem : idx };
+      }).filter(function (x) { return x; });
+    }
+    var main = qvProductImage(p, state.qvSize, state.qvColor);
+    if (main && main !== placeholderImage()) return [{ url: main, md: main, lg: main, ordem: 0 }];
+    if (p.imgLg || p.img) return [{ url: p.imgLg || p.img, md: p.imgMd || p.img, lg: p.imgLg || p.img, ordem: 0 }];
+    return [];
+  }
+
+  function qvCurrentGalleryImage(p) {
+    var gallery = productGalleryList(p);
+    var idx = state.qvGalleryIndex || 0;
+    if (idx >= gallery.length) idx = 0;
+    if (gallery.length) return gallery[idx];
+    return { url: qvProductImage(p, state.qvSize, state.qvColor), md: '', lg: '' };
+  }
+
+  function zoomGalleryImageUrl(item) {
+    if (!item) return placeholderImage();
+    var fid = extractDriveFileId(item.url || '');
+    if (fid) return 'https://drive.google.com/uc?export=view&id=' + fid;
+    return item.lg || item.url || placeholderImage();
+  }
+
+  function zoomProductImageUrl(p, size, color) {
+    if (!p) return placeholderImage();
+    var variant = findVariant(p, size, color);
+    var fid = '';
+    if (variant && variant.imagem_variante) fid = extractDriveFileId(variant.imagem_variante);
+    if (!fid) fid = p.driveFileId || (p._raw && p._raw.drive_file_id) || resolveProductDriveId(p);
+    if (!fid && variant && variant.imagem_variante) fid = extractDriveFileId(variant.imagem_variante);
+    if (!fid && p.imagem) fid = extractDriveFileId(p.imagem);
+    if (fid) return 'https://drive.google.com/uc?export=view&id=' + fid;
+    return variantImageUrl(p, variant, 1600);
+  }
+
+  var imgZoomState = { scale: 1, x: 0, y: 0, drag: false, lastX: 0, lastY: 0 };
+
+  function applyImageZoomTransform() {
+    var img = $('imgZoomImg');
+    if (!img) return;
+    img.style.transform = 'translate(' + imgZoomState.x + 'px,' + imgZoomState.y + 'px) scale(' + imgZoomState.scale + ')';
+  }
+
+  function resetImageZoomTransform() {
+    imgZoomState.scale = 1;
+    imgZoomState.x = 0;
+    imgZoomState.y = 0;
+    applyImageZoomTransform();
+  }
+
+  function openImageZoom(src, alt) {
+    var bg = $('imgZoomBg');
+    var img = $('imgZoomImg');
+    if (!bg || !img) return;
+    resetImageZoomTransform();
+    img.src = src || placeholderImage();
+    img.alt = alt || '';
+    bg.classList.add('open');
+    bg.setAttribute('aria-hidden', 'false');
+    var hint = $('imgZoomHint');
+    if (hint) hint.textContent = t().imgZoomHelp || '';
+    updateScrollLock();
+  }
+
+  function closeImageZoom() {
+    var bg = $('imgZoomBg');
+    if (!bg) return;
+    bg.classList.remove('open');
+    bg.setAttribute('aria-hidden', 'true');
+    updateScrollLock();
+  }
+
+  function openQvImageZoom() {
+    var p = state.qvProd;
+    if (!p) return;
+    var item = qvCurrentGalleryImage(p);
+    openImageZoom(zoomGalleryImageUrl(item), nm(p));
+  }
+
+  function zoomImageStep(delta) {
+    imgZoomState.scale = Math.min(4, Math.max(1, imgZoomState.scale + delta));
+    if (imgZoomState.scale <= 1) { imgZoomState.x = 0; imgZoomState.y = 0; }
+    applyImageZoomTransform();
+  }
+
+  function bindImageZoomEvents() {
+    var bg = $('imgZoomBg');
+    var wrap = $('imgZoomWrap');
+    if (!bg || bg.dataset.bound === '1') return;
+    bg.dataset.bound = '1';
+    bg.addEventListener('click', function (e) {
+      if (e.target === bg || (e.target.classList && e.target.classList.contains('img-zoom-backdrop'))) closeImageZoom();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && bg.classList.contains('open')) closeImageZoom();
+    });
+    if (!wrap) return;
+    wrap.addEventListener('wheel', function (e) {
+      if (!bg.classList.contains('open')) return;
+      e.preventDefault();
+      zoomImageStep(e.deltaY > 0 ? -0.2 : 0.2);
+    }, { passive: false });
+    wrap.addEventListener('dblclick', function (e) {
+      e.preventDefault();
+      if (imgZoomState.scale > 1.05) resetImageZoomTransform();
+      else { imgZoomState.scale = 2; applyImageZoomTransform(); }
+    });
+    function startDrag(clientX, clientY) {
+      if (imgZoomState.scale <= 1) return;
+      imgZoomState.drag = true;
+      imgZoomState.lastX = clientX;
+      imgZoomState.lastY = clientY;
+      wrap.classList.add('dragging');
+    }
+    function moveDrag(clientX, clientY) {
+      if (!imgZoomState.drag) return;
+      imgZoomState.x += clientX - imgZoomState.lastX;
+      imgZoomState.y += clientY - imgZoomState.lastY;
+      imgZoomState.lastX = clientX;
+      imgZoomState.lastY = clientY;
+      applyImageZoomTransform();
+    }
+    function endDrag() {
+      imgZoomState.drag = false;
+      wrap.classList.remove('dragging');
+    }
+    wrap.addEventListener('mousedown', function (e) { if (e.button === 0) startDrag(e.clientX, e.clientY); });
+    global.addEventListener('mousemove', function (e) { moveDrag(e.clientX, e.clientY); });
+    global.addEventListener('mouseup', endDrag);
+    wrap.addEventListener('touchstart', function (e) {
+      if (!e.touches[0]) return;
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    wrap.addEventListener('touchmove', function (e) {
+      if (!e.touches[0]) return;
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    wrap.addEventListener('touchend', endDrag);
+  }
+
   function imgHtml(src, alt, opts) {
     opts = opts || {};
     var url = src || placeholderImage();
@@ -754,6 +905,15 @@
       imagemThumbMd: p.imagem_thumb_md || '',
       imagemThumbLg: p.imagem_thumb_lg || '',
       imagemUpdatedAt: p.imagem_updated_at || '',
+      gallery: (p.imagens || []).map(function (img) {
+        return {
+          url: img.url || '',
+          thumbSm: img.thumb_sm || img.thumbSm || '',
+          thumbMd: img.thumb_md || img.thumbMd || '',
+          thumbLg: img.thumb_lg || img.thumbLg || '',
+          ordem: img.ordem != null ? img.ordem : 0
+        };
+      }),
       colors: productColorOptions({ colors: p.cores || [], cores: p.cores || [] }),
       sizes: productSizeOptions({ sizes: p.tamanhos || [], tamanhos: p.tamanhos || [] }),
       rate: isNaN(rate) ? 0 : rate,
@@ -980,6 +1140,7 @@
       if (global.applyShopLang) global.applyShopLang(state.lang);
     }
     applyBrandUi();
+    applyHeroTextColors();
     applyPromoBanner();
   }
 
@@ -1002,8 +1163,24 @@
     }
   }
 
+  function applyHeroTextColors() {
+    var cfg = state.config || {};
+    function setColor(id, key) {
+      var el = $(id);
+      if (!el) return;
+      var raw = String(cfg[key] || '').trim();
+      if (raw && raw.charAt(0) !== '#') raw = '#' + raw;
+      if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(raw)) el.style.color = raw;
+      else el.style.removeProperty('color');
+    }
+    setColor('hEye', 'vitrine_hero_eyebrow_color');
+    setColor('hTitle', 'vitrine_hero_title_color');
+    setColor('hSub', 'vitrine_hero_sub_color');
+  }
+
   function applyVitrineContent(lang) {
     lang = lang || state.lang || 'pt';
+    applyHeroTextColors();
     var c = state.store && state.store.content && state.store.content[lang];
     if (!c) return;
     function setText(id, val, html) {
@@ -1210,14 +1387,54 @@
     applyVitrineContent(state.lang);
   }
 
+  function fillPromoPlaceholders(text) {
+    var cfg = state.config || {};
+    return String(text || '')
+      .replace(/\{\{\s*pct\s*\}\}/gi, String(cfg.announcement_promo_pct || '').trim())
+      .replace(/\{\{\s*pct2\s*\}\}/gi, String(cfg.announcement_promo_pct_2 || '').trim())
+      .replace(/\{\{\s*code\s*\}\}/gi, String(cfg.announcement_promo_code || '').trim())
+      .replace(/\{\{\s*amount\s*\}\}/gi, String(cfg.announcement_promo_amount_eur || '').trim())
+      .replace(/\{\{\s*min_cart\s*\}\}/gi, String(cfg.announcement_promo_min_cart_eur || '').trim())
+      .replace(/\{\{\s*valid_until\s*\}\}/gi, String(cfg.announcement_promo_valid_until || '').trim())
+      .replace(/\{\{\s*promo_label\s*\}\}/gi, String(cfg.announcement_promo_label || '').trim());
+  }
+
+  function announcementActive() {
+    var cfg = state.config || {};
+    if (!cfgOn('announcement_enabled', false)) return false;
+    var now = new Date();
+    var ds = String(cfg.announcement_date_start || '').trim();
+    if (ds) {
+      var d1 = new Date(ds);
+      if (!isNaN(d1.getTime()) && now < d1) return false;
+    }
+    var de = String(cfg.announcement_date_end || '').trim();
+    if (de) {
+      var d2 = new Date(de);
+      if (!isNaN(d2.getTime())) {
+        d2.setHours(23, 59, 59, 999);
+        if (now > d2) return false;
+      }
+    }
+    return true;
+  }
+
   function applyPromoBanner() {
+    var cfg = state.config || {};
     var text = '';
-    if (cfgOn('promo_banner_enabled', false) && state.config.promo_banner_text) {
-      text = state.config.promo_banner_text;
-    } else if (state.config.announcement_promo_code) {
-      text = '✦ CODE : ' + state.config.announcement_promo_code + ' ✦';
+    if (announcementActive() && cfg.announcement_text) {
+      text = fillPromoPlaceholders(cfg.announcement_text);
+    } else if (cfgOn('promo_banner_enabled', false) && cfg.promo_banner_text) {
+      text = fillPromoPlaceholders(cfg.promo_banner_text);
+    } else if (announcementActive() && cfg.announcement_promo_code) {
+      text = '✦ CODE : ' + cfg.announcement_promo_code + ' ✦';
     }
     if (!text) text = t().promo;
+    var mq = $('mq');
+    if (mq) {
+      if (cfgOn('announcement_marquee', true)) mq.style.removeProperty('animation');
+      else mq.style.animation = 'none';
+    }
     ['mq1', 'mq2', 'mq3', 'mq4'].forEach(function (id) {
       var el = $(id);
       if (el) el.textContent = text;
@@ -1851,7 +2068,8 @@
   async function openQv(id) {
     var p = state.products.find(function (x) { return x.id === id; });
     var needsDetail = p && (!desc(p) || ((productSizeOptions(p).length || productColorOptions(p).length) && !(p.variantes && p.variantes.length)));
-    if ((!p || needsDetail) && apiUrlConfigured()) {
+    var needsGallery = p && (!p.gallery || p.gallery.length <= 1);
+    if ((!p || needsDetail || needsGallery) && apiUrlConfigured()) {
       try {
         var res = await erpCall('getProduct', { id: id });
         if (res && res.success && res.product) {
@@ -1868,6 +2086,7 @@
     }
     if (!p) return;
     state.qvProd = p;
+    state.qvGalleryIndex = 0;
     state.qvSize = hasSizeOptions(p) ? '' : (normalizeOptionValue(productSizes(p)[0]) || (t().oneSize || '—'));
     state.qvColor = hasColorOptions(p) ? '' : (normalizeOptionValue((p.colors || [])[0]) || '—');
     state.qvGuide = false;
@@ -1893,9 +2112,34 @@
       if (c.id === p.catKey) catLabel = c.label;
     });
 
+    var gallery = productGalleryList(p);
+    var gIdx = state.qvGalleryIndex || 0;
+    if (gIdx >= gallery.length) gIdx = 0;
+    state.qvGalleryIndex = gIdx;
+    var currentImg = gallery.length ? (gallery[gIdx].lg || gallery[gIdx].md || gallery[gIdx].url) : qvProductImage(p, state.qvSize, state.qvColor);
+
+    var galleryHtml = '';
+    if (gallery.length > 1) {
+      galleryHtml =
+        '<div class="qv-gallery-thumbs">' + gallery.map(function (g, i) {
+          var thumb = g.md || g.url || '';
+          return '<button type="button" class="qv-gthumb' + (i === gIdx ? ' on' : '') + '" onclick="event.stopPropagation();Shop.setQvGallery(' + i + ')">' +
+            '<img src="' + esc(thumb) + '" alt=""/></button>';
+        }).join('') + '</div>' +
+        '<div class="qv-gallery-nav">' +
+        '<button type="button" class="qv-gnav" onclick="event.stopPropagation();Shop.qvGalleryPrev()">‹</button>' +
+        '<span class="qv-gcount">' + (gIdx + 1) + ' / ' + gallery.length + '</span>' +
+        '<button type="button" class="qv-gnav" onclick="event.stopPropagation();Shop.qvGalleryNext()">›</button></div>';
+    }
+
     $('qvModal').innerHTML =
       '<button class="modal-close" onclick="Shop.closeQv()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
-      '<div class="m-img">' + imgHtml(qvProductImage(p, state.qvSize, state.qvColor), nm(p), { eager: true, fallback: p.imgMd || p.imgLg || p.img }) + '</div>' +
+      '<div class="m-img-wrap">' +
+      '<div class="m-img m-img-zoom" role="button" tabindex="0" title="' + esc(t().imgZoomHint || 'Cliquez pour agrandir') + '" onclick="event.stopPropagation();Shop.openQvImageZoom()">' +
+      imgHtml(currentImg, nm(p), { eager: true, fallback: p.imgMd || p.imgLg || p.img }) +
+      '<span class="m-img-zoom-badge" aria-hidden="true">🔍</span></div>' +
+      galleryHtml +
+      '</div>' +
       '<div class="m-body"><p class="m-cat">' + esc(catLabel) + '</p>' +
       '<h2 class="m-name">' + esc(nm(p)) + '</h2>' +
       '<p class="m-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ')</span></p>' +
@@ -1927,6 +2171,29 @@
   function setQvSize(s) { state.qvSize = s; renderQv(); }
   function setQvColor(c) { state.qvColor = c; renderQv(); }
   function toggleQvGuide() { state.qvGuide = !state.qvGuide; renderQv(); }
+
+  function setQvGallery(idx) {
+    state.qvGalleryIndex = parseInt(idx, 10) || 0;
+    renderQv();
+  }
+
+  function qvGalleryPrev() {
+    var p = state.qvProd;
+    if (!p) return;
+    var len = productGalleryList(p).length;
+    if (len <= 1) return;
+    state.qvGalleryIndex = ((state.qvGalleryIndex || 0) - 1 + len) % len;
+    renderQv();
+  }
+
+  function qvGalleryNext() {
+    var p = state.qvProd;
+    if (!p) return;
+    var len = productGalleryList(p).length;
+    if (len <= 1) return;
+    state.qvGalleryIndex = ((state.qvGalleryIndex || 0) + 1) % len;
+    renderQv();
+  }
 
   function buildOrderItems() {
     return state.cart.map(function (it) {
@@ -1963,6 +2230,14 @@
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="transfer" ' + (state.payMethod === 'transfer' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'transfer\')"/> ' +
         esc(t().payTransfer) + '</label>');
     }
+    if (cfgOn('pay_show_mbway', false) && String(state.config.pay_mbway_phone || '').trim()) {
+      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="mbway" ' + (state.payMethod === 'mbway' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'mbway\')"/> ' +
+        esc(t().payMbway || 'MB Way') + '</label>');
+    }
+    if (cfgOn('pay_show_paypal', false) && String(state.config.pay_paypal_me || '').trim()) {
+      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="paypal" ' + (state.payMethod === 'paypal' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'paypal\')"/> ' +
+        esc(t().payPaypal || 'PayPal') + '</label>');
+    }
     if (!opts.length) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" checked/> ' +
         esc(t().payContact) + '</label>');
@@ -1976,6 +2251,12 @@
   }
 
   function openCo() {
+    if (!state.clientId && !cfgOn('guest_checkout_enabled', true)) {
+      global.toast(accT().loginRequired || t().guestCheckout || 'Inicie sessão para finalizar a compra.', 'i');
+      state.accountView = 'login';
+      openAccount();
+      return;
+    }
     closeCart();
     state.ordered = false;
     state.delStep = 0;
@@ -2009,6 +2290,28 @@
     if (mount) state.stripePaymentElement.mount('#stripe-payment-element');
   }
 
+  function paymentInstructionsHtml() {
+    var cfg = state.config || {};
+    var m = state.lastPayMethod;
+    var amount = state.lastOrderTotal || '';
+    var ref = '#' + (state.lastOrderId || '');
+    var rows = [];
+    if (m === 'transfer' && String(cfg.transfer_iban || '').trim()) {
+      rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().payInstrIban || 'Transferência para o IBAN') + ' : <strong>' + esc(cfg.transfer_iban) + '</strong></p>');
+    } else if (m === 'mbway' && String(cfg.pay_mbway_phone || '').trim()) {
+      rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().payInstrMbway || 'Envie o pagamento MB Way para') + ' <strong>' + esc(cfg.pay_mbway_phone) + '</strong></p>');
+    } else if (m === 'paypal' && String(cfg.pay_paypal_me || '').trim()) {
+      var link = String(cfg.pay_paypal_me).trim();
+      if (!/^https?:\/\//i.test(link)) link = 'https://paypal.me/' + link.replace(/^@/, '');
+      if (amount) link = link.replace(/\/+$/, '') + '/' + amount;
+      rows.push('<p style="margin:8px 0;"><a class="btn-gold" style="display:inline-block;text-decoration:none;padding:10px 18px;" href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(t().payPaypalBtn || 'Pagar com PayPal') + '</a></p>');
+    } else {
+      return '';
+    }
+    rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().payInstrAmount || 'Montante') + ' : <strong>' + esc(amount) + ' €</strong> · ' + esc(t().payInstrRef || 'Referência a indicar') + ' : <strong>' + esc(ref) + '</strong></p>');
+    return '<div class="order-ref-card" style="margin-top:10px;"><p class="order-ref-label">' + esc(t().payInstrTitle || 'Instruções de pagamento') + '</p>' + rows.join('') + '</div>';
+  }
+
   function renderCo() {
     if (state.ordered) {
       var lastEmail = state.lastOrderEmail || state.form.email || state.clientEmail || '';
@@ -2017,6 +2320,7 @@
         '<h2 class="ok-title">' + esc(t().ordTitle) + '</h2>' +
         '<p class="ok-sub">' + esc(t().ordSub.replace('{name}', state.form.name).replace('{ref}', '#' + state.lastOrderId).replace('{email}', lastEmail)) + '</p>' +
         '<div class="order-ref-card"><p class="order-ref-label">' + esc(t().orderCodeLabel) + '</p><div class="order-ref-row"><strong>#' + esc(state.lastOrderId) + '</strong><button type="button" class="btn-copy-ref" onclick="Shop.copyLastOrderCode()">' + esc(t().copyOrderCode) + '</button></div><p class="order-ref-help">' + esc(t().orderCodeHint) + '</p></div>' +
+        paymentInstructionsHtml() +
         '<div class="tracking"><p class="tr-title">' + esc(t().trTitle) + '</p><div class="tr-steps">' +
         [[t().tr1t, t().tr1d], [t().tr2t, t().tr2d], [t().tr3t, t().tr3d.replace('{address}', state.form.addr).replace('{city}', state.form.city)]].map(function (pair, i) {
           return '<div class="tr-step"><span class="tr-dot ' + (state.delStep > i ? 'done' : '') + '" id="td' + i + '"></span><h4>' + esc(pair[0]) + '</h4><p>' + esc(pair[1]) + '</p></div>';
@@ -2140,6 +2444,8 @@
 
       state.lastOrderId = orderRes.orderId;
       state.lastOrderEmail = normEmail(f.email);
+      state.lastOrderTotal = totals.total.toFixed(2);
+      state.lastPayMethod = state.payMethod;
       saveSession();
 
       if (awaitStripe) {
@@ -2173,7 +2479,7 @@
           global.toast((confirmRes && confirmRes.error) || 'confirmStripePayment', 'e');
           return;
         }
-      } else if (state.payMethod === 'cod' || state.payMethod === 'transfer') {
+      } else if (state.payMethod === 'cod' || state.payMethod === 'transfer' || state.payMethod === 'mbway' || state.payMethod === 'paypal') {
         await erpCall('processPayment', {
           orderId: orderRes.orderId,
           metodo: state.payMethod,
@@ -2328,8 +2634,8 @@
   function renderForgotForm() {
     var a = accT();
     return '<p class="form-title">' + esc(a.forgot) + '</p>' +
-      '<p class="acc-hint">' + esc(a.email) + '</p>' +
-      '<div class="field"><label>' + esc(a.email) + '</label><input id="forgotEmail" type="email" value="' + esc(state.resetEmail || state.clientEmail || state.form.email || '') + '"/></div>' +
+      '<p class="acc-hint">' + esc(a.forgotHint || 'O código de recuperação é enviado para o e-mail da conta.') + '</p>' +
+      '<div class="field"><label>' + esc(a.emailOrPhone || (a.email + ' / ' + a.phone)) + '</label><input id="forgotEmail" type="text" autocomplete="username" value="' + esc(state.resetEmail || state.clientEmail || state.form.email || '') + '" placeholder="email@exemplo.pt · +351 912 345 678"/></div>' +
       '<button type="button" class="btn-pay" style="width:100%;margin-top:12px;" onclick="Shop.requestPasswordReset()">' + esc(a.forgotBtn) + '</button>' +
       '<p style="margin-top:14px;text-align:center;"><button type="button" class="acc-link" onclick="Shop.setAccountView(\'login\')">' + esc(a.back) + '</button></p>';
   }
@@ -2337,7 +2643,7 @@
   function renderResetForm() {
     var a = accT();
     return '<p class="form-title">' + esc(a.forgot) + '</p>' +
-      '<p class="acc-hint">' + esc(state.resetEmail) + '</p>' +
+      '<p class="acc-hint">' + esc(state.resetMaskedEmail || state.resetEmail) + '</p>' +
       '<div class="fgrid one">' +
       '<div class="field"><label>Code</label><input id="resetCode" class="acc-otp" type="text" inputmode="numeric" maxlength="6"/></div>' +
       '<div class="field"><label>' + esc(a.pass) + '</label><input id="resetPass" type="password" autocomplete="new-password"/></div>' +
@@ -2589,21 +2895,29 @@
 
   async function requestPasswordReset() {
     var a = accT();
-    var email = normEmail(($('forgotEmail') && $('forgotEmail').value) || '');
-    if (!validEmail(email)) {
+    var raw = (($('forgotEmail') && $('forgotEmail').value) || '').trim();
+    var isEmail = raw.indexOf('@') !== -1;
+    var isPhone = !isEmail && raw.replace(/\D/g, '').length >= 6;
+    if (isEmail && !validEmail(normEmail(raw))) {
       global.toast(a.emailInvalid, 'e');
       return;
     }
+    if (!isEmail && !isPhone) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
     try {
-      var res = await erpCall('requestPasswordReset', { email: email });
+      var payload = isEmail ? { email: normEmail(raw) } : { telefone: raw };
+      var res = await erpCall('requestPasswordReset', payload);
       if (!res || !res.success) {
         global.toast((res && res.error) || 'Reset', 'e');
         return;
       }
-      state.resetEmail = email;
+      state.resetEmail = isEmail ? normEmail(raw) : raw;
+      state.resetMaskedEmail = res.maskedEmail || '';
       state.accountView = 'reset';
       renderAccount();
-      global.toast(a.resetSent, 's');
+      global.toast(a.resetSent + (res.maskedEmail ? ' (' + res.maskedEmail + ')' : ''), 's');
     } catch (e) { global.toast(e.message, 'e'); }
   }
 
@@ -2622,7 +2936,9 @@
     }
     try {
       var res = await erpCall('confirmPasswordReset', {
-        email: state.resetEmail,
+        target: state.resetEmail,
+        email: state.resetEmail.indexOf('@') !== -1 ? state.resetEmail : '',
+        telefone: state.resetEmail.indexOf('@') === -1 ? state.resetEmail : '',
         code: code,
         newPassword: p1
       });
@@ -2912,6 +3228,7 @@
   async function init() {
     state.theme = getTheme();
     loadSession();
+    bindImageZoomEvents();
     showApiBanner(!apiUrlConfigured());
     state.loading = false;
 
@@ -3014,9 +3331,16 @@
     closeWish: closeWish,
     openQv: openQv,
     closeQv: closeQv,
+    openQvImageZoom: openQvImageZoom,
+    closeImageZoom: closeImageZoom,
+    zoomImageStep: zoomImageStep,
+    resetImageZoom: resetImageZoomTransform,
     renderQv: renderQv,
     setQvSize: setQvSize,
     setQvColor: setQvColor,
+    setQvGallery: setQvGallery,
+    qvGalleryPrev: qvGalleryPrev,
+    qvGalleryNext: qvGalleryNext,
     toggleQvGuide: toggleQvGuide,
     openCo: openCo,
     closeCo: closeCo,

@@ -26,7 +26,9 @@
       profileSaved: 'Profil enregistré', addrSaved: 'Adresse enregistrée', loading: 'Chargement…',
       trackTitle: 'Suivi de commande', trackHint: 'Entrez votre numéro de commande et l’e-mail utilisé lors de l’achat.',
       trackOrderId: 'N° de commande', trackBtn: 'Voir la commande', trackEmailMismatch: 'E-mail ne correspond pas à cette commande',
-      trackNotFound: 'Commande introuvable'
+      trackNotFound: 'Commande introuvable',
+      emailOrPhone: 'E-mail ou téléphone', forgotHint: 'Entrez votre e-mail ou votre numéro de téléphone — le code de récupération est envoyé à l\'e-mail du compte.',
+      loginRequired: 'Connectez-vous pour finaliser votre commande.'
     },
     pt: {
       title: 'A minha conta', login: 'Entrar', register: 'Registo', forgot: 'Palavra-passe esquecida',
@@ -49,7 +51,9 @@
       profileSaved: 'Perfil guardado', addrSaved: 'Morada guardada', loading: 'A carregar…',
       trackTitle: 'Seguir encomenda', trackHint: 'Indique o número da encomenda e o e-mail usado na compra.',
       trackOrderId: 'N.º da encomenda', trackBtn: 'Ver encomenda', trackEmailMismatch: 'O e-mail não corresponde a esta encomenda',
-      trackNotFound: 'Encomenda não encontrada'
+      trackNotFound: 'Encomenda não encontrada',
+      emailOrPhone: 'E-mail ou telefone', forgotHint: 'Indique o seu e-mail ou número de telefone — o código de recuperação é enviado para o e-mail da conta.',
+      loginRequired: 'Inicie sessão para finalizar a compra.'
     },
     en: {
       title: 'My account', login: 'Sign in', register: 'Register', forgot: 'Forgot password',
@@ -72,7 +76,9 @@
       profileSaved: 'Profile saved', addrSaved: 'Address saved', loading: 'Loading…',
       trackTitle: 'Track order', trackHint: 'Enter your order number and the email used at checkout.',
       trackOrderId: 'Order number', trackBtn: 'View order', trackEmailMismatch: 'Email does not match this order',
-      trackNotFound: 'Order not found'
+      trackNotFound: 'Order not found',
+      emailOrPhone: 'Email or phone', forgotHint: 'Enter your email or phone number — the recovery code is sent to the account email.',
+      loginRequired: 'Sign in to complete your purchase.'
     },
     es: {
       title: 'Mi cuenta', login: 'Iniciar sesión', register: 'Registro', forgot: 'Contraseña olvidada',
@@ -95,7 +101,9 @@
       profileSaved: 'Perfil guardado', addrSaved: 'Dirección guardada', loading: 'Cargando…',
       trackTitle: 'Seguir pedido', trackHint: 'Introduzca el número de pedido y el correo usado en la compra.',
       trackOrderId: 'N.º de pedido', trackBtn: 'Ver pedido', trackEmailMismatch: 'El correo no coincide con este pedido',
-      trackNotFound: 'Pedido no encontrado'
+      trackNotFound: 'Pedido no encontrado',
+      emailOrPhone: 'Correo o teléfono', forgotHint: 'Introduzca su correo o número de teléfono — el código de recuperación se envía al correo de la cuenta.',
+      loginRequired: 'Inicie sesión para finalizar su compra.'
     }
   };
 
@@ -211,6 +219,8 @@
       sds: lang.sds,
       sr: lang.sr,
       qv: lang.qv,
+      imgZoomHint: lang.imgZoomHint,
+      imgZoomHelp: lang.imgZoomHelp,
       noT: lang.noT,
       noD: lang.noD,
       noBtn: lang.noBtn,
@@ -306,6 +316,14 @@
       payStripe: lang.payStripe,
       payTransfer: lang.payTransfer,
       payContact: lang.payContact,
+      payMbway: lang.payMbway,
+      payPaypal: lang.payPaypal,
+      payInstrTitle: lang.payInstrTitle,
+      payInstrIban: lang.payInstrIban,
+      payInstrMbway: lang.payInstrMbway,
+      payInstrRef: lang.payInstrRef,
+      payInstrAmount: lang.payInstrAmount,
+      payPaypalBtn: lang.payPaypalBtn,
       guestCheckout: lang.guestCheckout,
       guestCheckoutBtn: lang.guestCheckoutBtn,
       errorPrefix: lang.errorPrefix,
@@ -347,7 +365,7 @@
     single: 'article trouvé', plural: 'articles trouvés',
     srchPH: 'Rechercher une pièce…',
     sd: 'Trier : recommandation', sa: 'Prix : croissant', sds: 'Prix : décroissant', sr: 'Mieux notés ★',
-    qv: 'Aperçu rapide',
+    qv: 'Aperçu rapide', imgZoomHint: 'Cliquez pour agrandir', imgZoomHelp: 'Molette ou pincement · double-clic · boutons +/− · Échap pour fermer',
     noT: 'Aucun article ne correspond', noD: 'Essayez une autre catégorie ou modifiez votre recherche.', noBtn: 'Réinitialiser',
     cartT: 'Mon panier', cartEmpty: 'Votre panier est vide.', contShopping: 'Continuer mes achats',
     shipOk: '✨ Livraison express offerte !', shipNeed: 'Plus que {n} € pour la livraison gratuite',
@@ -392,6 +410,8 @@
     badgeSoldOut: 'Épuisé', badgeSale: 'Offre',
     soldOut: 'Article épuisé', cartEmptyToast: 'Panier vide',
     payCod: 'Paiement à la livraison', payStripe: 'Carte bancaire (Stripe)', payTransfer: 'Virement bancaire', payContact: 'Commande (contact ultérieur)',
+    payMbway: 'MB Way', payPaypal: 'PayPal',
+    payInstrTitle: 'Instructions de paiement', payInstrIban: 'Virement vers l\'IBAN', payInstrMbway: 'Envoyez le paiement MB Way au', payInstrRef: 'Référence à indiquer', payInstrAmount: 'Montant', payPaypalBtn: 'Payer avec PayPal',
     guestCheckout: 'Déjà client ?', guestCheckoutBtn: 'Connectez-vous',
     guestCheckoutSuffix: ' pour lier la commande à votre compte.',
     errorPrefix: 'Erreur : ', apiErrorPrefix: 'API : ',
@@ -424,7 +444,7 @@
     single: 'artigo encontrado', plural: 'artigos encontrados',
     srchPH: 'Pesquisar um artigo…',
     sd: 'Ordenar: relevância', sa: 'Preço: crescente', sds: 'Preço: decrescente', sr: 'Mais avaliados ★',
-    qv: 'Visualização rápida',
+    qv: 'Visualização rápida', imgZoomHint: 'Clique para ampliar', imgZoomHelp: 'Roda do rato ou dedos · duplo clique · botões +/− · Esc para fechar',
     noT: 'Nenhum artigo encontrado', noD: 'Experimente outra categoria ou altere a pesquisa.', noBtn: 'Repor',
     cartT: 'O meu cesto', cartEmpty: 'O seu cesto está vazio.', contShopping: 'Continuar compras',
     shipOk: '✨ Envio expresso gratuito!', shipNeed: 'Faltam {n} € para envio gratuito',
@@ -469,6 +489,8 @@
     badgeSoldOut: 'Esgotado', badgeSale: 'Promoção',
     soldOut: 'Artigo esgotado', cartEmptyToast: 'Cesto vazio',
     payCod: 'Pagamento à entrega', payStripe: 'Cartão (Stripe)', payTransfer: 'Transferência bancária', payContact: 'Encomenda (contacto posterior)',
+    payMbway: 'MB Way', payPaypal: 'PayPal',
+    payInstrTitle: 'Instruções de pagamento', payInstrIban: 'Transferência para o IBAN', payInstrMbway: 'Envie o pagamento MB Way para', payInstrRef: 'Referência a indicar', payInstrAmount: 'Montante', payPaypalBtn: 'Pagar com PayPal',
     guestCheckout: 'Já tem conta?', guestCheckoutBtn: 'Entrar', guestCheckoutSuffix: ' para associar a encomenda ao seu perfil.',
     errorPrefix: 'Erro: ', apiErrorPrefix: 'API: ',
     newsletterOk: 'Subscrição confirmada!', shopLoader: 'A carregar o catálogo…',
@@ -500,7 +522,7 @@
     single: 'item found', plural: 'items found',
     srchPH: 'Search for an item…',
     sd: 'Sort: recommended', sa: 'Price: low to high', sds: 'Price: high to low', sr: 'Top rated ★',
-    qv: 'Quick view',
+    qv: 'Quick view', imgZoomHint: 'Click to zoom', imgZoomHelp: 'Scroll wheel · double-click · +/− buttons · Esc to close',
     noT: 'No items match', noD: 'Try another category or change your search.', noBtn: 'Reset',
     cartT: 'My bag', cartEmpty: 'Your bag is empty.', contShopping: 'Continue shopping',
     shipOk: '✨ Free express shipping!', shipNeed: '{n} € left for free delivery',
@@ -545,6 +567,8 @@
     badgeSoldOut: 'Sold out', badgeSale: 'Sale',
     soldOut: 'Item sold out', cartEmptyToast: 'Bag is empty',
     payCod: 'Cash on delivery', payStripe: 'Card (Stripe)', payTransfer: 'Bank transfer', payContact: 'Order (we will contact you)',
+    payMbway: 'MB Way', payPaypal: 'PayPal',
+    payInstrTitle: 'Payment instructions', payInstrIban: 'Bank transfer to IBAN', payInstrMbway: 'Send the MB Way payment to', payInstrRef: 'Reference to include', payInstrAmount: 'Amount', payPaypalBtn: 'Pay with PayPal',
     guestCheckout: 'Already have an account?', guestCheckoutBtn: 'Sign in', guestCheckoutSuffix: ' to link this order to your profile.',
     errorPrefix: 'Error: ', apiErrorPrefix: 'API: ',
     newsletterOk: 'Subscription confirmed!', shopLoader: 'Loading catalogue…',
@@ -576,7 +600,7 @@
     single: 'artículo encontrado', plural: 'artículos encontrados',
     srchPH: 'Buscar una prenda…',
     sd: 'Ordenar: recomendados', sa: 'Precio: ascendente', sds: 'Precio: descendente', sr: 'Mejor valorados ★',
-    qv: 'Vista rápida',
+    qv: 'Vista rápida', imgZoomHint: 'Clic para ampliar', imgZoomHelp: 'Rueda del ratón · doble clic · botones +/− · Esc para cerrar',
     noT: 'Ningún artículo coincide', noD: 'Pruebe otra categoría o cambie la búsqueda.', noBtn: 'Restablecer',
     cartT: 'Mi cesta', cartEmpty: 'Su cesta está vacía.', contShopping: 'Seguir comprando',
     shipOk: '✨ ¡Envío express gratis!', shipNeed: 'Faltan {n} € para envío gratis',
@@ -621,6 +645,8 @@
     badgeSoldOut: 'Agotado', badgeSale: 'Oferta',
     soldOut: 'Artículo agotado', cartEmptyToast: 'Cesta vacía',
     payCod: 'Pago contra reembolso', payStripe: 'Tarjeta (Stripe)', payTransfer: 'Transferencia bancaria', payContact: 'Pedido (contacto posterior)',
+    payMbway: 'MB Way', payPaypal: 'PayPal',
+    payInstrTitle: 'Instrucciones de pago', payInstrIban: 'Transferencia al IBAN', payInstrMbway: 'Envíe el pago MB Way al', payInstrRef: 'Referencia a indicar', payInstrAmount: 'Importe', payPaypalBtn: 'Pagar con PayPal',
     guestCheckout: '¿Ya tiene cuenta?', guestCheckoutBtn: 'Iniciar sesión', guestCheckoutSuffix: ' para vincular el pedido a su cuenta.',
     errorPrefix: 'Error: ', apiErrorPrefix: 'API: ',
     newsletterOk: '¡Suscripción confirmada!', shopLoader: 'Cargando catálogo…',
