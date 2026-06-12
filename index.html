@@ -522,7 +522,7 @@ nav{
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 18px}
 
-.card{display:flex;flex-direction:column;cursor:pointer;border-radius:2px;overflow:hidden}
+.card{display:flex;flex-direction:column;cursor:pointer;border-radius:2px;overflow:hidden;content-visibility:auto;contain-intrinsic-size:300px 420px}
 .card:hover{box-shadow:var(--card-hover-shadow)}
 
 .card-img{
@@ -776,15 +776,17 @@ nav{
 .qv-gnav:hover{border-color:var(--gold);color:var(--gold)}
 .qv-gcount{min-width:48px;text-align:center;font-variant-numeric:tabular-nums}
 .m-img-wrap .m-img{width:100%;flex:1;min-height:320px}
-.img-zoom-bg{display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.94);flex-direction:column;align-items:center;justify-content:center}
+.img-zoom-bg{display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.94);flex-direction:column;align-items:stretch;justify-content:center;padding:56px 12px 48px}
 .img-zoom-bg.open{display:flex}
 .img-zoom-backdrop{position:absolute;inset:0}
 .img-zoom-close{position:absolute;top:16px;right:16px;z-index:2;width:44px;height:44px;border:1px solid rgba(255,255,255,.25);border-radius:50%;background:rgba(0,0,0,.5);color:#fff;font-size:18px;cursor:pointer}
 .img-zoom-toolbar{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:2;display:flex;gap:8px}
 .img-zoom-btn{min-width:44px;height:36px;padding:0 12px;border:1px solid rgba(255,255,255,.25);border-radius:4px;background:rgba(0,0,0,.5);color:#fff;font-size:16px;cursor:pointer}
-.img-zoom-wrap{position:relative;z-index:1;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:grab}
+.img-zoom-wrap{position:relative;z-index:1;flex:1;width:100%;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in}
 .img-zoom-wrap.dragging{cursor:grabbing}
-.img-zoom-wrap img{max-width:min(96vw,1400px);max-height:88vh;object-fit:contain;transform-origin:center center;transition:transform .06s ease-out;user-select:none;-webkit-user-drag:none}
+.img-zoom-wrap img{max-width:min(96vw,1600px);max-height:min(92vh,1200px);width:auto;height:auto;object-fit:contain;transform-origin:center center;transition:transform .08s ease-out,opacity .25s ease;user-select:none;-webkit-user-drag:none;opacity:0}
+.img-zoom-wrap img.loaded{opacity:1;cursor:grab}
+.img-zoom-wrap.dragging img{cursor:grabbing;transition:transform .04s linear,opacity .25s ease}
 .img-zoom-hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:2;font-size:11px;color:rgba(255,255,255,.65);margin:0;text-align:center;pointer-events:none}
 .m-body{width:55%;padding:36px 36px 28px;display:flex;flex-direction:column}
 .m-cat{font-size:8px;color:var(--gold);letter-spacing:4px;text-transform:uppercase;font-weight:600;margin-bottom:9px}
@@ -1404,7 +1406,7 @@ footer{
     <span class="result-n" id="resCount"></span>
     <div class="sort-tools">
       <div class="search-wrap">
-        <input type="text" id="srchIn" oninput="Shop.refreshProducts()"/>
+        <input type="text" id="srchIn" oninput="Shop.refreshProductsDebounced()"/>
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       </div>
       <select class="sort-sel" id="sortSel" onchange="Shop.refreshProducts()">
@@ -1732,7 +1734,7 @@ function closeSo() {
   else document.body.classList.remove('scroll-lock');
 }
 function soKey(e) { if (e.key === 'Enter' || e.key === 'Escape') closeSo(); }
-function syncSo() { $('srchIn').value = $('soIn').value; if (window.Shop) Shop.refreshProducts(); }
+function syncSo() { $('srchIn').value = $('soIn').value; if (window.Shop) Shop.refreshProductsDebounced(); }
 
 let _tt;
 function toast(msg, type = 's') {

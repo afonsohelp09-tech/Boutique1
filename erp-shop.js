@@ -10,6 +10,8 @@
   var PAGE_SIZE = 24;
   var SS_CATALOG_PREFIX = 'azav_catalog_v2_';
   var SS_CATALOG_TTL_MS = 8 * 60 * 1000;
+  var SEARCH_DEBOUNCE_MS = 450;
+  var CART_QTY_DEBOUNCE_MS = 350;
   var HERO_PRELOAD_ID = 'azav-hero-preload';
   var CARD_IMG_W = 300;
   var CARD_IMG_H = 400;
@@ -93,6 +95,13 @@
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.json();
+  }
+
+  function orderAccessPayload(extra) {
+    var payload = extra || {};
+    var email = normEmail(state.clientEmail || state.form.email || state.lastOrderEmail || payload.email || '');
+    if (email) payload.email = email;
+    return payload;
   }
 
   function esc(s) {
@@ -534,6 +543,28 @@
     return url;
   }
 
+  /** URL haute résolution pour zoom lightbox (thumbnails Drive fiables, pas uc?export=view). */
+  function driveZoomImageUrl(fileId, version) {
+    if (!fileId) return '';
+    return driveThumbUrl(fileId, 1600, version);
+  }
+
+  function resolveZoomImageUrl(primary, fallbacks) {
+    var tryList = [primary].concat(fallbacks || []).filter(Boolean);
+    for (var i = 0; i < tryList.length; i++) {
+      var u = String(tryList[i]).trim();
+      if (!u || u === placeholderImage()) continue;
+      if (/^data:image\//i.test(u)) return u;
+      var fid = extractDriveFileId(u);
+      if (fid) return driveZoomImageUrl(fid);
+      if (u.indexOf('googleusercontent.com') >= 0) return u;
+      if (/^https?:\/\//i.test(u) && u.indexOf('drive.google.com/file/') < 0 && u.indexOf('uc?export=') < 0) return u;
+      var opt = optimizeImageUrl(u, 1600);
+      if (opt) return opt;
+    }
+    return placeholderImage();
+  }
+
   function imageVersionSuffix(p) {
     if (!p || !p.imagemUpdatedAt) return '';
     return String(p.imagemUpdatedAt).slice(0, 19);
@@ -649,26 +680,28 @@
     return { url: qvProductImage(p, state.qvSize, state.qvColor), md: '', lg: '' };
   }
 
-  function zoomGalleryImageUrl(item) {
+  function zoomGalleryImageUrl(item, p) {
     if (!item) return placeholderImage();
-    var fid = extractDriveFileId(item.url || '');
-    if (fid) return 'https://drive.google.com/uc?export=view&id=' + fid;
-    return item.lg || item.url || placeholderImage();
+    var ver = p ? imageVersionSuffix(p) : '';
+    var fid = extractDriveFileId(item.url || '') || extractDriveFileId(item.lg || '') || extractDriveFileId(item.md || '');
+    if (fid) return driveZoomImageUrl(fid, ver);
+    return resolveZoomImageUrl(item.lg || item.md || item.url, [item.md, item.url]);
   }
 
   function zoomProductImageUrl(p, size, color) {
     if (!p) return placeholderImage();
+    var ver = imageVersionSuffix(p);
     var variant = findVariant(p, size, color);
     var fid = '';
     if (variant && variant.imagem_variante) fid = extractDriveFileId(variant.imagem_variante);
     if (!fid) fid = p.driveFileId || (p._raw && p._raw.drive_file_id) || resolveProductDriveId(p);
-    if (!fid && variant && variant.imagem_variante) fid = extractDriveFileId(variant.imagem_variante);
     if (!fid && p.imagem) fid = extractDriveFileId(p.imagem);
-    if (fid) return 'https://drive.google.com/uc?export=view&id=' + fid;
-    return variantImageUrl(p, variant, 1600);
+    if (fid) return driveZoomImageUrl(fid, ver);
+    if (p.imagemCdnUrl) return appendImageVersion(String(p.imagemCdnUrl).trim(), ver);
+    return resolveZoomImageUrl(variantImageUrl(p, variant, 1200), [p.imgLg, p.imgMd, p.img]);
   }
 
-  var imgZoomState = { scale: 1, x: 0, y: 0, drag: false, lastX: 0, lastY: 0 };
+  var imgZoomState = { scale: 1, x: 0, y: 0, drag: false, lastX: 0, lastY: 0, pinchDist: 0, pinchScale: 1 };
 
   function applyImageZoomTransform() {
     var img = $('imgZoomImg');
@@ -683,25 +716,54 @@
     applyImageZoomTransform();
   }
 
-  function openImageZoom(src, alt) {
+  function openImageZoom(src, alt, fallbacks) {
     var bg = $('imgZoomBg');
     var img = $('imgZoomImg');
+    var wrap = $('imgZoomWrap');
     if (!bg || !img) return;
     resetImageZoomTransform();
-    img.src = src || placeholderImage();
+    img.classList.remove('loaded');
+    if (wrap) wrap.classList.remove('dragging');
     img.alt = alt || '';
     bg.classList.add('open');
     bg.setAttribute('aria-hidden', 'false');
     var hint = $('imgZoomHint');
     if (hint) hint.textContent = t().imgZoomHelp || '';
     updateScrollLock();
+
+    var candidates = [];
+    [src].concat(fallbacks || []).forEach(function (u) {
+      var resolved = resolveZoomImageUrl(u, []);
+      if (resolved && resolved !== placeholderImage() && candidates.indexOf(resolved) < 0) candidates.push(resolved);
+    });
+    if (!candidates.length) candidates.push(placeholderImage());
+    var idx = 0;
+    function loadNext() {
+      if (idx >= candidates.length) {
+        img.src = placeholderImage();
+        img.classList.add('loaded');
+        return;
+      }
+      img.onload = function () {
+        img.classList.add('loaded');
+        resetImageZoomTransform();
+      };
+      img.onerror = function () {
+        idx++;
+        loadNext();
+      };
+      img.src = candidates[idx];
+    }
+    loadNext();
   }
 
   function closeImageZoom() {
     var bg = $('imgZoomBg');
+    var img = $('imgZoomImg');
     if (!bg) return;
     bg.classList.remove('open');
     bg.setAttribute('aria-hidden', 'true');
+    if (img) { img.onload = null; img.onerror = null; img.src = ''; }
     updateScrollLock();
   }
 
@@ -709,7 +771,14 @@
     var p = state.qvProd;
     if (!p) return;
     var item = qvCurrentGalleryImage(p);
-    openImageZoom(zoomGalleryImageUrl(item), nm(p));
+    var visible = item.lg || item.md || item.url || qvProductImage(p, state.qvSize, state.qvColor);
+    var hiRes = zoomGalleryImageUrl(item, p);
+    var fallbacks = [];
+    if (visible && visible !== hiRes) fallbacks.push(visible);
+    if (item.md && item.md !== hiRes && fallbacks.indexOf(item.md) < 0) fallbacks.push(item.md);
+    if (item.url && item.url !== hiRes && fallbacks.indexOf(item.url) < 0) fallbacks.push(item.url);
+    if (p.imgLg && fallbacks.indexOf(p.imgLg) < 0) fallbacks.push(p.imgLg);
+    openImageZoom(hiRes, nm(p), fallbacks);
   }
 
   function zoomImageStep(delta) {
@@ -727,19 +796,28 @@
       if (e.target === bg || (e.target.classList && e.target.classList.contains('img-zoom-backdrop'))) closeImageZoom();
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && bg.classList.contains('open')) closeImageZoom();
+      if (!bg.classList.contains('open')) return;
+      if (e.key === 'Escape') closeImageZoom();
+      else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomImageStep(0.25); }
+      else if (e.key === '-') { e.preventDefault(); zoomImageStep(-0.25); }
     });
     if (!wrap) return;
     wrap.addEventListener('wheel', function (e) {
       if (!bg.classList.contains('open')) return;
       e.preventDefault();
-      zoomImageStep(e.deltaY > 0 ? -0.2 : 0.2);
+      zoomImageStep(e.deltaY > 0 ? -0.15 : 0.15);
     }, { passive: false });
     wrap.addEventListener('dblclick', function (e) {
       e.preventDefault();
       if (imgZoomState.scale > 1.05) resetImageZoomTransform();
       else { imgZoomState.scale = 2; applyImageZoomTransform(); }
     });
+    function touchDist(touches) {
+      if (!touches || touches.length < 2) return 0;
+      var dx = touches[0].clientX - touches[1].clientX;
+      var dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
     function startDrag(clientX, clientY) {
       if (imgZoomState.scale <= 1) return;
       imgZoomState.drag = true;
@@ -759,18 +837,41 @@
       imgZoomState.drag = false;
       wrap.classList.remove('dragging');
     }
-    wrap.addEventListener('mousedown', function (e) { if (e.button === 0) startDrag(e.clientX, e.clientY); });
+    wrap.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      startDrag(e.clientX, e.clientY);
+    });
     global.addEventListener('mousemove', function (e) { moveDrag(e.clientX, e.clientY); });
     global.addEventListener('mouseup', endDrag);
     wrap.addEventListener('touchstart', function (e) {
-      if (!e.touches[0]) return;
-      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+      if (e.touches.length === 2) {
+        imgZoomState.pinchDist = touchDist(e.touches);
+        imgZoomState.pinchScale = imgZoomState.scale;
+        imgZoomState.drag = false;
+        wrap.classList.remove('dragging');
+      } else if (e.touches[0]) {
+        startDrag(e.touches[0].clientX, e.touches[0].clientY);
+      }
     }, { passive: true });
     wrap.addEventListener('touchmove', function (e) {
-      if (!e.touches[0]) return;
-      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
-    wrap.addEventListener('touchend', endDrag);
+      if (!bg.classList.contains('open')) return;
+      if (e.touches.length === 2 && imgZoomState.pinchDist > 0) {
+        e.preventDefault();
+        var dist = touchDist(e.touches);
+        if (dist > 0) {
+          imgZoomState.scale = Math.min(4, Math.max(1, imgZoomState.pinchScale * (dist / imgZoomState.pinchDist)));
+          if (imgZoomState.scale <= 1) { imgZoomState.x = 0; imgZoomState.y = 0; }
+          applyImageZoomTransform();
+        }
+      } else if (e.touches[0]) {
+        moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+    wrap.addEventListener('touchend', function () {
+      imgZoomState.pinchDist = 0;
+      endDrag();
+    });
   }
 
   function imgHtml(src, alt, opts) {
@@ -1598,7 +1699,14 @@
     if (el) el.style.display = on ? 'block' : 'none';
   }
 
+  var _refreshProductsT;
+  function refreshProductsDebounced() {
+    clearTimeout(_refreshProductsT);
+    _refreshProductsT = setTimeout(function () { refreshProducts(); }, SEARCH_DEBOUNCE_MS);
+  }
+
   async function refreshProducts() {
+    clearTimeout(_refreshProductsT);
     if (!apiUrlConfigured()) {
       state.loading = false;
       state.productsLoading = false;
@@ -1894,12 +2002,68 @@
     if ($('coBg') && $('coBg').classList.contains('open') && !state.ordered) renderCo();
   }
 
+  var _cartQtyTimers = {};
+  function scheduleCartQtySync(key, varianteId, qty) {
+    if (!apiUrlConfigured() || !state.cartId || !varianteId) return;
+    clearTimeout(_cartQtyTimers[key]);
+    _cartQtyTimers[key] = setTimeout(function () {
+      erpCall('updateCartQty', { cartId: state.cartId, variante_id: varianteId, quantidade: qty }).catch(function (e) {
+        global.toast('Panier : ' + e.message, 'e');
+      });
+    }, CART_QTY_DEBOUNCE_MS);
+  }
+
   async function updQty(key, d) {
     var it = state.cart.find(function (x) { return x.key === key; });
-    if (it) it.qty = Math.max(1, it.qty + d);
+    if (!it) return;
+    var newQty = Math.max(1, it.qty + d);
+    it.qty = newQty;
+    scheduleCartQtySync(key, it.variante_id, newQty);
     await refreshActivePromo({ silent: true });
     renderCart();
     if ($('coBg') && $('coBg').classList.contains('open') && !state.ordered) renderCo();
+  }
+
+  function cartLineFromItem_(it, p) {
+    var size = it.tamanho || productSizes(p)[0];
+    var color = it.cor || (p.colors && p.colors[0]) || '—';
+    var cartVar = findVariant(p, size, color);
+    var cartImg = variantImageUrl(p, cartVar, 200) || p.imgSm || p.img || placeholderImage();
+    var key = p.id + '-' + size + '-' + color;
+    return {
+      key: key,
+      id: p.id,
+      produto_id: p.produto_id,
+      variante_id: it.variante_id || '',
+      fr: p.fr,
+      pt: p.pt,
+      en: p.en,
+      es: p.es,
+      img: cartImg,
+      size: size,
+      color: color,
+      qty: parseInt(it.quantidade, 10) || 1,
+      price: parseFloat(it.preco) || p.price
+    };
+  }
+
+  function minimalProductStub_(it) {
+    var pid = it.produto_id;
+    var label = pid || 'Article';
+    return {
+      id: pid,
+      produto_id: pid,
+      fr: label,
+      pt: label,
+      en: label,
+      es: label,
+      img: placeholderImage(),
+      imgSm: placeholderImage(),
+      colors: [it.cor || '—'],
+      sizes: [it.tamanho || 'TU'],
+      price: parseFloat(it.preco) || 0,
+      variantes: it.variante_id ? [{ variante_id: it.variante_id, tamanho: it.tamanho, cor: it.cor }] : []
+    };
   }
 
   async function syncCartFromServer() {
@@ -1911,33 +2075,8 @@
       for (var i = 0; i < res.items.length; i++) {
         var it = res.items[i];
         var p = state.products.find(function (x) { return x.produto_id === it.produto_id; });
-        if (!p && it.produto_id) {
-          try {
-            var pr = await erpCall('getProduct', { id: it.produto_id });
-            if (pr && pr.success && pr.product) p = mapProduct(pr.product);
-          } catch (e1) { /* ignore */ }
-        }
-        if (!p) continue;
-        var size = it.tamanho || productSizes(p)[0];
-        var color = it.cor || p.colors[0];
-        var cartVar = findVariant(p, size, color);
-        var cartImg = variantImageUrl(p, cartVar, 200) || p.imgSm || p.img;
-        var key = p.id + '-' + size + '-' + color;
-        state.cart.push({
-          key: key,
-          id: p.id,
-          produto_id: p.produto_id,
-          variante_id: it.variante_id || '',
-          fr: p.fr,
-          pt: p.pt,
-          en: p.en,
-          es: p.es,
-          img: cartImg,
-          size: size,
-          color: color,
-          qty: parseInt(it.quantidade, 10) || 1,
-          price: parseFloat(it.preco) || p.price
-        });
+        if (!p) p = minimalProductStub_(it);
+        state.cart.push(cartLineFromItem_(it, p));
       }
       updBadge();
     } catch (e2) { /* ignore */ }
@@ -2193,7 +2332,39 @@
       '<p class="qv-selection-note' + (canAdd ? ' ok' : '') + '">' + esc(canAdd ? t().selectionReady : t().selectOptionsNotice) + '</p></div>' : '') +
       '<div class="m-cta">' +
       '<button class="btn-madd' + (canAdd ? '' : ' disabled') + '" ' + (canAdd ? 'onclick="Shop.addCart(\'' + pid + '\',\'' + esc(state.qvSize).replace(/'/g, "\\'") + '\',\'' + esc(state.qvColor).replace(/'/g, "\\'") + '\');Shop.closeQv()"' : 'type="button" disabled') + '>' + esc(t().addSel) + '</button>' +
-      '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' + (faved ? esc(t().favAdded) : esc(t().favAdd)) + '</button></div></div>';
+      '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' + (faved ? esc(t().favAdded) : esc(t().favAdd)) + '</button></div>' +
+      (state.token ? '<div class="qv-review" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">' +
+      '<p class="opt-label">' + esc(t().reviewTitle || 'Votre avis') + '</p>' +
+      '<div class="field"><label>' + esc(t().reviewRating || 'Note') + '</label><select id="qvReviewRating"><option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option></select></div>' +
+      '<div class="field"><label>' + esc(t().reviewComment || 'Commentaire') + '</label><textarea id="qvReviewComment" rows="2" placeholder="' + esc(t().reviewPlaceholder || '') + '"></textarea></div>' +
+      '<button type="button" class="btn-ghost-sm" onclick="Shop.submitReview(\'' + pid + '\')">' + esc(t().reviewSubmit || 'Envoyer') + '</button></div>' :
+      '<p style="font-size:9px;color:var(--muted);margin-top:12px;">' + esc(t().reviewLoginHint || 'Connectez-vous pour laisser un avis.') + '</p>') +
+      '</div></div>';
+  }
+
+  async function submitReview(produtoId) {
+    if (!state.token || !state.clientId) {
+      global.toast(t().reviewLoginHint || 'Connectez-vous pour laisser un avis.', 'i');
+      openAccount();
+      return;
+    }
+    var rating = $('qvReviewRating') ? parseInt($('qvReviewRating').value, 10) : 5;
+    var comment = $('qvReviewComment') ? $('qvReviewComment').value.trim() : '';
+    if (!comment) {
+      global.toast(t().reviewRequired || 'Merci d\'écrire un commentaire.', 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('createReview', { produtoId: produtoId, nota: rating, comentario: comment });
+      if (!res || !res.success) {
+        global.toast((res && res.error) || t().error || 'Erreur', 'e');
+        return;
+      }
+      global.toast(t().reviewThanks || 'Merci ! Votre avis sera publié après modération.', 's');
+      if ($('qvReviewComment')) $('qvReviewComment').value = '';
+    } catch (e) {
+      global.toast(e.message, 'e');
+    }
   }
 
   function setQvSize(s) { state.qvSize = s; renderQv(); }
@@ -2340,6 +2511,34 @@
     return '<div class="order-ref-card" style="margin-top:10px;"><p class="order-ref-label">' + esc(t().payInstrTitle || 'Instruções de pagamento') + '</p>' + rows.join('') + '</div>';
   }
 
+  function orderTrackingStep_(order) {
+    var o = order || {};
+    var estado = String(o.estado || '').toLowerCase();
+    var pay = String(o.estado_pagamento || '').toLowerCase();
+    var ship = String(o.estado_envio || '').toLowerCase();
+    if (estado === 'delivered' || estado === 'entregue' || ship === 'delivered' || ship === 'entregue') return 3;
+    if (estado === 'shipped' || ship === 'shipped' || ship === 'em_transito' || ship === 'enviado') return 2;
+    if (pay === 'pago' || pay === 'paid' || pay === 'pago_stripe' || estado === 'paid' || estado === 'processing') return 1;
+    return 0;
+  }
+
+  function orderTrackingHtml(order) {
+    var step = orderTrackingStep_(order);
+    var addr = state.form.addr || '';
+    var city = state.form.city || '';
+    var tr3d = (t().tr3d || '').replace('{address}', addr).replace('{city}', city);
+    var pairs = [[t().tr1t, t().tr1d], [t().tr2t, t().tr2d], [t().tr3t, tr3d]];
+    var trackInfo = '';
+    if (order && order.tracking_number) {
+      trackInfo = '<p style="font-size:10px;margin-top:8px;color:var(--muted);">' + esc(t().trackingLabel || 'Suivi') + ': <strong>' + esc(order.tracking_number) + '</strong>' +
+        (order.transportadora ? ' (' + esc(order.transportadora) + ')' : '') + '</p>';
+    }
+    return '<div class="tracking"><p class="tr-title">' + esc(t().trTitle) + '</p><div class="tr-steps">' +
+      pairs.map(function (pair, i) {
+        return '<div class="tr-step"><span class="tr-dot ' + (step >= i ? 'done' : '') + '"></span><h4>' + esc(pair[0]) + '</h4><p>' + esc(pair[1]) + '</p></div>';
+      }).join('') + '</div>' + trackInfo + '</div>';
+  }
+
   function renderCo() {
     if (state.ordered) {
       var lastEmail = state.lastOrderEmail || state.form.email || state.clientEmail || '';
@@ -2349,14 +2548,8 @@
         '<p class="ok-sub">' + esc(t().ordSub.replace('{name}', state.form.name).replace('{ref}', '#' + state.lastOrderId).replace('{email}', lastEmail)) + '</p>' +
         '<div class="order-ref-card"><p class="order-ref-label">' + esc(t().orderCodeLabel) + '</p><div class="order-ref-row"><strong>#' + esc(state.lastOrderId) + '</strong><button type="button" class="btn-copy-ref" onclick="Shop.copyLastOrderCode()">' + esc(t().copyOrderCode) + '</button></div><p class="order-ref-help">' + esc(t().orderCodeHint) + '</p></div>' +
         paymentInstructionsHtml() +
-        '<div class="tracking"><p class="tr-title">' + esc(t().trTitle) + '</p><div class="tr-steps">' +
-        [[t().tr1t, t().tr1d], [t().tr2t, t().tr2d], [t().tr3t, t().tr3d.replace('{address}', state.form.addr).replace('{city}', state.form.city)]].map(function (pair, i) {
-          return '<div class="tr-step"><span class="tr-dot ' + (state.delStep > i ? 'done' : '') + '" id="td' + i + '"></span><h4>' + esc(pair[0]) + '</h4><p>' + esc(pair[1]) + '</p></div>';
-        }).join('') +
-        '</div></div><div class="order-ok-actions"><button class="btn-gold" type="button" onclick="Shop.openLastOrderTracking()">' + esc(t().trackOrderNow) + '</button><button class="btn-order-secondary" type="button" onclick="Shop.closeCo()">' + esc(t().backBtn) + '</button></div></div>';
-      state.delStep = 1;
-      setTimeout(function () { state.delStep = 2; updDots(); }, 5000);
-      setTimeout(function () { state.delStep = 3; updDots(); }, 10000);
+        orderTrackingHtml(state.lastOrderSnapshot) +
+        '</div><div class="order-ok-actions"><button class="btn-gold" type="button" onclick="Shop.openLastOrderTracking()">' + esc(t().trackOrderNow) + '</button><button class="btn-order-secondary" type="button" onclick="Shop.closeCo()">' + esc(t().backBtn) + '</button></div></div>';
       return;
     }
 
@@ -2512,7 +2705,8 @@
           orderId: orderRes.orderId,
           metodo: state.payMethod,
           valor: totals.total.toFixed(2),
-          clientId: state.clientId || 'guest'
+          clientId: state.clientId || 'guest',
+          email: f.email
         });
       }
 
@@ -2523,6 +2717,14 @@
       }
       updBadge();
       state.ordered = true;
+      state.lastOrderSnapshot = {
+        pedido_id: orderRes.orderId,
+        estado: 'pending',
+        estado_pagamento: state.payMethod === 'stripe' ? 'pago_stripe' : 'aguardando_pagamento',
+        estado_envio: 'pending',
+        tracking_number: '',
+        transportadora: ''
+      };
       renderCo();
       global.toast(t().ordTitle, 's');
     } catch (e) {
@@ -2569,14 +2771,9 @@
       return;
     }
     try {
-      var res = await erpCall('getOrder', { orderId: orderId });
+      var res = await erpCall('getOrder', orderAccessPayload({ orderId: orderId, email: email }));
       if (!res || !res.success || !res.order) {
-        global.toast(a.trackNotFound, 'e');
-        return;
-      }
-      var orderEmail = normEmail(res.order.email || res.order.cliente_email || '');
-      if (orderEmail && orderEmail !== email) {
-        global.toast(a.trackEmailMismatch, 'e');
+        global.toast((res && res.code === 'NO_AUTH') ? a.trackEmailMismatch : a.trackNotFound, 'e');
         return;
       }
       state.selectedOrder = { order: res.order, details: res.details || [] };
@@ -2744,6 +2941,7 @@
       '<p style="font-size:10px;"><strong>' + esc(a.total) + ':</strong> ' + esc(o.total) + ' € · <strong>' + esc(a.status) + ':</strong> ' + esc(o.estado || '') + '</p>' +
       '<p style="font-size:10px;"><strong>' + esc(a.pay) + ':</strong> ' + esc(o.estado_pagamento || '') + ' · <strong>' + esc(a.ship) + ':</strong> ' + esc(o.estado_envio || '') + '</p>' +
       (o.tracking_number ? '<p style="font-size:10px;"><strong>' + esc(a.tracking) + ':</strong> ' + esc(o.tracking_number) + (o.transportadora ? ' (' + esc(o.transportadora) + ')' : '') + '</p>' : '') +
+      orderTrackingHtml(o) +
       '<ul style="list-style:none;padding:12px 0 0;font-size:10px;color:var(--muted);">' + lines + '</ul>';
   }
 
@@ -2867,7 +3065,7 @@
       state.accountView = 'otp';
       renderAccount();
       global.toast(a.codeSent, 's');
-      if (otpRes.simulated_code) {
+      if (otpRes.simulated_code && /localhost|127\.0\.0\.1/i.test(global.location && global.location.hostname || '')) {
         global.toast('DEV: ' + otpRes.simulated_code, 'i');
       }
     } catch (e) { global.toast(e.message, 'e'); }
@@ -3094,7 +3292,7 @@
 
   async function openOrderDetail(orderId) {
     try {
-      var res = await erpCall('getOrder', { orderId: orderId });
+      var res = await erpCall('getOrder', orderAccessPayload({ orderId: orderId }));
       if (!res || !res.success) {
         global.toast((res && res.error) || 'Order', 'e');
         return;
@@ -3283,6 +3481,11 @@
 
     loadStore().then(function () {
       state.storeLoading = false;
+      if (cfgOn('maintenance_mode', false)) {
+        var msg = state.config.maintenance_message || t().maintenanceDefault || 'Boutique en maintenance. Revenez bientôt.';
+        document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Montserrat,sans-serif;text-align:center;"><div><h1 style="font-weight:300;margin-bottom:12px;">AZAVISION</h1><p style="color:#666;max-width:420px;">' + esc(msg) + '</p></div></div>';
+        return;
+      }
       if (global.boot) global.boot();
       renderNav();
       renderFooterShop();
@@ -3298,6 +3501,7 @@
       renderNav();
       renderFooterShop();
       render();
+      syncCartFromServer().catch(function () { /* ignore */ });
     }).catch(function (e) {
       state.productsLoading = false;
       if (!state.products.length) {
@@ -3305,9 +3509,8 @@
         global.toast((t().apiErrorPrefix || 'API: ') + e.message, 'e');
       }
       renderGrid();
+      syncCartFromServer().catch(function () { /* ignore */ });
     });
-
-    syncCartFromServer().catch(function () { /* ignore */ });
     if (state.token) restoreClientSession().catch(function () { /* ignore */ });
     if (state.clientId) loadWishlistServer().catch(function () { /* ignore */ });
     handleOrderHash();
@@ -3342,6 +3545,7 @@
     openOrdersOrLogin: openOrdersOrLogin,
     trackGuestOrder: trackGuestOrder,
     refreshProducts: refreshProducts,
+    refreshProductsDebounced: refreshProductsDebounced,
     loadMoreProducts: loadMoreProducts,
     renderCats: renderCats,
     render: render,
@@ -3393,6 +3597,7 @@
     deleteAddress: deleteAddress,
     loadMyOrders: loadMyOrders,
     openOrderDetail: openOrderDetail,
+    submitReview: submitReview,
     subscribeNewsletter: subscribeNewsletter,
     onThemeChange: onThemeChange,
     openContact: openContact,
