@@ -1419,20 +1419,48 @@
     return true;
   }
 
+  function resolvePromoBarText() {
+    var cfg = state.config || {};
+    if (!cfgOn('promo_bar_display', true)) return '';
+
+    var annOn = announcementActive();
+    var annEnabled = cfgOn('announcement_enabled', false);
+    var annDisplay = cfgOn('announcement_display', true);
+
+    if (annOn && annEnabled && annDisplay) {
+      if (String(cfg.announcement_text || '').trim()) {
+        return fillPromoPlaceholders(cfg.announcement_text);
+      }
+      if (cfgOn('announcement_show_default', true) && String(cfg.announcement_promo_code || '').trim()) {
+        return '✦ CODE : ' + String(cfg.announcement_promo_code).trim() + ' ✦';
+      }
+      return '';
+    }
+
+    if (cfgOn('promo_banner_enabled', false)) {
+      if (String(cfg.promo_banner_text || '').trim()) {
+        return fillPromoPlaceholders(cfg.promo_banner_text);
+      }
+    }
+
+    if (cfgOn('promo_banner_show_default', true)) {
+      return t().promo || '';
+    }
+    return '';
+  }
+
   function applyPromoBanner() {
     var cfg = state.config || {};
-    var text = '';
-    if (announcementActive() && cfg.announcement_text) {
-      text = fillPromoPlaceholders(cfg.announcement_text);
-    } else if (cfgOn('promo_banner_enabled', false) && cfg.promo_banner_text) {
-      text = fillPromoPlaceholders(cfg.promo_banner_text);
-    } else if (announcementActive() && cfg.announcement_promo_code) {
-      text = '✦ CODE : ' + cfg.announcement_promo_code + ' ✦';
-    }
-    if (!text) text = t().promo;
+    var text = resolvePromoBarText();
+    var bar = document.querySelector('.promo-bar');
+    if (bar) bar.style.display = text ? '' : 'none';
+    if (!text) return;
     var mq = $('mq');
     if (mq) {
-      if (cfgOn('announcement_marquee', true)) mq.style.removeProperty('animation');
+      var annMarquee = cfgOn('announcement_marquee', true);
+      var annOn = announcementActive() && cfgOn('announcement_enabled', false) && cfgOn('announcement_display', true);
+      var useMarquee = annOn ? annMarquee : true;
+      if (useMarquee) mq.style.removeProperty('animation');
       else mq.style.animation = 'none';
     }
     ['mq1', 'mq2', 'mq3', 'mq4'].forEach(function (id) {
