@@ -59,11 +59,13 @@
     qvColor: '',
     qvGuide: false,
     qvGalleryIndex: 0,
-    form: { name: '', email: '', phone: '', addr: '', city: '', zip: '' },
+    form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '' },
     payMethod: 'cod',
     ordered: false,
     lastOrderId: '',
     lastOrderEmail: '',
+    lastInvoice: null,
+    lastInvoiceLoading: false,
     delStep: 0,
     loading: true,
     productsLoading: false,
@@ -2423,7 +2425,7 @@
         esc(t().payCod) + '</label>');
     }
     if (cfgOn('pay_stripe_enabled', false) && cfgOn('pay_show_stripe', true) && STRIPE_PK) {
-      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> ' + esc(t().payStripe) + '</label>');
+      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> ' + esc(t().payStripePt || t().payStripe) + '</label>');
     }
     if (cfgOn('pay_show_transfer', true)) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="transfer" ' + (state.payMethod === 'transfer' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'transfer\')"/> ' +
@@ -2511,6 +2513,80 @@
     return '<div class="order-ref-card" style="margin-top:10px;"><p class="order-ref-label">' + esc(t().payInstrTitle || 'Instruções de pagamento') + '</p>' + rows.join('') + '</div>';
   }
 
+  function invoiceLabels_() {
+    return {
+      receiptTitle: t().receiptTitle || 'Comprovativo',
+      total: t().receiptTotal || 'Total c/ IVA',
+      print: t().receiptPrint || 'Imprimir',
+      download: t().receiptDownload || 'Descarregar PDF',
+      moreItems: t().receiptMore || 'artigos',
+      disclaimer: t().receiptDisclaimer || '',
+      iva: t().receiptIva || 'IVA',
+      fiscalPdf: t().fiscalPdf || 'Fatura oficial (PDF)'
+    };
+  }
+
+  function receiptSectionHtml() {
+    if (state.lastInvoiceLoading) {
+      return '<div class="receipt-card"><p class="rc-loading">' + esc(t().receiptLoading || 'Préparation du reçu…') + '</p></div>';
+    }
+    if (state.lastInvoice && state.lastInvoice.success && global.InvoiceReceipt) {
+      return global.InvoiceReceipt.previewHtml(state.lastInvoice, invoiceLabels_());
+    }
+    return '';
+  }
+
+  async function loadInvoiceForOrder(orderId, nome) {
+    if (!orderId || !apiUrlConfigured()) return null;
+    try {
+      var res = await erpCall('getInvoiceData', orderAccessPayload({ orderId: orderId, nome: nome || state.form.name || '' }));
+      return res && res.success ? res : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function fetchLastInvoice() {
+    if (!state.lastOrderId) return;
+    state.lastInvoiceLoading = true;
+    if (state.ordered) renderCo();
+    state.lastInvoice = await loadInvoiceForOrder(state.lastOrderId, state.form.name);
+    state.lastInvoiceLoading = false;
+    if (state.ordered) renderCo();
+  }
+
+  function printInvoice() {
+    var html = state.lastInvoice && state.lastInvoice.html;
+    if (!html && state.lastOrderId) {
+      loadInvoiceForOrder(state.lastOrderId, state.form.name).then(function (inv) {
+        if (inv && inv.html && global.InvoiceReceipt) {
+          state.lastInvoice = inv;
+          global.InvoiceReceipt.openPrintDocument(inv.html);
+        } else {
+          global.toast(t().receiptError || 'Reçu indisponible', 'e');
+        }
+      });
+      return;
+    }
+    if (html && global.InvoiceReceipt) global.InvoiceReceipt.openPrintDocument(html);
+    else global.toast(t().receiptError || 'Reçu indisponible', 'e');
+  }
+
+  function downloadInvoice() {
+    printInvoice();
+  }
+
+  async function printOrderInvoice(orderId) {
+    orderId = String(orderId || '').trim();
+    if (!orderId) return;
+    var inv = await loadInvoiceForOrder(orderId, state.clientName || state.form.name);
+    if (inv && inv.html && global.InvoiceReceipt) {
+      global.InvoiceReceipt.openPrintDocument(inv.html);
+    } else {
+      global.toast(t().receiptError || 'Reçu indisponible', 'e');
+    }
+  }
+
   function orderTrackingStep_(order) {
     var o = order || {};
     var estado = String(o.estado || '').toLowerCase();
@@ -2547,6 +2623,7 @@
         '<h2 class="ok-title">' + esc(t().ordTitle) + '</h2>' +
         '<p class="ok-sub">' + esc(t().ordSub.replace('{name}', state.form.name).replace('{ref}', '#' + state.lastOrderId).replace('{email}', lastEmail)) + '</p>' +
         '<div class="order-ref-card"><p class="order-ref-label">' + esc(t().orderCodeLabel) + '</p><div class="order-ref-row"><strong>#' + esc(state.lastOrderId) + '</strong><button type="button" class="btn-copy-ref" onclick="Shop.copyLastOrderCode()">' + esc(t().copyOrderCode) + '</button></div><p class="order-ref-help">' + esc(t().orderCodeHint) + '</p></div>' +
+        receiptSectionHtml() +
         paymentInstructionsHtml() +
         orderTrackingHtml(state.lastOrderSnapshot) +
         '</div><div class="order-ok-actions"><button class="btn-gold" type="button" onclick="Shop.openLastOrderTracking()">' + esc(t().trackOrderNow) + '</button><button class="btn-order-secondary" type="button" onclick="Shop.closeCo()">' + esc(t().backBtn) + '</button></div></div>';
@@ -2565,6 +2642,7 @@
       '<div class="field"><label>' + esc(t().fName) + '</label><input value="' + esc(f.name) + '" oninput="Shop.setForm(\'name\',this.value)" placeholder="Maria Silva"/></div>' +
       '<div class="field"><label>' + esc(t().fEmail) + '</label><input type="email" value="' + esc(f.email) + '" oninput="Shop.setForm(\'email\',this.value)" placeholder="email@exemplo.pt"/></div></div>' +
       '<div class="field" style="margin-bottom:10px;"><label>' + esc(t().phone) + '</label><input value="' + esc(f.phone) + '" oninput="Shop.setForm(\'phone\',this.value)" placeholder="+351 912 345 678"/></div>' +
+      '<div class="field" style="margin-bottom:10px;"><label>' + esc(t().fNif) + '</label><input value="' + esc(f.nif) + '" oninput="Shop.setForm(\'nif\',this.value)" placeholder="123456789" maxlength="9" inputmode="numeric"/></div>' +
       '<div class="fgrid one"><div class="field"><label>' + esc(t().fAddr) + '</label><input value="' + esc(f.addr) + '" oninput="Shop.setForm(\'addr\',this.value)"/></div></div>' +
       '<div class="fgrid">' +
       '<div class="field"><label>' + esc(t().fZip) + '</label><input value="' + esc(f.zip) + '" oninput="Shop.setForm(\'zip\',this.value)"/></div>' +
@@ -2645,6 +2723,7 @@
         email: normEmail(f.email),
         telefone: f.phone || '',
         nome: f.name,
+        cliente_nif: (f.nif || '').replace(/\s/g, ''),
         endereco: endereco,
         subtotal: totals.sub.toFixed(2),
         discount_total: totals.disc.toFixed(2),
@@ -2700,11 +2779,11 @@
           global.toast((confirmRes && confirmRes.error) || 'confirmStripePayment', 'e');
           return;
         }
+        if (confirmRes.fiscal_doc_url) state.lastFiscalUrl = confirmRes.fiscal_doc_url;
       } else if (state.payMethod === 'cod' || state.payMethod === 'transfer' || state.payMethod === 'mbway' || state.payMethod === 'paypal') {
-        await erpCall('processPayment', {
+        await erpCall('registerOfflinePayment', {
           orderId: orderRes.orderId,
           metodo: state.payMethod,
-          valor: totals.total.toFixed(2),
           clientId: state.clientId || 'guest',
           email: f.email
         });
@@ -2726,6 +2805,7 @@
         transportadora: ''
       };
       renderCo();
+      fetchLastInvoice();
       global.toast(t().ordTitle, 's');
     } catch (e) {
       global.toast(e.message, 'e');
@@ -2789,8 +2869,23 @@
     if (h.indexOf('#order-') !== 0) return;
     var orderId = h.replace('#order-', '').trim();
     if (!orderId) return;
-    openAccount();
-    openOrderDetail(orderId);
+    erpCall('finalizeStripeReturn', {
+      orderId: orderId,
+      clientId: state.clientId || 'guest',
+      nome: state.clientName || state.form.name || ''
+    }).then(function (fin) {
+      if (fin && fin.success && fin.fiscal_doc_url) {
+        state.lastFiscalUrl = fin.fiscal_doc_url;
+        global.toast(t().fiscalReady || 'Fatura disponível', 's');
+      } else if (fin && fin.pending) {
+        global.toast(fin.message || t().payPending || 'Paiement en cours…', 'i');
+      }
+      openAccount();
+      openOrderDetail(orderId);
+    }).catch(function () {
+      openAccount();
+      openOrderDetail(orderId);
+    });
     try { global.history.replaceState(null, '', global.location.pathname + global.location.search); } catch (e) { /* ignore */ }
   }
 
@@ -2942,6 +3037,7 @@
       '<p style="font-size:10px;"><strong>' + esc(a.pay) + ':</strong> ' + esc(o.estado_pagamento || '') + ' · <strong>' + esc(a.ship) + ':</strong> ' + esc(o.estado_envio || '') + '</p>' +
       (o.tracking_number ? '<p style="font-size:10px;"><strong>' + esc(a.tracking) + ':</strong> ' + esc(o.tracking_number) + (o.transportadora ? ' (' + esc(o.transportadora) + ')' : '') + '</p>' : '') +
       orderTrackingHtml(o) +
+      '<div class="receipt-inline"><button type="button" class="btn-rc" style="width:100%;margin-top:8px;" onclick="Shop.printOrderInvoice(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().receiptPrint || 'Imprimer le reçu') + '</button></div>' +
       '<ul style="list-style:none;padding:12px 0 0;font-size:10px;color:var(--muted);">' + lines + '</ul>';
   }
 
@@ -3282,10 +3378,13 @@
         return;
       }
       box.innerHTML = orders.slice(0, 20).map(function (o) {
-        return '<div class="acc-order" onclick="Shop.openOrderDetail(\'' + esc(o.pedido_id) + '\')">' +
+        var oid = esc(o.pedido_id).replace(/'/g, "\\'");
+        return '<div class="acc-order">' +
+          '<div class="acc-order-main" onclick="Shop.openOrderDetail(\'' + oid + '\')">' +
           '<div class="acc-order-id">#' + esc(o.pedido_id) + '</div>' +
           '<p style="font-size:10px;color:var(--muted);margin-top:4px;">' + esc(o.data) + ' · ' + esc(o.total) + ' €</p>' +
-          '<p style="font-size:9px;color:var(--gold);margin-top:4px;">' + esc(o.estado || '') + ' · ' + esc(o.estado_pagamento || '') + '</p></div>';
+          '<p style="font-size:9px;color:var(--gold);margin-top:4px;">' + esc(o.estado || '') + ' · ' + esc(o.estado_pagamento || '') + '</p></div>' +
+          '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.printOrderInvoice(\'' + oid + '\')">' + esc(t().receiptPrint || 'Imprimir') + '</button></div>';
       }).join('');
     } catch (e) { box.textContent = e.message; }
   }
@@ -3309,6 +3408,17 @@
 
   function contactEmailPublic() {
     return state.config.contact_public_email || state.config.store_email || '';
+  }
+
+  function contactPhonePublic() {
+    return state.config.contact_phone || '';
+  }
+
+  function contactPhoneTelUrl() {
+    var p = contactPhonePublic();
+    if (!p) return '';
+    var digits = String(p).replace(/[^\d+]/g, '');
+    return digits ? 'tel:' + digits : '';
   }
 
   function contactWhatsAppUrl() {
@@ -3343,11 +3453,16 @@
     }
     var pubEmail = contactEmailPublic();
     var waUrl = contactWhatsAppUrl();
+    var phone = contactPhonePublic();
+    var phoneUrl = contactPhoneTelUrl();
     var quick = '';
-    if (pubEmail || waUrl) {
+    if (pubEmail || waUrl || phone) {
       quick = '<p class="acc-hint" style="margin-top:8px;">' + esc(c.or) + '</p><div class="contact-quick">';
       if (pubEmail) {
         quick += '<a href="mailto:' + esc(pubEmail) + '">✉ ' + esc(c.emailUs) + '</a>';
+      }
+      if (phoneUrl) {
+        quick += '<a href="' + esc(phoneUrl) + '">📞 ' + esc(c.phoneUs || 'Telefone') + ' · ' + esc(phone) + '</a>';
       }
       if (waUrl) {
         quick += '<a href="' + esc(waUrl) + '" target="_blank" rel="noopener noreferrer">💬 ' + esc(c.whatsapp) + '</a>';
@@ -3578,6 +3693,9 @@
     closeCo: closeCo,
     setForm: setForm,
     setPayMethod: setPayMethod,
+    printInvoice: printInvoice,
+    downloadInvoice: downloadInvoice,
+    printOrderInvoice: printOrderInvoice,
     submitOrder: submitOrder,
     copyLastOrderCode: copyLastOrderCode,
     openLastOrderTracking: openLastOrderTracking,
@@ -3611,4 +3729,23 @@
   document.addEventListener('DOMContentLoaded', function () {
     init();
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  GUIDE API — VITRINE (erp-shop.js · fin de fichier)
+  //  Ce fichier LIT les clés ; il ne les contient pas.
+  //  Où coller : 01-vitrine-client/index.html → fin → script erp-api-config
+  //  Référence   : 03-google-apps-script/api_apps_script.gs (Ctrl+End)
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  //  Variables lues depuis index.html (global) :
+  //    API_URL / ERP_API_URL_DEFAULT  → #1 URL Web App GAS
+  //    STRIPE_PUBLISHABLE_KEY         → #3 Stripe pk_ (checkout carte)
+  //
+  //  Variables lues depuis getConfig() (feuille Sheets CONFIG) :
+  //    pay_stripe_enabled, pay_show_stripe  → activer Stripe
+  //    contact_phone, contact_whatsapp    → #5 contact réclamations
+  //    fiscal_* → géré côté serveur GAS (Facturalusa #4), pas côté vitrine
+  //
+  //  Carte test Stripe : 4242 4242 4242 4242 · date future · CVC 123
+  // ═══════════════════════════════════════════════════════════════════════════
 })(typeof window !== 'undefined' ? window : this);

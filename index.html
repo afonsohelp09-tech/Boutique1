@@ -448,14 +448,22 @@ nav{
   border-bottom:1px solid var(--section-border);
   padding:44px 40px;
 }
+.services-in-footer{
+  background:var(--footer-bg);
+  border-top:1px solid var(--section-border);
+  border-bottom:1px solid var(--section-border);
+  padding:52px 40px 44px;
+  margin:0;
+}
 .services-grid{
   max-width:1320px;margin:0 auto;
   display:grid;grid-template-columns:repeat(4,1fr);gap:20px;
 }
 .svc{display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px}
-.svc-icon{font-size:26px;margin-bottom:10px}
-.svc-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:5px;color:var(--text)}
-.svc-desc{font-size:10px;color:var(--text-body);font-weight:400;line-height:1.7}
+.svc-icon{display:flex;align-items:center;justify-content:center;margin-bottom:12px;color:var(--gold)}
+.svc-icon svg{width:28px;height:28px;stroke:var(--gold)}
+.svc-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:6px;color:var(--text)}
+.svc-desc{font-size:10px;color:var(--text-body);font-weight:400;line-height:1.7;max-width:240px}
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    SHOP MAIN
@@ -909,11 +917,16 @@ nav{
 }
 .acc-dash-btn.on,.acc-dash-btn:hover{color:var(--gold);border-color:var(--gold)}
 .acc-order{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:12px;border:1px solid var(--border-hard);border-radius:2px;margin-bottom:8px;
-  cursor:pointer;transition:border .2s;
+  transition:border .2s;
 }
+.acc-order-main{flex:1;cursor:pointer;min-width:0}
 .acc-order:hover{border-color:var(--gold)}
 .acc-order-id{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold)}
+.btn-rc-mini{
+  flex:0 0 auto;padding:8px 10px;font-size:7px;letter-spacing:1px;
+}
 .acc-addr{padding:10px;border:1px solid var(--border-hard);margin-bottom:8px;border-radius:2px;font-size:10px}
 .acc-addr-actions{display:flex;gap:8px;margin-top:8px}
 .btn-ghost-sm{
@@ -1007,6 +1020,37 @@ nav{
 .btn-order-secondary{
   background:transparent;border:1px solid var(--border-hard);color:var(--muted);
 }
+.receipt-card{
+  width:100%;max-width:480px;margin:16px 0 0;text-align:left;
+  background:var(--bg-card);border:1px solid var(--border-hard);border-radius:3px;overflow:hidden;
+}
+.rc-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 18px;border-bottom:1px solid var(--border-hard);
+  background:var(--surface-elevated);
+}
+.rc-type{font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);font-weight:700}
+.rc-ref{font-size:11px;font-weight:600;color:var(--text)}
+.rc-body{padding:14px 18px}
+.rc-line{display:flex;justify-content:space-between;gap:12px;font-size:10px;padding:6px 0;border-bottom:1px solid var(--divider)}
+.rc-line:last-of-type{border-bottom:none}
+.rc-name{color:var(--text-body);flex:1;line-height:1.4}
+.rc-amt{color:var(--text);font-weight:600;white-space:nowrap}
+.rc-more{font-size:9px;color:var(--muted);margin-top:6px}
+.rc-total{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-hard);font-size:10px}
+.rc-total strong{font-size:14px;color:var(--gold)}
+.rc-iva{color:var(--muted)}
+.rc-disc{font-size:8px;color:var(--muted);line-height:1.45;margin-top:10px}
+.rc-actions{display:flex;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--border-hard)}
+.btn-rc{
+  flex:1;padding:11px 10px;border:1px solid var(--gold);background:var(--gold);color:var(--on-gold);
+  font-family:'Montserrat',sans-serif;font-size:8px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;
+}
+.btn-rc-ghost{background:transparent;color:var(--gold)}
+.btn-rc:hover{opacity:.92}
+.rc-loading{padding:20px 18px;font-size:10px;color:var(--muted);text-align:center}
+.receipt-inline{margin-top:14px}
 .tracking{
   background:var(--bg-card);border:1px solid var(--border-hard);
   border-radius:3px;padding:20px 22px;width:100%;max-width:480px;text-align:left;
@@ -1080,14 +1124,14 @@ nav{
    FOOTER
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 footer{
-  border-top:1px solid var(--section-border);
-  background:var(--footer-bg);padding:60px 40px 28px;
+  border-top:none;
+  background:var(--footer-bg);padding:0 40px 28px;
   transition:background .25s;
 }
 .footer-grid{
   max-width:1320px;margin:0 auto;
   display:grid;grid-template-columns:repeat(4,1fr);gap:44px;
-  margin-bottom:44px;
+  margin-bottom:44px;padding-top:52px;
 }
 .f-brand img.f-logo{
   height:42px;max-height:48px;width:auto;max-width:220px;
@@ -1196,8 +1240,9 @@ footer{
   .sort-sel{width:100%}
   #shop{padding:32px 16px 24px}
   .services{padding:32px 16px}
-  .footer-grid{grid-template-columns:1fr}
-  footer{padding:40px 16px calc(72px + env(safe-area-inset-bottom,0)) 20px}
+  .services-in-footer{padding:36px 16px 32px}
+  footer{padding:0 16px calc(72px + env(safe-area-inset-bottom,0)) 20px}
+  .footer-grid{padding-top:36px;grid-template-columns:1fr}
   .hero{
     height:auto;min-height:72vh;max-height:92vh;
     --hero-bg-blur:6px;
@@ -1389,9 +1434,6 @@ footer{
   <div class="scroll-cue"><span class="scroll-arr">â†“</span><span id="scrollHint"></span></div>
 </header>
 
-<!-- SERVICES -->
-<section class="services"><div class="services-grid" id="svcGrid"></div></section>
-
 <!-- SHOP -->
 <main id="shop">
   <div class="shop-header">
@@ -1422,8 +1464,11 @@ footer{
   <div id="gridLoadMore" class="grid-load-more" style="display:none"></div>
 </main>
 
-<!-- FOOTER -->
+<!-- FOOTER (services + liens + newsletter) -->
 <footer>
+  <section class="services services-in-footer" aria-label="Nossos compromissos">
+    <div class="services-grid" id="svcGrid"></div>
+  </section>
   <div class="footer-grid">
     <div class="f-brand">
       <span class="logo-fallback-text" style="display:none">AZAVISION</span>
@@ -1750,42 +1795,59 @@ updateLangButtons(lang);
 boot();
 </script>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     CONFIGURATION API — FIN DU FICHIER (Ctrl+End pour arriver ici)
-     CONFIGURAÇÃO API — FIM DO FICHEIRO
-     ═══════════════════════════════════════════════════════════════════ -->
-<!--
-╔══════════════════════════════════════════════════════════════════╗
-║  CONFIGURAÇÃO — ALTERAR O URL DO WEB APP (vitrine + admin)       ║
-║  CONFIGURATION — MODIFIER L’URL DU WEB APP (boutique + admin)    ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Passo 1: Google Apps Script → Implementar / Déployer             ║
-║  Étape 1 : Déployer une nouvelle version de l’application Web    ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Passo 2: Copiar o URL que termina em /exec                      ║
-║  Étape 2 : Copier l’URL se terminant par /exec                   ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Passo 3: Colar na linha COLAR abaixo (ERP_API_URL_DEFAULT)       ║
-║           — mesma URL neste ficheiro e no admin (02-admin-erp).   ║
-║  Étape 3 : Coller dans COLAR ci‑dessous ET dans ERP_API_URL_DEFAULT ║
-║            — aucun champ URL sur la page ; configuration fichier  ║
-╠══════════════════════════════════════════════════════════════════╣
-║  Passo 4 (opcional Stripe): pk_test_… ou pk_live_… em             ║
-║  STRIPE_PUBLISHABLE_KEY (a chave pública NÃO vem da API).         ║
-║  Étape 4 (Stripe optionnel) : clé publishable ci‑dessous           ║
-╚══════════════════════════════════════════════════════════════════╝
+<!-- ═══════════════════════════════════════════════════════════════════════════════
+     GUIDE DES CLÉS API — VITRINE CLIENT (01-vitrine-client/index.html)
+     TOUJOURS EN FIN DE FICHIER · Ctrl+End pour arriver ici
+     Référence complète backend : 03-google-apps-script/api_apps_script.gs (fin)
+     ═══════════════════════════════════════════════════════════════════════════════
+
+     ┌─ #1 GOOGLE APPS SCRIPT — URL Web App (OBLIGATOIRE) ─────────────────────┐
+     │ Où coller : ligne ERP_API_URL_DEFAULT ci-dessous (script erp-api-config) │
+     │ Exemple   : 'https://script.google.com/macros/s/AKfycbz…/exec'         │
+     │ Aussi     : même URL dans 02-admin-erp/index.html                      │
+     └──────────────────────────────────────────────────────────────────────────┘
+
+     ┌─ #3 STRIPE — Clé PUBLIQUE pk_ (pour paiement carte au checkout) ─────────┐
+     │ Où coller : STRIPE_PUBLISHABLE_KEY ci-dessous                            │
+     │ Exemple   : 'pk_test_51TiHOcF66c2mP9HPu4vHhd…'                         │
+     │ Dashboard : https://dashboard.stripe.com/test/apikeys                    │
+     │ Activer   : Admin → Boutique → Stripe actif + Afficher Stripe          │
+     │ ⚠ sk_test : NE PAS mettre ici → GAS Propriétés script STRIPE_SECRET_KEY│
+     └──────────────────────────────────────────────────────────────────────────┘
+
+     ┌─ #4 FACTURALUSA — Clé API (PAS dans ce fichier) ────────────────────────┐
+     │ Où coller : Admin ERP → Boutique → Facturação → Clé API Facturalusa    │
+     │           ou feuille Sheets CONFIG → fiscal_api_key                    │
+     │ Exemple   : 26830|PEKDtgsOzbPjo0ymkXvrNqZtgCmmOrvAaSBlzIxS347b0431   │
+     │ Obtenir   : https://facturalusa.pt/u/subscription/api                  │
+     └──────────────────────────────────────────────────────────────────────────┘
+
+     ┌─ #5 CONTACT — Téléphone réclamations (PAS dans ce fichier) ────────────┐
+     │ Où coller : Admin → Boutique → Contact                                 │
+     │           contact_phone = +351 939 211 794                             │
+     │           contact_whatsapp = 939211794                                 │
+     └──────────────────────────────────────────────────────────────────────────┘
 -->
 <script id="erp-api-config">
-  // ▼▼▼ COLAR O URL AQUI — APENAS NESTA LINHA ▼▼▼
+  // ═══ CONFIGURATION API VITRINE — coller vos valeurs ici ═══
+  //
+  // #1 URL Web App Google Apps Script (obligatoire)
+  //    Apps Script → Déployer → Application Web → copier URL /exec
   var ERP_API_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzjeXiiobFsAFfMnTujXYkDZOca6dVHR3-__Vv2POTZWHcz2LONQRcpwTBZle-rh1XBbg/exec';
   var API_URL = ERP_API_URL_DEFAULT;
-  // ▲▲▲ NÃO ALTERAR MAIS NADA AQUI (URL) ▲▲▲
-
-  // Stripe (opcional) — pk_test_… ou pk_live_… — se pay_stripe_enabled=1 no Sheets
-  var STRIPE_PUBLISHABLE_KEY = '';
+  //
+  // #3 Stripe — clé PUBLIQUE uniquement (pk_test_… ou pk_live_…)
+  //    La clé SECRÈTE sk_… va dans GAS → Paramètres → Propriétés du script
+  //    Nom propriété : STRIPE_SECRET_KEY
+  //    Exemple pk_   : pk_test_51TiHOcF66c2mP9HPu4vHhdIH9172V60clyZWCR2Ie7EcScp9AcXWlGYP1Y2QODyz6MrI5BOoERKrvKjV3XILSCUU005qPHWlev
+  var STRIPE_PUBLISHABLE_KEY = 'pk_test_51TiHOcF66c2mP9HPu4vHhdIH9172V60clyZWCR2Ie7EcScp9AcXWlGYP1Y2QODyz6MrI5BOoERKrvKjV3XILSCUU005qPHWlev';
+  //
+  // #4 Facturalusa, #5 Contact → voir Admin ERP → Boutique (pas ici)
+  // Guide complet : fin de 03-google-apps-script/api_apps_script.gs
 </script>
 <script src="https://js.stripe.com/v3/"></script>
 <script src="icons-ui.js"></script>
+<script src="invoice-receipt.js"></script>
 <script src="erp-shop.js"></script>
 </body>
 </html>
