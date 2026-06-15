@@ -769,13 +769,68 @@ nav{
 .modal-close svg{width:18px;height:18px;stroke-width:1.5}
 .m-img{width:45%;min-height:420px}
 .m-img img,.m-img .shop-img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
-.m-img .shop-img{opacity:0;transition:opacity .25s ease;min-height:420px}
+.m-img .shop-img{opacity:0;transition:opacity .25s ease;min-height:280px}
 .m-img .shop-img.loaded,.m-img .shop-img.img-fallback{opacity:1}
-.m-img-zoom{cursor:zoom-in;position:relative}
+.m-img-zoom{cursor:zoom-in;position:relative;flex:1;min-height:280px;display:flex;align-items:stretch}
 .m-img-zoom:hover .m-img-zoom-badge{opacity:1}
 .m-img-zoom-badge{position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;font-size:14px;padding:6px 10px;border-radius:20px;opacity:.85;pointer-events:none;transition:opacity .2s}
-.m-img-wrap{display:flex;flex-direction:column;width:45%;min-height:420px;background:var(--bg-panel)}
-.qv-gallery-thumbs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid var(--border);background:rgba(0,0,0,.15)}
+.m-img-zoom:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.qv-modal{flex-direction:column;flex-wrap:nowrap;max-width:920px;padding:0;overflow:hidden}
+.qv-view-tabs{display:flex;border-bottom:1px solid var(--border-hard);padding:44px 0 0;background:var(--bg-panel);flex-shrink:0}
+.qv-view-tab{
+  flex:1;padding:13px 12px;border:none;background:transparent;
+  font-family:'Montserrat',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;min-height:44px;
+}
+.qv-view-tab.on{color:var(--gold);border-bottom-color:var(--gold)}
+.qv-layout{display:flex;width:100%;flex:1;min-height:0;align-items:stretch;max-height:calc(90vh - 52px)}
+.qv-media-col{
+  width:48%;display:flex;flex-direction:column;background:var(--bg-panel);
+  border-right:1px solid var(--border-hard);min-height:420px;
+}
+.qv-detail-col{
+  width:52%;display:flex;flex-direction:column;padding:24px 28px 22px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.qv-head{margin-bottom:12px}
+.qv-desc{margin-bottom:14px;min-height:auto}
+.qv-media-toolbar{display:flex;justify-content:center;padding:8px 12px 4px}
+.qv-media-btn{
+  background:rgba(255,255,255,.06);border:1px solid var(--border-hard);color:var(--text-body);
+  font-family:'Montserrat',sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;
+  text-transform:uppercase;padding:10px 16px;border-radius:2px;cursor:pointer;min-height:40px;
+}
+.qv-media-btn:hover{border-color:var(--gold);color:var(--gold)}
+.qv-photo-cta{display:none;padding:10px 14px 14px}
+.qv-switch-shop{
+  width:100%;padding:14px;background:var(--gold);color:#000;border:none;
+  font-family:'Montserrat',sans-serif;font-size:9px;font-weight:800;letter-spacing:2px;
+  text-transform:uppercase;cursor:pointer;border-radius:2px;min-height:48px;
+}
+.qv-mode-photo .qv-layout{max-height:calc(90vh - 52px)}
+.qv-mode-photo .qv-media-col{width:100%;border-right:none;flex:1;min-height:480px}
+.qv-mode-photo .qv-detail-col{display:none}
+.qv-mode-photo .m-img{min-height:420px}
+.qv-mode-photo .qv-photo-cta{display:block}
+.qv-options-card{
+  background:var(--bg-card);border:1px solid var(--border-hard);border-radius:4px;
+  padding:16px;margin-bottom:16px;
+}
+.qv-options-head{
+  font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);
+  font-weight:700;margin:0 0 14px;
+}
+.qv-opt-block{margin-bottom:16px}
+.qv-opt-block:last-of-type{margin-bottom:0}
+.qv-opt-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.qv-opt-head .opt-label{margin:0}
+.qv-opt-value{font-size:10px;font-weight:600;color:var(--text)}
+.qv-opt-value.missing{color:var(--gold)}
+.qv-size-guide{background:none;border:none;color:var(--gold);font-size:8px;cursor:pointer;padding:4px 0;letter-spacing:1px;text-transform:uppercase}
+.qv-color-opts{margin-bottom:0}
+.qv-size-opts{margin-bottom:0}
+.qv-gallery-thumbs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid var(--border);background:rgba(0,0,0,.12)}
 .qv-gthumb{width:52px;height:52px;padding:0;border:2px solid transparent;border-radius:6px;overflow:hidden;cursor:pointer;background:transparent;flex-shrink:0}
 .qv-gthumb.on{border-color:var(--gold)}
 .qv-gthumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -783,7 +838,7 @@ nav{
 .qv-gnav{width:32px;height:32px;border:1px solid var(--border-hard);border-radius:50%;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:18px;line-height:1}
 .qv-gnav:hover{border-color:var(--gold);color:var(--gold)}
 .qv-gcount{min-width:48px;text-align:center;font-variant-numeric:tabular-nums}
-.m-img-wrap .m-img{width:100%;flex:1;min-height:320px}
+.qv-media-col .m-img{width:100%;min-height:280px}
 .img-zoom-bg{display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.94);flex-direction:column;align-items:stretch;justify-content:center;padding:56px 12px 48px}
 .img-zoom-bg.open{display:flex}
 .img-zoom-backdrop{position:absolute;inset:0}
@@ -1211,6 +1266,19 @@ footer{
     width:44px;height:44px;display:flex;align-items:center;justify-content:center;
     background:rgba(0,0,0,.55);
   }
+  .qv-view-tabs{padding-top:max(48px,env(safe-area-inset-top,0)+40px)}
+  .qv-layout{flex-direction:column;max-height:none}
+  .qv-media-col{width:100%;border-right:none;min-height:0}
+  .qv-detail-col{width:100%;max-height:none;padding:18px 18px 24px;flex:1}
+  .qv-mode-shop .qv-media-col{max-height:46dvh;flex-shrink:0}
+  .qv-mode-shop .m-img{min-height:180px;max-height:36dvh}
+  .qv-mode-shop .m-img .shop-img{min-height:180px;max-height:36dvh}
+  .qv-mode-photo .qv-media-col{max-height:none;min-height:0;flex:1}
+  .qv-mode-photo .m-img{min-height:52dvh;max-height:68dvh}
+  .qv-detail-col .m-cta{
+    position:sticky;bottom:0;background:var(--bg-modal);
+    padding-top:12px;margin-top:auto;z-index:2;
+  }
   .m-img-wrap{width:100%;min-height:220px;max-height:none}
   .m-img{width:100%;min-height:220px;max-height:42vh}
   .m-body{width:100%;padding:22px 18px 28px}
@@ -1269,6 +1337,10 @@ footer{
   .search-ov{padding:max(80px,env(safe-area-inset-top,0) + 60px) 20px 24px}
   .so-close{top:max(16px,env(safe-area-inset-top,16px));right:16px;min-width:44px;min-height:44px}
   .so-input{font-size:28px;max-width:100%}
+  .img-zoom-bg{padding:max(56px,env(safe-area-inset-top,0)+48px) 8px max(48px,env(safe-area-inset-bottom,0)+32px)}
+  .img-zoom-close{top:max(12px,env(safe-area-inset-top,12px));right:12px}
+  .img-zoom-toolbar{top:max(12px,env(safe-area-inset-top,12px))}
+  .img-zoom-hint{bottom:max(16px,env(safe-area-inset-bottom,16px))}
 }
 @media(max-width:480px){
   .grid{grid-template-columns:1fr}
@@ -1434,6 +1506,11 @@ footer{
   <div class="scroll-cue"><span class="scroll-arr">â†“</span><span id="scrollHint"></span></div>
 </header>
 
+<!-- SERVICES -->
+<section class="services" aria-label="Nossos compromissos">
+  <div class="services-grid" id="svcGrid"></div>
+</section>
+
 <!-- SHOP -->
 <main id="shop">
   <div class="shop-header">
@@ -1464,11 +1541,8 @@ footer{
   <div id="gridLoadMore" class="grid-load-more" style="display:none"></div>
 </main>
 
-<!-- FOOTER (services + liens + newsletter) -->
+<!-- FOOTER -->
 <footer>
-  <section class="services services-in-footer" aria-label="Nossos compromissos">
-    <div class="services-grid" id="svcGrid"></div>
-  </section>
   <div class="footer-grid">
     <div class="f-brand">
       <span class="logo-fallback-text" style="display:none">AZAVISION</span>
@@ -1597,6 +1671,10 @@ footer{
 <script>
 // UI SHELL (traductions i18n.js + catalogue erp-shop.js)
 let lang = 'pt';
+try {
+  var _savedLang = localStorage.getItem('azav_lang');
+  if (_savedLang && typeof T !== 'undefined' && T[_savedLang]) lang = _savedLang;
+} catch (e) { /* ignore */ }
 const $ = id => document.getElementById(id);
 
 function updateLangButtons(l) {
@@ -1665,6 +1743,7 @@ updateThemeButtons();
 
 function applyShopLang(l) {
   if (window._langSet || !T[l]) return;
+  try { if (localStorage.getItem('azav_lang')) return; } catch (e) { /* ignore */ }
   lang = l;
   updateLangButtons(l);
   updateThemeButtons();
@@ -1676,6 +1755,7 @@ function setLang(l) {
   if (!T[l]) l = 'pt';
   lang = l;
   window._langSet = true;
+  try { localStorage.setItem('azav_lang', l); } catch (e) { /* ignore */ }
   document.documentElement.lang = (window.htmlLangMap && window.htmlLangMap[l]) || l;
   if (window.Shop) window.Shop.setLang(l);
   updateLangButtons(l);
@@ -1684,7 +1764,7 @@ function setLang(l) {
 }
 
 function boot() {
-  const t = T[lang] || T.fr;
+  const t = T[lang] || T.pt;
   document.documentElement.lang = (window.htmlLangMap && window.htmlLangMap[lang]) || lang;
   if ($('apiBanner') && t.apiBanner) $('apiBanner').innerHTML = t.apiBanner;
   if ($('shopLoader')) $('shopLoader').textContent = t.shopLoader;
@@ -1695,7 +1775,11 @@ function boot() {
   if ($('contactFab') && t.contact) $('contactFab').title = t.contact.navContact;
   updateThemeButtons();
   if ($('nwEmail') && t.fNwPH) $('nwEmail').placeholder = t.fNwPH;
-  ['mq1', 'mq2', 'mq3', 'mq4'].forEach(id => { if ($(id)) $(id).textContent = t.promo; });
+  if (window.Shop && window.Shop.applyPromoBanner) {
+    window.Shop.applyPromoBanner();
+  } else {
+    ['mq1', 'mq2', 'mq3', 'mq4'].forEach(id => { if ($(id)) $(id).textContent = t.promo; });
+  }
   if (window.Shop && window.Shop.renderNav) {
     window.Shop.renderNav();
   } else if ($('navUl')) {

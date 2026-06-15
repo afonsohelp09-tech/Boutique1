@@ -59,8 +59,9 @@
     qvColor: '',
     qvGuide: false,
     qvGalleryIndex: 0,
+    qvViewMode: 'shop',
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '' },
-    payMethod: 'cod',
+    payMethod: 'stripe',
     ordered: false,
     lastOrderId: '',
     lastOrderEmail: '',
@@ -77,6 +78,8 @@
     stripe: null,
     stripeElements: null,
     stripePaymentElement: null,
+    stripeAmountCents: 0,
+    checkoutBusy: false,
     contactSent: false,
     theme: 'dark'
   };
@@ -87,16 +90,40 @@
     return API && API.indexOf('INSEREZ_VOTRE') === -1 && API.indexOf('/exec') > -1;
   }
 
+  function translateApiError(msg) {
+    var m = String(msg || '').trim();
+    if (!m) return t().errGeneric || 'Erro';
+    var L = state.lang || 'pt';
+    var map = {
+      'Commande déjà payée': { pt: 'Encomenda já paga.', fr: 'Commande déjà payée.', en: 'Order already paid.', es: 'Pedido ya pagado.' },
+      'Méthode de paiement non autorisée': { pt: 'Método de pagamento não autorizado.', fr: 'Méthode de paiement non autorisée.', en: 'Payment method not allowed.', es: 'Método de pago no autorizado.' },
+      'Pedido não encontrado': { pt: 'Encomenda não encontrada.', fr: 'Commande introuvable.', en: 'Order not found.', es: 'Pedido no encontrado.' },
+      'Acesso não autorizado / Accès non autorisé': { pt: 'Acesso não autorizado.', fr: 'Accès non autorisé.', en: 'Unauthorized access.', es: 'Acceso no autorizado.' },
+      'STRIPE_SECRET_KEY manquante — Projet Apps Script → Paramètres → Propriétés du script': {
+        pt: 'STRIPE_SECRET_KEY em falta — Google Apps Script → Propriedades do script.',
+        fr: 'STRIPE_SECRET_KEY manquante — Google Apps Script → Propriétés du script.',
+        en: 'STRIPE_SECRET_KEY missing — Google Apps Script → Script properties.',
+        es: 'Falta STRIPE_SECRET_KEY — Google Apps Script → Propiedades del script.'
+      }
+    };
+    if (map[m] && map[m][L]) return map[m][L];
+    return m;
+  }
+
   async function erpCall(action, data, token) {
-    if (!apiUrlConfigured()) throw new Error('API_URL non configurée (index.html)');
+    if (!apiUrlConfigured()) throw new Error(t().apiUrlMissing || 'API não configurada');
+    var payload = data || {};
+    if (!payload.lang) payload.lang = state.lang || 'pt';
     var res = await fetch(API, {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: action, data: data || {}, token: token != null ? token : state.token || '' })
+      body: JSON.stringify({ action: action, data: payload, token: token != null ? token : state.token || '' })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
+    var json = await res.json();
+    if (json && json.error) json.error = translateApiError(json.error);
+    return json;
   }
 
   function orderAccessPayload(extra) {
@@ -180,8 +207,20 @@
     return v === '1' || v === 1 || String(v).toLowerCase() === 'true';
   }
 
-  function shippingThreshold() { return cfgNum('free_shipping_threshold', cfgNum('shipping_free_above', 150)); }
-  function shippingFlat() { return cfgNum('shipping_flat_rate', 7.9); }
+  function shippingEnabled() {
+    var rate = cfgNum('shipping_flat_rate', 0);
+    return cfgOn('shipping_enabled', rate > 0);
+  }
+  function shippingThreshold() {
+    if (!shippingEnabled()) return 999999;
+    var t = cfgNum('free_shipping_threshold', cfgNum('shipping_free_above', 0));
+    return t > 0 ? t : 999999;
+  }
+  function shippingFlat() {
+    if (!shippingEnabled()) return 0;
+    var r = cfgNum('shipping_flat_rate', 0);
+    return r > 0 ? r : 0;
+  }
 
   function normalizeCat(s) { return String(s || '').trim().toLowerCase(); }
 
@@ -303,6 +342,7 @@
   }
 
   function closeAllOverlays() {
+    closeImageZoom();
     closeCart();
     closeCo();
     closeWish();
@@ -703,9 +743,76 @@
     return resolveZoomImageUrl(variantImageUrl(p, variant, 1200), [p.imgLg, p.imgMd, p.img]);
   }
 
+  /** URLs Drive haute résolution (plusieurs tailles + lh3 en secours). */
+  function driveZoomCandidates(fid, version) {
+    if (!fid) return [];
+    var list = [];
+    [1600, 1200, 1000, 800, 480].forEach(function (w) {
+      var u = driveThumbUrl(fid, w, version);
+      if (u && list.indexOf(u) < 0) list.push(u);
+    });
+    ['=w1600', '=w1200', '=w800'].forEach(function (s) {
+      var u = 'https://lh3.googleusercontent.com/d/' + fid + s;
+      if (list.indexOf(u) < 0) list.push(u);
+    });
+    return list;
+  }
+
+  function buildZoomUrlCandidates(primary, extras, p) {
+    var ver = p ? imageVersionSuffix(p) : '';
+    var out = [];
+    function pushUrl(u) {
+      u = u ? String(u).trim() : '';
+      if (!u || u === placeholderImage()) return;
+      if (/^data:image\//i.test(u)) {
+        if (out.indexOf(u) < 0) out.push(u);
+        return;
+      }
+      var fid = extractDriveFileId(u);
+      if (fid) {
+        driveZoomCandidates(fid, ver).forEach(function (x) {
+          if (out.indexOf(x) < 0) out.push(x);
+        });
+        return;
+      }
+      var resolved = resolveZoomImageUrl(u, []);
+      if (resolved && resolved !== placeholderImage() && out.indexOf(resolved) < 0) out.push(resolved);
+    }
+    pushUrl(primary);
+    (extras || []).forEach(pushUrl);
+    if (!out.length) out.push(placeholderImage());
+    return out;
+  }
+
+  function qvVisibleImageSrc() {
+    var el = document.querySelector('#qvModal .m-img-zoom img.shop-img.loaded, #qvModal .m-img-zoom img.shop-img.img-fallback, #qvModal .m-img-zoom img');
+    if (!el || !el.src) return '';
+    if (String(el.src).indexOf('data:image/svg') >= 0) return '';
+    return el.src;
+  }
+
   var imgZoomState = { scale: 1, x: 0, y: 0, drag: false, lastX: 0, lastY: 0, pinchDist: 0, pinchScale: 1 };
 
+  function clampImageZoomPan() {
+    var wrap = $('imgZoomWrap');
+    var img = $('imgZoomImg');
+    if (!wrap || !img || imgZoomState.scale <= 1.001) {
+      imgZoomState.x = 0;
+      imgZoomState.y = 0;
+      return;
+    }
+    var wr = wrap.getBoundingClientRect();
+    var baseW = img.offsetWidth || img.naturalWidth || 0;
+    var baseH = img.offsetHeight || img.naturalHeight || 0;
+    if (!baseW || !baseH) return;
+    var maxX = Math.max(0, (baseW * imgZoomState.scale - wr.width) / 2);
+    var maxY = Math.max(0, (baseH * imgZoomState.scale - wr.height) / 2);
+    imgZoomState.x = Math.min(maxX, Math.max(-maxX, imgZoomState.x));
+    imgZoomState.y = Math.min(maxY, Math.max(-maxY, imgZoomState.y));
+  }
+
   function applyImageZoomTransform() {
+    clampImageZoomPan();
     var img = $('imgZoomImg');
     if (!img) return;
     img.style.transform = 'translate(' + imgZoomState.x + 'px,' + imgZoomState.y + 'px) scale(' + imgZoomState.scale + ')';
@@ -718,7 +825,13 @@
     applyImageZoomTransform();
   }
 
-  function openImageZoom(src, alt, fallbacks) {
+  function markZoomImageLoaded() {
+    var img = $('imgZoomImg');
+    if (img) img.classList.add('loaded');
+    resetImageZoomTransform();
+  }
+
+  function openImageZoom(src, alt, fallbacks, productCtx) {
     var bg = $('imgZoomBg');
     var img = $('imgZoomImg');
     var wrap = $('imgZoomWrap');
@@ -733,30 +846,51 @@
     if (hint) hint.textContent = t().imgZoomHelp || '';
     updateScrollLock();
 
-    var candidates = [];
-    [src].concat(fallbacks || []).forEach(function (u) {
-      var resolved = resolveZoomImageUrl(u, []);
-      if (resolved && resolved !== placeholderImage() && candidates.indexOf(resolved) < 0) candidates.push(resolved);
+    var candidates = buildZoomUrlCandidates(src, fallbacks, productCtx);
+    var preview = '';
+    (fallbacks || []).some(function (u) {
+      if (u && u !== placeholderImage()) { preview = String(u).trim(); return true; }
+      return false;
     });
-    if (!candidates.length) candidates.push(placeholderImage());
+    if (preview) {
+      img.src = preview;
+      img.classList.add('loaded');
+    }
+
     var idx = 0;
-    function loadNext() {
+    function tryLoad() {
       if (idx >= candidates.length) {
-        img.src = placeholderImage();
-        img.classList.add('loaded');
+        if (!preview) {
+          img.src = placeholderImage();
+          markZoomImageLoaded();
+        }
         return;
       }
+      var url = candidates[idx];
+      function doneOk() {
+        if (img.naturalWidth > 0 && img.naturalWidth < 160 && idx < candidates.length - 1) {
+          idx++;
+          tryLoad();
+          return;
+        }
+        markZoomImageLoaded();
+      }
       img.onload = function () {
-        img.classList.add('loaded');
-        resetImageZoomTransform();
+        img.onload = null;
+        img.onerror = null;
+        doneOk();
       };
       img.onerror = function () {
+        img.onload = null;
+        img.onerror = null;
         idx++;
-        loadNext();
+        if (idx >= candidates.length && preview) return;
+        tryLoad();
       };
-      img.src = candidates[idx];
+      img.src = url;
+      if (img.complete && img.naturalWidth > 0) doneOk();
     }
-    loadNext();
+    tryLoad();
   }
 
   function closeImageZoom() {
@@ -765,7 +899,16 @@
     if (!bg) return;
     bg.classList.remove('open');
     bg.setAttribute('aria-hidden', 'true');
-    if (img) { img.onload = null; img.onerror = null; img.src = ''; }
+    if (img) {
+      img.onload = null;
+      img.onerror = null;
+      img.classList.remove('loaded');
+      img.src = '';
+    }
+    imgZoomState.drag = false;
+    imgZoomState.pinchDist = 0;
+    var wrap = $('imgZoomWrap');
+    if (wrap) wrap.classList.remove('dragging');
     updateScrollLock();
   }
 
@@ -773,19 +916,37 @@
     var p = state.qvProd;
     if (!p) return;
     var item = qvCurrentGalleryImage(p);
-    var visible = item.lg || item.md || item.url || qvProductImage(p, state.qvSize, state.qvColor);
+    var visible = qvVisibleImageSrc() || item.lg || item.md || item.url || qvProductImage(p, state.qvSize, state.qvColor);
     var hiRes = zoomGalleryImageUrl(item, p);
     var fallbacks = [];
-    if (visible && visible !== hiRes) fallbacks.push(visible);
-    if (item.md && item.md !== hiRes && fallbacks.indexOf(item.md) < 0) fallbacks.push(item.md);
-    if (item.url && item.url !== hiRes && fallbacks.indexOf(item.url) < 0) fallbacks.push(item.url);
+    if (visible) fallbacks.push(visible);
+    if (item.md && fallbacks.indexOf(item.md) < 0) fallbacks.push(item.md);
+    if (item.url && fallbacks.indexOf(item.url) < 0) fallbacks.push(item.url);
     if (p.imgLg && fallbacks.indexOf(p.imgLg) < 0) fallbacks.push(p.imgLg);
-    openImageZoom(hiRes, nm(p), fallbacks);
+    if (p.imgMd && fallbacks.indexOf(p.imgMd) < 0) fallbacks.push(p.imgMd);
+    openImageZoom(hiRes, nm(p), fallbacks, p);
   }
 
-  function zoomImageStep(delta) {
-    imgZoomState.scale = Math.min(4, Math.max(1, imgZoomState.scale + delta));
-    if (imgZoomState.scale <= 1) { imgZoomState.x = 0; imgZoomState.y = 0; }
+  function zoomImageStep(delta, focalX, focalY) {
+    var wrap = $('imgZoomWrap');
+    var oldScale = imgZoomState.scale;
+    var newScale = Math.min(4, Math.max(1, oldScale + delta));
+    if (newScale <= 1.001) {
+      imgZoomState.scale = 1;
+      imgZoomState.x = 0;
+      imgZoomState.y = 0;
+      applyImageZoomTransform();
+      return;
+    }
+    if (wrap && focalX != null && focalY != null) {
+      var rect = wrap.getBoundingClientRect();
+      var cx = focalX - rect.left - rect.width / 2;
+      var cy = focalY - rect.top - rect.height / 2;
+      var ratio = newScale / oldScale;
+      imgZoomState.x = cx - (cx - imgZoomState.x) * ratio;
+      imgZoomState.y = cy - (cy - imgZoomState.y) * ratio;
+    }
+    imgZoomState.scale = newScale;
     applyImageZoomTransform();
   }
 
@@ -807,12 +968,12 @@
     wrap.addEventListener('wheel', function (e) {
       if (!bg.classList.contains('open')) return;
       e.preventDefault();
-      zoomImageStep(e.deltaY > 0 ? -0.15 : 0.15);
+      zoomImageStep(e.deltaY > 0 ? -0.15 : 0.15, e.clientX, e.clientY);
     }, { passive: false });
     wrap.addEventListener('dblclick', function (e) {
       e.preventDefault();
       if (imgZoomState.scale > 1.05) resetImageZoomTransform();
-      else { imgZoomState.scale = 2; applyImageZoomTransform(); }
+      else zoomImageStep(1, e.clientX, e.clientY);
     });
     function touchDist(touches) {
       if (!touches || touches.length < 2) return 0;
@@ -841,6 +1002,7 @@
     }
     wrap.addEventListener('mousedown', function (e) {
       if (e.button !== 0) return;
+      if (imgZoomState.scale <= 1) return;
       e.preventDefault();
       startDrag(e.clientX, e.clientY);
     });
@@ -866,7 +1028,8 @@
           if (imgZoomState.scale <= 1) { imgZoomState.x = 0; imgZoomState.y = 0; }
           applyImageZoomTransform();
         }
-      } else if (e.touches[0]) {
+      } else if (e.touches[0] && imgZoomState.drag && imgZoomState.scale > 1) {
+        e.preventDefault();
         moveDrag(e.touches[0].clientX, e.touches[0].clientY);
       }
     }, { passive: false });
@@ -1284,23 +1447,54 @@
   function applyVitrineContent(lang) {
     lang = lang || state.lang || 'pt';
     applyHeroTextColors();
+    var cfg = state.config || {};
     var c = state.store && state.store.content && state.store.content[lang];
-    if (!c) return;
-    function setText(id, val, html) {
+    if (!c) c = {};
+    function showBlock(key, defaultOn) {
+      return cfgOn(key, defaultOn !== false);
+    }
+    function setText(id, val, html, displayKey, displayDefault) {
       var el = $(id);
-      if (!el || !val) return;
+      if (!el) return;
+      if (!showBlock(displayKey, displayDefault)) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.innerHTML = '';
+        return;
+      }
+      el.style.display = '';
+      if (!val) {
+        el.textContent = '';
+        return;
+      }
       if (html) el.innerHTML = val;
       else el.textContent = val;
       el.dataset.erp = '1';
     }
-    setText('hEye', c.hEye, false);
-    setText('hTitle', c.hTitle, true);
-    setText('hSub', c.hSub, false);
-    setText('hBtn1', c.hBtn1, false);
-    setText('hBtn2', c.hBtn2, false);
-    setText('secLabel', c.shopLabel, false);
-    setText('secTitle', c.shopTitle, false);
-    setText('fDesc', c.fDesc, false);
+    setText('hEye', c.hEye, false, 'vitrine_display_hero_eyebrow', true);
+    setText('hTitle', c.hTitle, true, 'vitrine_display_hero_title', true);
+    setText('hSub', c.hSub, false, 'vitrine_display_hero_sub', true);
+    setText('hBtn1', c.hBtn1, false, 'vitrine_display_hero_buttons', true);
+    setText('hBtn2', c.hBtn2, false, 'vitrine_display_hero_buttons', true);
+    var heroBtns = document.querySelector('.hero-btns');
+    if (heroBtns) {
+      heroBtns.style.display = showBlock('vitrine_display_hero_buttons', true) ? '' : 'none';
+    }
+    setText('secLabel', c.shopLabel, false, 'vitrine_display_shop_header', true);
+    setText('secTitle', c.shopTitle, false, 'vitrine_display_shop_header', true);
+    var shopHdr = document.querySelector('.shop-header .sh-left');
+    if (shopHdr) {
+      shopHdr.style.display = showBlock('vitrine_display_shop_header', true) ? '' : 'none';
+    }
+    setText('fDesc', c.fDesc, false, 'vitrine_display_footer_desc', true);
+    applyServicesStrip();
+  }
+
+  function applyServicesStrip() {
+    var cfg = state.config || {};
+    var show = cfgOn('vitrine_display_services', true);
+    var sec = document.querySelector('.services-in-footer') || document.querySelector('.services');
+    if (sec) sec.style.display = show ? '' : 'none';
   }
 
   function resetHeroBackgroundTuning(heroBg) {
@@ -2117,9 +2311,11 @@
     var pct = Math.min(100, (afterDisc / shippingThreshold()) * 100);
 
     df.innerHTML =
+      (shippingEnabled() ? (
       '<div class="ship-bar"><p class="ship-msg ' + (afterDisc >= shippingThreshold() ? 'ok' : '') + '">' +
       (afterDisc >= shippingThreshold() ? esc(t().shipOk) : esc(t().shipNeed.replace('{n}', (shippingThreshold() - afterDisc).toFixed(2)))) +
-      '</p><div class="progress"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>' +
+      '</p><div class="progress"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>'
+      ) : '') +
       '<div class="promo-sec"><span class="promo-lbl">' + esc(t().promoLbl) + '</span>' +
       '<div class="promo-row"><input id="promoIn" type="text" placeholder="' + esc(t().promoPH) + '" value="' + esc(state.promo) + '" oninput="Shop.setPromo(this.value)"/>' +
       '<button class="btn-validate" onclick="Shop.applyPromo()">' + esc(t().promoBtn) + '</button></div><p id="promoMsg"></p></div>' +
@@ -2259,12 +2455,44 @@
     state.qvSize = hasSizeOptions(p) ? '' : (normalizeOptionValue(productSizes(p)[0]) || (t().oneSize || '—'));
     state.qvColor = hasColorOptions(p) ? '' : (normalizeOptionValue((p.colors || [])[0]) || '—');
     state.qvGuide = false;
+    state.qvViewMode = 'shop';
     renderQv();
     $('qvBg').classList.add('open');
     updateScrollLock();
   }
 
   function closeQv() { $('qvBg').classList.remove('open'); updateScrollLock(); }
+
+  function setQvViewMode(mode) {
+    state.qvViewMode = mode === 'photo' ? 'photo' : 'shop';
+    renderQv();
+  }
+
+  function renderQvOptionsBlock(colorOptions, sizeOptions, canAdd) {
+    var tm = t();
+    if (!colorOptions.length && !sizeOptions.length) return '';
+    var html = '<div class="qv-options-card"><p class="qv-options-head">' + esc(tm.qvOptionsHead || 'Personnalisez votre article') + '</p>';
+    if (colorOptions.length) {
+      html += '<div class="qv-opt-block"><div class="qv-opt-head"><span class="opt-label">' + esc(tm.colLbl) + '</span>' +
+        '<span class="qv-opt-value' + (state.qvColor ? '' : ' missing') + '">' +
+        esc(state.qvColor ? colorDisplayName(state.qvColor) : tm.selectColorPrompt) + '</span></div>' +
+        '<div class="color-opts qv-color-opts">' + colorOptions.map(function (c) {
+          var on = colorsMatch(state.qvColor, c) ? ' on' : '';
+          var label = colorDisplayName(c);
+          return '<button class="col-btn' + on + '" type="button" title="' + esc(label) + '" aria-label="' + esc(label) + '" style="' + colorSwatchStyle(c) + '" onclick="Shop.setQvColor(\'' + esc(c).replace(/'/g, "\\'") + '\')"></button>';
+        }).join('') + '</div></div>';
+    }
+    if (sizeOptions.length) {
+      html += '<div class="qv-opt-block"><div class="qv-opt-head"><span class="opt-label">' + esc(tm.szLbl) + '</span>' +
+        '<button type="button" class="qv-size-guide" onclick="Shop.toggleQvGuide()">' + esc(tm.szGuide) + '</button></div>' +
+        (state.qvGuide ? '<div class="size-guide"><span>' + esc(SIZE_LIST.join(' · ')) + '</span></div>' : '') +
+        '<div class="size-opts qv-size-opts">' + sizeOptions.map(function (s) {
+          return '<button class="sz-btn ' + (state.qvSize === s ? 'on' : '') + '" type="button" onclick="Shop.setQvSize(\'' + esc(s).replace(/'/g, "\\'") + '\')">' + esc(s) + '</button>';
+        }).join('') + '</div></div>';
+    }
+    html += '<p class="qv-selection-note' + (canAdd ? ' ok' : '') + '">' + esc(canAdd ? tm.selectionReady : tm.selectOptionsNotice) + '</p></div>';
+    return html;
+  }
 
   function renderQv() {
     var p = state.qvProd;
@@ -2285,7 +2513,17 @@
     var gIdx = state.qvGalleryIndex || 0;
     if (gIdx >= gallery.length) gIdx = 0;
     state.qvGalleryIndex = gIdx;
-    var currentImg = gallery.length ? (gallery[gIdx].lg || gallery[gIdx].md || gallery[gIdx].url) : qvProductImage(p, state.qvSize, state.qvColor);
+    var variantImg = qvProductImage(p, state.qvSize, state.qvColor);
+    var currentImg;
+    if (gallery.length && gIdx > 0) {
+      currentImg = gallery[gIdx].lg || gallery[gIdx].md || gallery[gIdx].url;
+    } else if ((state.qvColor || state.qvSize) && variantImg && variantImg !== placeholderImage()) {
+      currentImg = variantImg;
+    } else if (gallery.length) {
+      currentImg = gallery[gIdx].lg || gallery[gIdx].md || gallery[gIdx].url;
+    } else {
+      currentImg = variantImg;
+    }
 
     var galleryHtml = '';
     if (gallery.length > 1) {
@@ -2301,72 +2539,39 @@
         '<button type="button" class="qv-gnav" onclick="event.stopPropagation();Shop.qvGalleryNext()">›</button></div>';
     }
 
-    $('qvModal').innerHTML =
+    var mode = state.qvViewMode === 'photo' ? 'photo' : 'shop';
+    var tm = t();
+    var modal = $('qvModal');
+    modal.className = 'modal qv-modal qv-mode-' + mode;
+    modal.innerHTML =
       '<button class="modal-close" onclick="Shop.closeQv()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>' +
-      '<div class="m-img-wrap">' +
-      '<div class="m-img m-img-zoom" role="button" tabindex="0" title="' + esc(t().imgZoomHint || 'Cliquez pour agrandir') + '" onclick="event.stopPropagation();Shop.openQvImageZoom()">' +
+      '<div class="qv-view-tabs" role="tablist">' +
+      '<button type="button" role="tab" class="qv-view-tab' + (mode === 'shop' ? ' on' : '') + '" aria-selected="' + (mode === 'shop' ? 'true' : 'false') + '" onclick="Shop.setQvViewMode(\'shop\')">' +
+      esc(tm.qvModeShop || 'Photo & options') + '</button>' +
+      '<button type="button" role="tab" class="qv-view-tab' + (mode === 'photo' ? ' on' : '') + '" aria-selected="' + (mode === 'photo' ? 'true' : 'false') + '" onclick="Shop.setQvViewMode(\'photo\')">' +
+      esc(tm.qvModePhoto || 'Galerie photo') + '</button></div>' +
+      '<div class="qv-layout">' +
+      '<div class="qv-media-col">' +
+      '<div class="m-img m-img-zoom" role="button" tabindex="0" title="' + esc(tm.imgZoomHint || 'Cliquez pour agrandir') + '" onclick="event.stopPropagation();Shop.openQvImageZoom()" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();Shop.openQvImageZoom()}">' +
       imgHtml(currentImg, nm(p), { eager: true, fallback: p.imgMd || p.imgLg || p.img }) +
       '<span class="m-img-zoom-badge" aria-hidden="true">🔍</span></div>' +
       galleryHtml +
+      '<div class="qv-media-toolbar">' +
+      '<button type="button" class="qv-media-btn" onclick="event.stopPropagation();Shop.openQvImageZoom()">' + esc(tm.imgZoomHint || 'Agrandir') + '</button></div>' +
+      '<div class="qv-photo-cta">' +
+      '<button type="button" class="qv-switch-shop" onclick="Shop.setQvViewMode(\'shop\')">' + esc(tm.qvSwitchShop || 'Choisir taille & couleur') + '</button></div>' +
       '</div>' +
-      '<div class="m-body"><p class="m-cat">' + esc(catLabel) + '</p>' +
+      '<div class="qv-detail-col">' +
+      '<div class="qv-head"><p class="m-cat">' + esc(catLabel) + '</p>' +
       '<h2 class="m-name">' + esc(nm(p)) + '</h2>' +
       '<p class="m-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ')</span></p>' +
       '<div class="m-price"><span class="c">' + displayPrice.toFixed(2) + ' €</span>' +
-      (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div>' +
-      '<div class="tab-panel"><p>' + esc(desc(p)) + '</p></div>' +
-      (colorOptions.length ? '<span class="opt-label">' + esc(t().colLbl) + '</span>' +
-      '<div class="color-opts">' + colorOptions.map(function (c) {
-        var on = colorsMatch(state.qvColor, c) ? ' on' : '';
-        var label = colorDisplayName(c);
-        return '<button class="col-btn' + on + '" type="button" title="' + esc(label) + '" aria-label="' + esc(label) + '" style="' + colorSwatchStyle(c) + '" onclick="Shop.setQvColor(\'' + esc(c).replace(/'/g, "\\'") + '\')"></button>';
-      }).join('') + '</div>' : '') +
-      (sizeOptions.length ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">' +
-      '<span class="opt-label" style="margin:0;">' + esc(t().szLbl) + '</span>' +
-      '<button style="background:none;border:none;color:var(--gold);font-size:8px;cursor:pointer;" onclick="Shop.toggleQvGuide()">' + esc(t().szGuide) + '</button></div>' +
-      (state.qvGuide ? '<div class="size-guide"><span>' + esc(SIZE_LIST.join(' · ')) + '</span></div>' : '') +
-      '<div class="size-opts">' + sizeOptions.map(function (s) {
-        return '<button class="sz-btn ' + (state.qvSize === s ? 'on' : '') + '" type="button" onclick="Shop.setQvSize(\'' + esc(s).replace(/'/g, "\\'") + '\')">' + esc(s) + '</button>';
-      }).join('') + '</div>' : '') +
-      ((colorOptions.length || sizeOptions.length) ? '<div class="qv-selection-box">' +
-      (colorOptions.length ? '<div class="qv-selection-row' + (state.qvColor ? '' : ' missing') + '"><span>' + esc(t().colLbl) + '</span><strong>' + esc(state.qvColor ? colorDisplayName(state.qvColor) : t().selectColorPrompt) + '</strong></div>' : '') +
-      (sizeOptions.length ? '<div class="qv-selection-row' + (state.qvSize ? '' : ' missing') + '"><span>' + esc(t().szLbl) + '</span><strong>' + esc(state.qvSize || t().selectSizePrompt) + '</strong></div>' : '') +
-      '<p class="qv-selection-note' + (canAdd ? ' ok' : '') + '">' + esc(canAdd ? t().selectionReady : t().selectOptionsNotice) + '</p></div>' : '') +
+      (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div></div>' +
+      '<div class="tab-panel qv-desc"><p>' + esc(desc(p)) + '</p></div>' +
+      renderQvOptionsBlock(colorOptions, sizeOptions, canAdd) +
       '<div class="m-cta">' +
-      '<button class="btn-madd' + (canAdd ? '' : ' disabled') + '" ' + (canAdd ? 'onclick="Shop.addCart(\'' + pid + '\',\'' + esc(state.qvSize).replace(/'/g, "\\'") + '\',\'' + esc(state.qvColor).replace(/'/g, "\\'") + '\');Shop.closeQv()"' : 'type="button" disabled') + '>' + esc(t().addSel) + '</button>' +
-      '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' + (faved ? esc(t().favAdded) : esc(t().favAdd)) + '</button></div>' +
-      (state.token ? '<div class="qv-review" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">' +
-      '<p class="opt-label">' + esc(t().reviewTitle || 'Votre avis') + '</p>' +
-      '<div class="field"><label>' + esc(t().reviewRating || 'Note') + '</label><select id="qvReviewRating"><option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option></select></div>' +
-      '<div class="field"><label>' + esc(t().reviewComment || 'Commentaire') + '</label><textarea id="qvReviewComment" rows="2" placeholder="' + esc(t().reviewPlaceholder || '') + '"></textarea></div>' +
-      '<button type="button" class="btn-ghost-sm" onclick="Shop.submitReview(\'' + pid + '\')">' + esc(t().reviewSubmit || 'Envoyer') + '</button></div>' :
-      '<p style="font-size:9px;color:var(--muted);margin-top:12px;">' + esc(t().reviewLoginHint || 'Connectez-vous pour laisser un avis.') + '</p>') +
-      '</div></div>';
-  }
-
-  async function submitReview(produtoId) {
-    if (!state.token || !state.clientId) {
-      global.toast(t().reviewLoginHint || 'Connectez-vous pour laisser un avis.', 'i');
-      openAccount();
-      return;
-    }
-    var rating = $('qvReviewRating') ? parseInt($('qvReviewRating').value, 10) : 5;
-    var comment = $('qvReviewComment') ? $('qvReviewComment').value.trim() : '';
-    if (!comment) {
-      global.toast(t().reviewRequired || 'Merci d\'écrire un commentaire.', 'e');
-      return;
-    }
-    try {
-      var res = await erpCall('createReview', { produtoId: produtoId, nota: rating, comentario: comment });
-      if (!res || !res.success) {
-        global.toast((res && res.error) || t().error || 'Erreur', 'e');
-        return;
-      }
-      global.toast(t().reviewThanks || 'Merci ! Votre avis sera publié après modération.', 's');
-      if ($('qvReviewComment')) $('qvReviewComment').value = '';
-    } catch (e) {
-      global.toast(e.message, 'e');
-    }
+      '<button class="btn-madd' + (canAdd ? '' : ' disabled') + '" ' + (canAdd ? 'onclick="Shop.addCart(\'' + pid + '\',\'' + esc(state.qvSize).replace(/'/g, "\\'") + '\',\'' + esc(state.qvColor).replace(/'/g, "\\'") + '\');Shop.closeQv()"' : 'type="button" disabled') + '>' + esc(tm.addSel) + '</button>' +
+      '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' + (faved ? esc(tm.favAdded) : esc(tm.favAdd)) + '</button></div></div></div>';
   }
 
   function setQvSize(s) { state.qvSize = s; renderQv(); }
@@ -2418,14 +2623,54 @@
     return { sub: sub, disc: disc, after: after, ship: ship, total: after + ship };
   }
 
+  function checkoutTotalsHtml(totals) {
+    var rows = '<div class="totals" style="margin:12px 0;">' +
+      '<div class="t-row"><span>' + esc(t().subT) + '</span><span>' + totals.sub.toFixed(2) + ' €</span></div>';
+    if (totals.disc > 0) {
+      rows += '<div class="t-row disc"><span>' + esc(t().discT) + '</span><span>- ' + totals.disc.toFixed(2) + ' €</span></div>';
+    }
+    if (shippingEnabled() && totals.ship > 0) {
+      rows += '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + totals.ship.toFixed(2) + ' €</span></div>';
+    } else if (shippingEnabled()) {
+      rows += '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + esc(t().shipFree) + '</span></div>';
+    }
+    rows += '<div class="t-row grand"><span>' + esc(t().totalT) + '</span><span>' + totals.total.toFixed(2) + ' €</span></div></div>';
+    return rows;
+  }
+
+  function isStripeOn() {
+    if (!STRIPE_PK) return false;
+    if (state.config.pay_stripe_enabled === '0' || state.config.pay_stripe_enabled === 0) return false;
+    return cfgOn('pay_stripe_enabled', true) && cfgOn('pay_show_stripe', true);
+  }
+
+  function defaultPayMethod() {
+    if (isStripeOn()) return 'stripe';
+    if (cfgOn('pay_cod_enabled', true)) return 'cod';
+    return 'cod';
+  }
+
+  function stripeLocale_() {
+    var L = state.lang || 'pt';
+    if (L === 'pt') return 'pt';
+    if (L === 'fr') return 'fr';
+    if (L === 'es') return 'es';
+    return 'en';
+  }
+
+  function stripeAmountCents_() {
+    var totals = orderTotals();
+    return Math.max(50, Math.round(totals.total * 100));
+  }
+
   function paymentOptionsHtml() {
     var opts = [];
+    if (isStripeOn()) {
+      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> ' + esc(t().payStripePt || t().payStripe) + '</label>');
+    }
     if (cfgOn('pay_show_cod', true) && cfgOn('pay_cod_enabled', true)) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" ' + (state.payMethod === 'cod' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'cod\')"/> ' +
         esc(t().payCod) + '</label>');
-    }
-    if (cfgOn('pay_stripe_enabled', false) && cfgOn('pay_show_stripe', true) && STRIPE_PK) {
-      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> ' + esc(t().payStripePt || t().payStripe) + '</label>');
     }
     if (cfgOn('pay_show_transfer', true)) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="transfer" ' + (state.payMethod === 'transfer' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'transfer\')"/> ' +
@@ -2447,6 +2692,7 @@
   }
 
   function setPayMethod(m) {
+    if (m !== 'stripe') destroyStripeElement();
     state.payMethod = m;
     renderCo();
   }
@@ -2461,6 +2707,7 @@
     closeCart();
     state.ordered = false;
     state.delStep = 0;
+    state.payMethod = defaultPayMethod();
     prefillCheckoutFromProfile();
     renderCo();
     $('coBg').classList.add('open');
@@ -2478,17 +2725,47 @@
       try { state.stripePaymentElement.unmount(); } catch (e) { /* ignore */ }
       state.stripePaymentElement = null;
     }
+    state.stripeElements = null;
+    state.stripeAmountCents = 0;
   }
 
   async function initStripeElement() {
-    if (!STRIPE_PK || !global.Stripe) return;
+    if (!STRIPE_PK || !global.Stripe || !isStripeOn()) return;
+    var amountCents = stripeAmountCents_();
+    if (state.stripePaymentElement && state.stripeAmountCents === amountCents && state.stripeElements) return;
     destroyStripeElement();
-    state.stripe = global.Stripe(STRIPE_PK);
+    if (!state.stripe) state.stripe = global.Stripe(STRIPE_PK);
+    var currency = String(state.config.currency_code || 'eur').toLowerCase();
     var stripeTheme = getTheme() === 'light' ? 'stripe' : 'night';
-    state.stripeElements = state.stripe.elements({ appearance: { theme: stripeTheme } });
-    state.stripePaymentElement = state.stripeElements.create('payment');
+    var elementsOpts = {
+      mode: 'payment',
+      amount: amountCents,
+      currency: currency,
+      locale: stripeLocale_(),
+      appearance: { theme: stripeTheme }
+    };
+    if (cfgOn('stripe_pt_local_methods', true)) {
+      elementsOpts.paymentMethodTypes = ['card', 'mb_way', 'multibanco'];
+    }
+    state.stripeElements = state.stripe.elements(elementsOpts);
+    state.stripeAmountCents = amountCents;
+    state.stripePaymentElement = state.stripeElements.create('payment', {
+      layout: { type: 'tabs', defaultCollapsed: false }
+    });
     var mount = $('stripe-payment-element');
-    if (mount) state.stripePaymentElement.mount('#stripe-payment-element');
+    if (mount) {
+      mount.innerHTML = '';
+      state.stripePaymentElement.mount('#stripe-payment-element');
+    }
+  }
+
+  function scheduleStripeMount_() {
+    if (state.payMethod !== 'stripe' || !isStripeOn() || state.ordered) return;
+    setTimeout(function () {
+      initStripeElement().catch(function (e) {
+        global.toast((t().errStripe || 'Stripe') + ': ' + e.message, 'e');
+      });
+    }, 0);
   }
 
   function paymentInstructionsHtml() {
@@ -2539,11 +2816,25 @@
   async function loadInvoiceForOrder(orderId, nome) {
     if (!orderId || !apiUrlConfigured()) return null;
     try {
-      var res = await erpCall('getInvoiceData', orderAccessPayload({ orderId: orderId, nome: nome || state.form.name || '' }));
+      var res = await erpCall('getInvoiceData', orderAccessPayload({ orderId: orderId, nome: nome || state.form.name || '', lang: state.lang }));
       return res && res.success ? res : null;
     } catch (e) {
       return null;
     }
+  }
+
+  async function loadOrderReceipt() {
+    if (!state.lastOrderId) return;
+    state.lastInvoiceLoading = true;
+    renderCo();
+    state.lastInvoice = await loadInvoiceForOrder(state.lastOrderId, state.form.name);
+    state.lastInvoiceLoading = false;
+    if (state.lastInvoice && state.lastInvoice.html && global.InvoiceReceipt) {
+      global.InvoiceReceipt.openPrintDocument(state.lastInvoice.html);
+    } else {
+      global.toast(t().receiptError || 'Comprovativo indisponível', 'e');
+    }
+    renderCo();
   }
 
   async function fetchLastInvoice() {
@@ -2598,8 +2889,8 @@
     return 0;
   }
 
-  function orderTrackingHtml(order) {
-    var step = orderTrackingStep_(order);
+  function orderTrackingHtml(order, animated) {
+    var step = animated ? (state.delStep || 0) : orderTrackingStep_(order);
     var addr = state.form.addr || '';
     var city = state.form.city || '';
     var tr3d = (t().tr3d || '').replace('{address}', addr).replace('{city}', city);
@@ -2611,8 +2902,19 @@
     }
     return '<div class="tracking"><p class="tr-title">' + esc(t().trTitle) + '</p><div class="tr-steps">' +
       pairs.map(function (pair, i) {
-        return '<div class="tr-step"><span class="tr-dot ' + (step >= i ? 'done' : '') + '"></span><h4>' + esc(pair[0]) + '</h4><p>' + esc(pair[1]) + '</p></div>';
+        var dotClass = animated ? (state.delStep > i ? 'done' : '') : (step >= i ? 'done' : '');
+        var dotId = animated ? ' id="td' + i + '"' : '';
+        return '<div class="tr-step"><span class="tr-dot ' + dotClass + '"' + dotId + '></span><h4>' + esc(pair[0]) + '</h4><p>' + esc(pair[1]) + '</p></div>';
       }).join('') + '</div>' + trackInfo + '</div>';
+  }
+
+  function startOrderTrackingAnimation_(initialStep) {
+    state.delStep = initialStep || 1;
+    updDots();
+    clearTimeout(state._trackAnim1);
+    clearTimeout(state._trackAnim2);
+    state._trackAnim1 = setTimeout(function () { state.delStep = 2; updDots(); }, 5000);
+    state._trackAnim2 = setTimeout(function () { state.delStep = 3; updDots(); }, 10000);
   }
 
   function renderCo() {
@@ -2625,8 +2927,11 @@
         '<div class="order-ref-card"><p class="order-ref-label">' + esc(t().orderCodeLabel) + '</p><div class="order-ref-row"><strong>#' + esc(state.lastOrderId) + '</strong><button type="button" class="btn-copy-ref" onclick="Shop.copyLastOrderCode()">' + esc(t().copyOrderCode) + '</button></div><p class="order-ref-help">' + esc(t().orderCodeHint) + '</p></div>' +
         receiptSectionHtml() +
         paymentInstructionsHtml() +
-        orderTrackingHtml(state.lastOrderSnapshot) +
-        '</div><div class="order-ok-actions"><button class="btn-gold" type="button" onclick="Shop.openLastOrderTracking()">' + esc(t().trackOrderNow) + '</button><button class="btn-order-secondary" type="button" onclick="Shop.closeCo()">' + esc(t().backBtn) + '</button></div></div>';
+        orderTrackingHtml(state.lastOrderSnapshot, true) +
+        '</div><div class="order-ok-actions"><button class="btn-gold" type="button" onclick="Shop.openLastOrderTracking()">' + esc(t().trackOrderNow) + '</button>' +
+        '<button class="btn-order-secondary" type="button" onclick="Shop.loadOrderReceipt()">' + esc(t().receiptLater || t().receiptPrint) + '</button>' +
+        '<button class="btn-order-secondary" type="button" onclick="Shop.closeCo()">' + esc(t().backBtn) + '</button></div></div>';
+      startOrderTrackingAnimation_(state.payMethod === 'stripe' ? 1 : 0);
       return;
     }
 
@@ -2651,10 +2956,11 @@
       paymentOptionsHtml() +
       '<div id="stripe-payment-element" style="margin:12px 0;' + (state.payMethod === 'stripe' ? '' : 'display:none;') + '"></div>' +
       '<div class="sec-note"><span>' + esc(t().secN) + '</span><strong>' + esc(t().secS) + '</strong></div>' +
-      '<p style="font-size:10px;color:var(--muted);margin:8px 0;">Total : <strong style="color:var(--gold);">' + totals.total.toFixed(2) + ' €</strong></p>' +
-      '<button class="btn-pay" onclick="Shop.submitOrder()">' + esc(t().payBtn) + '</button></div>';
+      checkoutTotalsHtml(totals) +
+      '<button class="btn-pay" id="btnPayOrder" onclick="Shop.submitOrder()" ' + (state.checkoutBusy ? 'disabled' : '') + '>' +
+      esc(state.checkoutBusy ? (t().payProcessing || 'A processar…') : t().payBtn) + '</button></div>';
 
-    if (state.payMethod === 'stripe') initStripeElement();
+    scheduleStripeMount_();
   }
 
   function setForm(k, v) { state.form[k] = v; }
@@ -2697,7 +3003,22 @@
     });
   }
 
+  async function registerOfflinePaymentSafe_(payload) {
+    try {
+      var res = await erpCall('registerOfflinePayment', payload);
+      if (res && res.success) return res;
+    } catch (e1) { /* ancien backend sans registerOfflinePayment */ }
+    return erpCall('processPayment', {
+      orderId: payload.orderId,
+      metodo: payload.metodo,
+      valor: payload.valor,
+      clientId: payload.clientId,
+      email: payload.email
+    });
+  }
+
   async function submitOrder() {
+    if (state.checkoutBusy) return;
     var f = state.form;
     if (!f.name || !f.email || !f.addr || !f.city || !f.zip) {
       global.toast(t().tReq, 'e');
@@ -2708,16 +3029,32 @@
       return;
     }
     if (!apiUrlConfigured()) {
-      global.toast('Configure API_URL dans index.html', 'e');
+      global.toast(t().apiUrlMissing || 'API não configurada (index.html)', 'e');
       return;
     }
 
     await refreshActivePromo({ silent: true });
     var totals = orderTotals();
     var endereco = [f.addr, f.zip, f.city].filter(Boolean).join(', ');
-    var awaitStripe = state.payMethod === 'stripe' && STRIPE_PK && cfgOn('pay_stripe_enabled', false);
+    var awaitStripe = state.payMethod === 'stripe' && isStripeOn();
+
+    state.checkoutBusy = true;
+    renderCo();
 
     try {
+      if (awaitStripe) {
+        await initStripeElement();
+        if (!state.stripeElements) {
+          global.toast(t().errStripe || 'Stripe não disponível', 'e');
+          return;
+        }
+        var submitUi = await state.stripeElements.submit();
+        if (submitUi && submitUi.error) {
+          global.toast(submitUi.error.message, 'e');
+          return;
+        }
+      }
+
       var orderPayload = {
         clientId: state.clientId || 'guest',
         email: normEmail(f.email),
@@ -2738,7 +3075,7 @@
 
       var orderRes = await erpCall('createOrder', orderPayload);
       if (!orderRes || !orderRes.success) {
-        global.toast((orderRes && orderRes.error) || 'createOrder failed', 'e');
+        global.toast((orderRes && orderRes.error) || (t().errOrderFailed || 'Erro ao criar encomenda'), 'e');
         return;
       }
 
@@ -2751,10 +3088,9 @@
       if (awaitStripe) {
         var piRes = await erpCall('createStripePaymentIntent', { orderId: orderRes.orderId, email: f.email });
         if (!piRes || !piRes.success || !piRes.clientSecret) {
-          global.toast((piRes && piRes.error) || 'Stripe intent failed', 'e');
+          global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe'), 'e');
           return;
         }
-        if (!state.stripe) await initStripeElement();
         var conf = await state.stripe.confirmPayment({
           elements: state.stripeElements,
           clientSecret: piRes.clientSecret,
@@ -2776,14 +3112,28 @@
           cartId: state.cartId || ''
         });
         if (!confirmRes || !confirmRes.success) {
-          global.toast((confirmRes && confirmRes.error) || 'confirmStripePayment', 'e');
+          global.toast((confirmRes && confirmRes.error) || (t().errPayment || 'Erro no pagamento'), 'e');
           return;
         }
         if (confirmRes.fiscal_doc_url) state.lastFiscalUrl = confirmRes.fiscal_doc_url;
-      } else if (state.payMethod === 'cod' || state.payMethod === 'transfer' || state.payMethod === 'mbway' || state.payMethod === 'paypal') {
-        await erpCall('registerOfflinePayment', {
+      } else if (state.payMethod === 'cod') {
+        var codRes = await erpCall('processPayment', {
+          orderId: orderRes.orderId,
+          metodo: 'cod',
+          valor: totals.total.toFixed(2),
+          clientId: state.clientId || 'guest',
+          email: f.email
+        });
+        if (!codRes || !codRes.success) {
+          global.toast((codRes && codRes.error) || (t().errPayment || 'Erro no pagamento'), 'e');
+          return;
+        }
+        if (codRes.fiscal_doc_url) state.lastFiscalUrl = codRes.fiscal_doc_url;
+      } else if (state.payMethod === 'transfer' || state.payMethod === 'mbway' || state.payMethod === 'paypal') {
+        await registerOfflinePaymentSafe_({
           orderId: orderRes.orderId,
           metodo: state.payMethod,
+          valor: totals.total.toFixed(2),
           clientId: state.clientId || 'guest',
           email: f.email
         });
@@ -2796,19 +3146,24 @@
       }
       updBadge();
       state.ordered = true;
+      var paySnap = 'aguardando_pagamento';
+      if (state.payMethod === 'stripe') paySnap = 'pago_stripe';
+      else if (state.payMethod === 'cod') paySnap = 'pago';
       state.lastOrderSnapshot = {
         pedido_id: orderRes.orderId,
-        estado: 'pending',
-        estado_pagamento: state.payMethod === 'stripe' ? 'pago_stripe' : 'aguardando_pagamento',
+        estado: state.payMethod === 'cod' || state.payMethod === 'stripe' ? 'paid' : 'pending',
+        estado_pagamento: paySnap,
         estado_envio: 'pending',
         tracking_number: '',
         transportadora: ''
       };
       renderCo();
-      fetchLastInvoice();
       global.toast(t().ordTitle, 's');
     } catch (e) {
       global.toast(e.message, 'e');
+    } finally {
+      state.checkoutBusy = false;
+      if ($('coBg') && $('coBg').classList.contains('open') && !state.ordered) renderCo();
     }
   }
 
@@ -2864,29 +3219,67 @@
     }
   }
 
+  function stripeReturnParams_() {
+    try {
+      var sp = new URLSearchParams(global.location.search || '');
+      return {
+        paymentIntentId: (sp.get('payment_intent') || '').trim(),
+        redirectStatus: (sp.get('redirect_status') || '').trim()
+      };
+    } catch (e) {
+      return { paymentIntentId: '', redirectStatus: '' };
+    }
+  }
+
   function handleOrderHash() {
     var h = (global.location && global.location.hash) || '';
-    if (h.indexOf('#order-') !== 0) return;
-    var orderId = h.replace('#order-', '').trim();
+    var orderId = '';
+    if (h.indexOf('#order-') === 0) orderId = h.replace('#order-', '').trim();
+    var stripeRet = stripeReturnParams_();
+    if (!orderId && stripeRet.paymentIntentId) {
+      orderId = state.lastOrderId || '';
+    }
     if (!orderId) return;
+    state.lastOrderId = orderId;
     erpCall('finalizeStripeReturn', {
       orderId: orderId,
+      paymentIntentId: stripeRet.paymentIntentId || '',
       clientId: state.clientId || 'guest',
-      nome: state.clientName || state.form.name || ''
+      nome: state.clientName || state.form.name || '',
+      email: state.lastOrderEmail || state.form.email || state.clientEmail || ''
     }).then(function (fin) {
-      if (fin && fin.success && fin.fiscal_doc_url) {
-        state.lastFiscalUrl = fin.fiscal_doc_url;
-        global.toast(t().fiscalReady || 'Fatura disponível', 's');
+      if (fin && fin.success && !fin.pending) {
+        state.ordered = true;
+        state.payMethod = 'stripe';
+        state.lastPayMethod = 'stripe';
+        state.lastOrderSnapshot = {
+          pedido_id: orderId,
+          estado: 'paid',
+          estado_pagamento: 'pago_stripe',
+          estado_envio: 'pending',
+          tracking_number: '',
+          transportadora: ''
+        };
+        state.cart = [];
+        clearPromoState();
+        updBadge();
+        if (fin.fiscal_doc_url) state.lastFiscalUrl = fin.fiscal_doc_url;
+        $('coBg').classList.add('open');
+        renderCo();
+        global.toast(t().ordTitle, 's');
       } else if (fin && fin.pending) {
-        global.toast(fin.message || t().payPending || 'Paiement en cours…', 'i');
+        global.toast(fin.message || t().payPending || 'Pagamento em processamento…', 'i');
+        openAccount();
+        openOrderDetail(orderId);
+      } else {
+        openAccount();
+        openOrderDetail(orderId);
       }
-      openAccount();
-      openOrderDetail(orderId);
     }).catch(function () {
       openAccount();
       openOrderDetail(orderId);
     });
-    try { global.history.replaceState(null, '', global.location.pathname + global.location.search); } catch (e) { /* ignore */ }
+    try { global.history.replaceState(null, '', global.location.pathname); } catch (e) { /* ignore */ }
   }
 
   function setAccountView(v) {
@@ -3560,8 +3953,9 @@
   function onThemeChange(theme) {
     state.theme = theme;
     if (state.payMethod === 'stripe' && $('coBg') && $('coBg').classList.contains('open') && !state.ordered) {
+      state.stripeAmountCents = 0;
       destroyStripeElement();
-      initStripeElement();
+      scheduleStripeMount_();
     }
   }
 
@@ -3602,6 +3996,8 @@
         return;
       }
       if (global.boot) global.boot();
+      applyBrandUi();
+      applyPromoBanner();
       renderNav();
       renderFooterShop();
     }).catch(function () {
@@ -3629,12 +4025,16 @@
     if (state.token) restoreClientSession().catch(function () { /* ignore */ });
     if (state.clientId) loadWishlistServer().catch(function () { /* ignore */ });
     handleOrderHash();
+    global.addEventListener('hashchange', handleOrderHash);
   }
 
   function setLang(l) {
     window._langSet = true;
     state.lang = (global.T && global.T[l]) ? l : 'pt';
+    try { localStorage.setItem('azav_lang', state.lang); } catch (e) { /* ignore */ }
     if (global.boot) global.boot();
+    applyVitrineContent(state.lang);
+    applyPromoBanner();
     if ($('accBg') && $('accBg').classList.contains('open')) renderAccount();
     if ($('coBg') && $('coBg').classList.contains('open') && !state.ordered) renderCo();
     if ($('cartBg') && $('cartBg').classList.contains('open')) renderCart();
@@ -3686,6 +4086,7 @@
     setQvSize: setQvSize,
     setQvColor: setQvColor,
     setQvGallery: setQvGallery,
+    setQvViewMode: setQvViewMode,
     qvGalleryPrev: qvGalleryPrev,
     qvGalleryNext: qvGalleryNext,
     toggleQvGuide: toggleQvGuide,
@@ -3694,6 +4095,7 @@
     setForm: setForm,
     setPayMethod: setPayMethod,
     printInvoice: printInvoice,
+    loadOrderReceipt: loadOrderReceipt,
     downloadInvoice: downloadInvoice,
     printOrderInvoice: printOrderInvoice,
     submitOrder: submitOrder,
@@ -3715,7 +4117,6 @@
     deleteAddress: deleteAddress,
     loadMyOrders: loadMyOrders,
     openOrderDetail: openOrderDetail,
-    submitReview: submitReview,
     subscribeNewsletter: subscribeNewsletter,
     onThemeChange: onThemeChange,
     openContact: openContact,
@@ -3723,7 +4124,8 @@
     submitContact: submitContact,
     imgError: imgError,
     logoError: logoError,
-    applyVitrineContent: applyVitrineContent
+    applyVitrineContent: applyVitrineContent,
+    applyPromoBanner: applyPromoBanner
   };
 
   document.addEventListener('DOMContentLoaded', function () {
