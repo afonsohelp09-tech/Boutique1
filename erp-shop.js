@@ -59,6 +59,7 @@
     qvColor: '',
     qvGuide: false,
     qvGalleryIndex: 0,
+    qvForceVariant: false,
     qvViewMode: 'shop',
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '' },
     payMethod: 'stripe',
@@ -80,6 +81,11 @@
     stripePaymentElement: null,
     stripeAmountCents: 0,
     checkoutBusy: false,
+    stripeRetryOrderId: '',
+    stripeRetryOrderTotal: 0,
+    stripeRetryName: '',
+    stripeRetryEmail: '',
+    _stripePollTimer: null,
     contactSent: false,
     theme: 'dark'
   };
@@ -1274,17 +1280,13 @@
     return resolveZoomImageUrl(variantImageUrl(p, variant, 1200), [p.imgLg, p.imgMd, p.img]);
   }
 
-  /** URLs Drive haute résolution (plusieurs tailles + lh3 en secours). */
+  /** URLs Drive haute résolution — même fichier que l'aperçu (pas de lh3 aléatoire). */
   function driveZoomCandidates(fid, version) {
     if (!fid) return [];
     var list = [];
     [1600, 1200, 1000, 800, 480].forEach(function (w) {
       var u = driveThumbUrl(fid, w, version);
       if (u && list.indexOf(u) < 0) list.push(u);
-    });
-    ['=w1600', '=w1200', '=w800'].forEach(function (s) {
-      var u = 'https://lh3.googleusercontent.com/d/' + fid + s;
-      if (list.indexOf(u) < 0) list.push(u);
     });
     return list;
   }
@@ -1315,22 +1317,34 @@
     return out;
   }
 
-  function qvDisplayedImageUrl(p) {
-    if (!p) return placeholderImage();
+  function qvActiveImageRef(p) {
+    if (!p) return { url: placeholderImage(), md: '', lg: '' };
     var gallery = productGalleryList(p);
     var gIdx = state.qvGalleryIndex || 0;
     if (gIdx >= gallery.length) gIdx = 0;
+    if (gallery.length > 1 && !state.qvForceVariant) {
+      return gallery[gIdx] || gallery[0];
+    }
     var variantImg = qvProductImage(p, state.qvSize, state.qvColor);
-    if (gallery.length && gIdx > 0) {
-      return gallery[gIdx].lg || gallery[gIdx].md || gallery[gIdx].url || placeholderImage();
+    if (variantImg && variantImg !== placeholderImage()) {
+      return { url: variantImg, md: variantImg, lg: variantImg };
     }
-    if ((state.qvColor || state.qvSize) && variantImg && variantImg !== placeholderImage()) {
-      return variantImg;
-    }
-    if (gallery.length) {
-      return gallery[gIdx].lg || gallery[gIdx].md || gallery[gIdx].url || placeholderImage();
-    }
-    return variantImg || p.imgLg || p.imgMd || p.img || placeholderImage();
+    if (gallery.length) return gallery[gIdx] || gallery[0];
+    return {
+      url: p.imgLg || p.imgMd || p.img || placeholderImage(),
+      md: p.imgMd || p.img || '',
+      lg: p.imgLg || p.imgMd || p.img || placeholderImage()
+    };
+  }
+
+  function qvDisplayedImageUrl(p) {
+    var ref = qvActiveImageRef(p);
+    return ref.lg || ref.md || ref.url || placeholderImage();
+  }
+
+  function qvZoomImageUrl(p) {
+    var ref = qvActiveImageRef(p);
+    return zoomGalleryImageUrl(ref, p);
   }
 
   function zoomUrlFromSrc(url, p) {
@@ -1351,15 +1365,25 @@
       return list.length ? list : [anchorUrl];
     }
     var resolved = resolveZoomImageUrl(anchorUrl, []);
-    return resolved ? [resolved, anchorUrl] : [anchorUrl];
+    if (resolved && resolved !== placeholderImage() && resolved !== anchorUrl) {
+      return [resolved, anchorUrl];
+    }
+    return [anchorUrl];
   }
 
   function qvVisibleImageSrc() {
-    var el = document.querySelector('#qvModal .m-img-zoom img.shop-img.loaded, #qvModal .m-img-zoom img.shop-img.img-fallback, #qvModal .m-img-zoom img');
+    var el = document.querySelector('#qvModal .m-img-zoom img[data-zoom-src]');
+    if (el) {
+      var zs = el.getAttribute('data-zoom-src');
+      if (zs && zs.indexOf('data:image/svg') < 0) return zs;
+    }
+    el = document.querySelector('#qvModal .m-img-zoom img.shop-img.loaded, #qvModal .m-img-zoom img.shop-img.img-fallback, #qvModal .m-img-zoom img');
     if (!el || !el.src) return '';
     if (String(el.src).indexOf('data:image/svg') >= 0) return '';
-    var fb = el.getAttribute('data-fallback');
-    if (fb && el.classList.contains('img-fallback') && fb.indexOf('data:image/svg') < 0) return fb;
+    if (el.classList.contains('img-fallback')) {
+      var fb = el.getAttribute('data-fallback');
+      if (fb && fb.indexOf('data:image/svg') < 0) return fb;
+    }
     return el.src;
   }
 
@@ -1419,35 +1443,33 @@
     updateScrollLock();
 
     var anchor = src || (fallbacks && fallbacks[0]) || '';
-    if (!anchor || anchor === placeholderImage()) anchor = (fallbacks || []).find(function (u) {
-      return u && u !== placeholderImage();
-    }) || placeholderImage();
+    if (!anchor || anchor === placeholderImage()) {
+      anchor = (fallbacks || []).find(function (u) {
+        return u && u !== placeholderImage();
+      }) || placeholderImage();
+    }
 
+    var anchorFid = extractDriveFileId(anchor);
     var candidates = buildZoomCandidatesForAnchor(anchor, productCtx);
-    var preview = anchor !== placeholderImage() ? anchor : (candidates[0] || placeholderImage());
-    img.src = preview;
-    img.classList.add('loaded');
+    if (anchorFid) {
+      candidates = candidates.filter(function (u) {
+        var f = extractDriveFileId(u);
+        return !f || f === anchorFid;
+      });
+      if (!candidates.length) candidates = [anchor];
+    }
 
     var idx = 0;
     function tryLoad() {
-      while (idx < candidates.length && candidates[idx] === img.src) idx++;
       if (idx >= candidates.length) {
         markZoomImageLoaded();
         return;
       }
       var url = candidates[idx];
-      function doneOk() {
-        if (img.naturalWidth > 0 && img.naturalWidth < 120 && idx < candidates.length - 1) {
-          idx++;
-          tryLoad();
-          return;
-        }
-        markZoomImageLoaded();
-      }
       img.onload = function () {
         img.onload = null;
         img.onerror = null;
-        doneOk();
+        markZoomImageLoaded();
       };
       img.onerror = function () {
         img.onload = null;
@@ -1456,7 +1478,11 @@
         tryLoad();
       };
       img.src = url;
-      if (img.complete && img.naturalWidth > 0) doneOk();
+      if (img.complete && img.naturalWidth > 0) {
+        img.onload = null;
+        img.onerror = null;
+        markZoomImageLoaded();
+      }
     }
     tryLoad();
   }
@@ -1483,9 +1509,13 @@
   function openQvImageZoom() {
     var p = state.qvProd;
     if (!p) return;
-    var displayed = qvVisibleImageSrc() || qvDisplayedImageUrl(p);
-    var hiRes = zoomUrlFromSrc(displayed, p);
-    openImageZoom(hiRes, nm(p), [displayed], p);
+    var ref = qvActiveImageRef(p);
+    var zoomSrc = qvVisibleImageSrc() || qvZoomImageUrl(p);
+    var displayed = qvDisplayedImageUrl(p);
+    var extras = [displayed, ref.lg, ref.md, ref.url].filter(function (u, i, arr) {
+      return u && u !== placeholderImage() && arr.indexOf(u) === i;
+    });
+    openImageZoom(zoomSrc, nm(p), extras, p);
   }
 
   function zoomImageStep(delta, focalX, focalY) {
@@ -1619,6 +1649,9 @@
     ];
     if (opts.fallback && opts.fallback !== url) {
       parts.push('data-fallback="' + esc(opts.fallback) + '"');
+    }
+    if (opts.zoomSrc) {
+      parts.push('data-zoom-src="' + esc(opts.zoomSrc) + '"');
     }
     if (opts.srcset) {
       parts.push('srcset="' + esc(opts.srcset) + '"');
@@ -3051,6 +3084,7 @@
     if (!p) return;
     state.qvProd = p;
     state.qvGalleryIndex = 0;
+    state.qvForceVariant = false;
     state.qvSize = hasSizeOptions(p) ? '' : (normalizeOptionValue(productSizes(p)[0]) || (t().oneSize || '—'));
     state.qvColor = hasColorOptions(p) ? '' : (normalizeOptionValue((p.colors || [])[0]) || '—');
     state.qvGuide = false;
@@ -3113,6 +3147,7 @@
     if (gIdx >= gallery.length) gIdx = 0;
     state.qvGalleryIndex = gIdx;
     var currentImg = qvDisplayedImageUrl(p);
+    var zoomSrc = qvZoomImageUrl(p);
 
     var galleryHtml = '';
     if (gallery.length > 1) {
@@ -3142,7 +3177,7 @@
       '<div class="qv-layout">' +
       '<div class="qv-media-col">' +
       '<div class="m-img m-img-zoom" role="button" tabindex="0" title="' + esc(tm.imgZoomHint || 'Cliquez pour agrandir') + '" onclick="event.stopPropagation();Shop.openQvImageZoom()" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();Shop.openQvImageZoom()}">' +
-      imgHtml(currentImg, nm(p), { eager: true, fallback: p.imgMd || p.imgLg || p.img }) +
+      imgHtml(currentImg, nm(p), { eager: true, fallback: currentImg, zoomSrc: zoomSrc }) +
       '<span class="m-img-zoom-badge" aria-hidden="true">🔍</span></div>' +
       galleryHtml +
       '<div class="qv-media-toolbar">' +
@@ -3163,12 +3198,13 @@
       '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' + (faved ? esc(tm.favAdded) : esc(tm.favAdd)) + '</button></div></div></div>';
   }
 
-  function setQvSize(s) { state.qvSize = s; renderQv(); }
-  function setQvColor(c) { state.qvColor = c; renderQv(); }
+  function setQvSize(s) { state.qvSize = s; state.qvForceVariant = true; renderQv(); }
+  function setQvColor(c) { state.qvColor = c; state.qvForceVariant = true; renderQv(); }
   function toggleQvGuide() { state.qvGuide = !state.qvGuide; renderQv(); }
 
   function setQvGallery(idx) {
     state.qvGalleryIndex = parseInt(idx, 10) || 0;
+    state.qvForceVariant = false;
     renderQv();
   }
 
@@ -3177,6 +3213,7 @@
     if (!p) return;
     var len = productGalleryList(p).length;
     if (len <= 1) return;
+    state.qvForceVariant = false;
     state.qvGalleryIndex = ((state.qvGalleryIndex || 0) - 1 + len) % len;
     renderQv();
   }
@@ -3186,6 +3223,7 @@
     if (!p) return;
     var len = productGalleryList(p).length;
     if (len <= 1) return;
+    state.qvForceVariant = false;
     state.qvGalleryIndex = ((state.qvGalleryIndex || 0) + 1) % len;
     renderQv();
   }
@@ -3248,8 +3286,41 @@
   }
 
   function stripeAmountCents_() {
+    if (state.stripeRetryOrderId && state.stripeRetryOrderTotal) {
+      return Math.max(50, Math.round(parseFloat(state.stripeRetryOrderTotal) * 100));
+    }
     var totals = orderTotals();
     return Math.max(50, Math.round(totals.total * 100));
+  }
+
+  function isPendingStripeOrder_(o) {
+    return String((o && o.estado_pagamento) || '').toLowerCase() === 'aguardando_pagamento';
+  }
+
+  function stopStripePaymentPoll_() {
+    if (state._stripePollTimer) {
+      clearInterval(state._stripePollTimer);
+      state._stripePollTimer = null;
+    }
+  }
+
+  function startStripePaymentPoll_(orderId) {
+    stopStripePaymentPoll_();
+    if (!orderId || !isStripeOn()) return;
+    state._stripePollTimer = setInterval(function () {
+      erpCall('getStripePaymentStatus', orderAccessPayload({
+        orderId: orderId,
+        clientId: state.clientId || 'guest',
+        nome: state.clientName || state.form.name || ''
+      }), state.token).then(function (st) {
+        if (st && st.paid) {
+          stopStripePaymentPoll_();
+          state.stripeRetryOrderId = '';
+          openOrderDetail(orderId);
+          global.toast(t().ordTitle, 's');
+        }
+      }).catch(function () { /* ignore */ });
+    }, 12000);
   }
 
   function paymentOptionsHtml() {
@@ -3339,12 +3410,144 @@
     state.stripeElements = state.stripe.elements(elementsOpts);
     state.stripeAmountCents = amountCents;
     state.stripePaymentElement = state.stripeElements.create('payment', {
-      layout: { type: 'tabs', defaultCollapsed: false }
+      layout: { type: 'tabs', defaultCollapsed: false },
+      wallets: { applePay: 'auto', googlePay: 'auto' }
     });
-    var mount = $('stripe-payment-element');
+    var mount = state.stripeRetryOrderId ? $('stripe-retry-element') : $('stripe-payment-element');
     if (mount) {
       mount.innerHTML = '';
-      state.stripePaymentElement.mount('#stripe-payment-element');
+      state.stripePaymentElement.mount(state.stripeRetryOrderId ? '#stripe-retry-element' : '#stripe-payment-element');
+    }
+  }
+
+  function scheduleStripeRetryMount_() {
+    if (!state.stripeRetryOrderId || !isStripeOn()) return;
+    setTimeout(function () {
+      initStripeElement().catch(function (e) {
+        global.toast((t().errStripe || 'Stripe') + ': ' + e.message, 'e');
+      });
+    }, 0);
+  }
+
+  function openStripeRetryPay(orderId, total) {
+    orderId = String(orderId || '').trim();
+    if (!orderId || !isStripeOn()) return;
+    state.stripeRetryOrderId = orderId;
+    state.stripeRetryOrderTotal = parseFloat(total) || 0;
+    state.stripeRetryEmail = state.clientEmail || state.form.email || state.lastOrderEmail || '';
+    state.stripeRetryName = state.clientName || state.form.name || '';
+    state.stripeAmountCents = 0;
+    destroyStripeElement();
+    renderAccount();
+    scheduleStripeRetryMount_();
+    startStripePaymentPoll_(orderId);
+  }
+
+  function cancelStripeRetry() {
+    stopStripePaymentPoll_();
+    state.stripeRetryOrderId = '';
+    state.stripeRetryOrderTotal = 0;
+    destroyStripeElement();
+    renderAccount();
+  }
+
+  async function submitStripeRetryPayment() {
+    if (state.checkoutBusy || !state.stripeRetryOrderId) return;
+    var orderId = state.stripeRetryOrderId;
+    var email = state.stripeRetryEmail || normEmail(state.form.email || state.lastOrderEmail || '');
+    var nome = state.stripeRetryName || state.form.name || '';
+    if (!email) {
+      global.toast(t().tReq, 'e');
+      return;
+    }
+    state.checkoutBusy = true;
+    renderAccount();
+    try {
+      await initStripeElement();
+      if (!state.stripeElements) {
+        global.toast(t().errStripe || 'Stripe não disponível', 'e');
+        return;
+      }
+      var submitUi = await state.stripeElements.submit();
+      if (submitUi && submitUi.error) {
+        global.toast(submitUi.error.message, 'e');
+        return;
+      }
+      var piRes = await erpCall('createStripePaymentIntent', orderAccessPayload({ orderId: orderId, email: email, nome: nome, clientId: state.clientId || 'guest' }), state.token);
+      if (!piRes || !piRes.success || !piRes.clientSecret) {
+        if (piRes && piRes.alreadyPaid) {
+          stopStripePaymentPoll_();
+          state.stripeRetryOrderId = '';
+          await openOrderDetail(orderId);
+          global.toast(t().ordTitle, 's');
+          return;
+        }
+        global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe'), 'e');
+        return;
+      }
+      var conf = await state.stripe.confirmPayment({
+        elements: state.stripeElements,
+        clientSecret: piRes.clientSecret,
+        confirmParams: {
+          return_url: window.location.href.split('#')[0] + '#order-' + orderId,
+          payment_method_data: { billing_details: { name: nome, email: email } }
+        },
+        redirect: 'if_required'
+      });
+      if (conf.error) {
+        global.toast(conf.error.message + ' — ' + (t().stripeRetryHint || ''), 'e');
+        return;
+      }
+      var confirmRes = await erpCall('confirmStripePayment', orderAccessPayload({
+        orderId: orderId,
+        paymentIntentId: piRes.paymentIntentId,
+        clientId: state.clientId || 'guest',
+        nome: nome
+      }), state.token);
+      if (!confirmRes || !confirmRes.success) {
+        global.toast((confirmRes && confirmRes.error) || (t().errPayment || 'Erro no pagamento'), 'e');
+        return;
+      }
+      stopStripePaymentPoll_();
+      state.stripeRetryOrderId = '';
+      state.stripeRetryOrderTotal = 0;
+      destroyStripeElement();
+      await openOrderDetail(orderId);
+      global.toast(t().ordTitle, 's');
+    } catch (e) {
+      global.toast(e.message, 'e');
+    } finally {
+      state.checkoutBusy = false;
+      if (state.stripeRetryOrderId) renderAccount();
+    }
+  }
+
+  async function cancelPendingOrder(orderId) {
+    orderId = String(orderId || '').trim();
+    if (!orderId) return;
+    var email = normEmail(state.clientEmail || state.form.email || state.lastOrderEmail || '');
+    if (!email) {
+      global.toast(t().tReq, 'e');
+      return;
+    }
+    if (!global.confirm(t().stripeCancelConfirm || 'Cancelar esta encomenda?')) return;
+    try {
+      var res = await erpCall('cancelPendingOrder', orderAccessPayload({ orderId: orderId, email: email, clientId: state.clientId || 'guest' }), state.token);
+      if (!res || !res.success) {
+        global.toast((res && res.error) || (t().errOrderFailed || 'Erro'), 'e');
+        return;
+      }
+      stopStripePaymentPoll_();
+      state.stripeRetryOrderId = '';
+      destroyStripeElement();
+      global.toast(t().stripeCancelledOk || 'Encomenda cancelada', 's');
+      if (state.accountView === 'orderDetail') {
+        state.selectedOrder = null;
+        state.accountView = state.token ? 'dashboard' : 'track';
+      }
+      renderAccount();
+    } catch (e) {
+      global.toast(e.message, 'e');
     }
   }
 
@@ -3693,9 +3896,11 @@
       saveSession();
 
       if (awaitStripe) {
-        var piRes = await erpCall('createStripePaymentIntent', { orderId: orderRes.orderId, email: f.email });
+        var piRes = await erpCall('createStripePaymentIntent', orderAccessPayload({ orderId: orderRes.orderId, email: f.email, nome: f.name, clientId: state.clientId || 'guest' }), state.token);
         if (!piRes || !piRes.success || !piRes.clientSecret) {
-          global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe'), 'e');
+          global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe') + ' — ' + (t().stripeRetryHint || ''), 'e');
+          openAccount();
+          openOrderDetail(orderRes.orderId);
           return;
         }
         var conf = await state.stripe.confirmPayment({
@@ -3708,18 +3913,22 @@
           redirect: 'if_required'
         });
         if (conf.error) {
-          global.toast(conf.error.message, 'e');
+          global.toast(conf.error.message + ' — ' + (t().stripeRetryHint || ''), 'e');
+          openAccount();
+          openOrderDetail(orderRes.orderId);
           return;
         }
-        var confirmRes = await erpCall('confirmStripePayment', {
+        var confirmRes = await erpCall('confirmStripePayment', orderAccessPayload({
           orderId: orderRes.orderId,
           paymentIntentId: piRes.paymentIntentId,
           clientId: state.clientId || 'guest',
           nome: f.name,
           cartId: state.cartId || ''
-        });
+        }), state.token);
         if (!confirmRes || !confirmRes.success) {
-          global.toast((confirmRes && confirmRes.error) || (t().errPayment || 'Erro no pagamento'), 'e');
+          global.toast((confirmRes && confirmRes.error) || (t().errPayment || 'Erro no pagamento') + ' — ' + (t().stripeRetryHint || ''), 'e');
+          openAccount();
+          openOrderDetail(orderRes.orderId);
           return;
         }
         if (confirmRes.fiscal_doc_url) state.lastFiscalUrl = confirmRes.fiscal_doc_url;
@@ -3781,7 +3990,11 @@
     renderAccount();
     updateScrollLock();
   }
-  function closeAccount() { $('accBg').classList.remove('open'); updateScrollLock(); }
+  function closeAccount() {
+    $('accBg').classList.remove('open');
+    stopStripePaymentPoll_();
+    updateScrollLock();
+  }
 
   function openOrdersOrLogin() {
     closeAllOverlays();
@@ -4037,12 +4250,29 @@
         (meta.length ? '<br><span style="font-size:9px;color:var(--muted);">' + esc(meta.join(' · ')) + '</span>' : '') + '</li>';
     }).join('');
     var backView = (state.token && state.clientId) ? 'dashboard' : 'track';
+    var stripePayBlock = '';
+    if (isPendingStripeOrder_(o) && isStripeOn()) {
+      var showRetryPanel = state.stripeRetryOrderId === o.pedido_id;
+      stripePayBlock = '<div class="order-stripe-pay" style="margin:14px 0;padding:14px;border:1px solid var(--border-hard);border-radius:3px;">' +
+        '<p style="font-size:10px;margin-bottom:10px;color:var(--gold);">' + esc(t().stripePayPending || 'Pagamento pendente — conclua o pagamento abaixo.') + '</p>';
+      if (!showRetryPanel) {
+        stripePayBlock += '<button type="button" class="btn-gold" style="width:100%;margin-bottom:8px;" onclick="Shop.openStripeRetryPay(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\',\'' + esc(String(parseFloat(o.total || 0).toFixed(2))) + '\')">' + esc(t().stripePayNow || 'Pagar agora (Stripe)') + '</button>' +
+          '<button type="button" class="btn-order-secondary" style="width:100%;" onclick="Shop.cancelPendingOrder(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().stripeCancelOrder || 'Cancelar encomenda') + '</button>';
+      } else {
+        stripePayBlock += '<div id="stripe-retry-element" style="margin:10px 0;"></div>' +
+          '<button type="button" class="btn-pay" id="btnStripeRetry" onclick="Shop.submitStripeRetryPayment()" ' + (state.checkoutBusy ? 'disabled' : '') + '>' +
+          esc(state.checkoutBusy ? (t().payProcessing || 'A processar…') : (t().stripePayNow || 'Pagar agora')) + '</button>' +
+          '<button type="button" class="btn-order-secondary" style="width:100%;margin-top:8px;" onclick="Shop.cancelStripeRetry()">' + esc(t().backBtn) + '</button>';
+      }
+      stripePayBlock += '</div>';
+    }
     return '<button type="button" class="acc-link" style="margin-bottom:12px;" onclick="Shop.setAccountView(\'' + backView + '\')">← ' + esc(a.back) + '</button>' +
       '<p class="acc-order-id">#' + esc(o.pedido_id) + '</p>' +
       '<p style="font-size:10px;color:var(--muted);margin:8px 0;">' + esc(o.data) + '</p>' +
       '<p style="font-size:10px;"><strong>' + esc(a.total) + ':</strong> ' + esc(o.total) + ' € · <strong>' + esc(a.status) + ':</strong> ' + esc(o.estado || '') + '</p>' +
       '<p style="font-size:10px;"><strong>' + esc(a.pay) + ':</strong> ' + esc(o.estado_pagamento || '') + ' · <strong>' + esc(a.ship) + ':</strong> ' + esc(o.estado_envio || '') + '</p>' +
       (o.tracking_number ? '<p style="font-size:10px;"><strong>' + esc(a.tracking) + ':</strong> ' + esc(o.tracking_number) + (o.transportadora ? ' (' + esc(o.transportadora) + ')' : '') + '</p>' : '') +
+      stripePayBlock +
       orderTrackingHtml(o) +
       '<div class="receipt-inline"><button type="button" class="btn-rc" style="width:100%;margin-top:8px;" onclick="Shop.printOrderInvoice(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().receiptPrint || 'Imprimer le reçu') + '</button></div>' +
       '<ul style="list-style:none;padding:12px 0 0;font-size:10px;color:var(--muted);">' + lines + '</ul>';
@@ -4397,16 +4627,21 @@
   }
 
   async function openOrderDetail(orderId) {
+    orderId = String(orderId || '').trim();
+    if (!orderId) return;
     try {
-      var res = await erpCall('getOrder', orderAccessPayload({ orderId: orderId }));
+      var res = await erpCall('getOrder', orderAccessPayload({ orderId: orderId }), state.token);
       if (!res || !res.success) {
         global.toast((res && res.error) || 'Order', 'e');
         return;
       }
       state.selectedOrder = { order: res.order, details: res.details || [] };
       state.accountView = 'orderDetail';
+      if (isPendingStripeOrder_(res.order)) startStripePaymentPoll_(orderId);
+      else stopStripePaymentPoll_();
       if ($('accBg')) $('accBg').classList.add('open');
       renderAccount();
+      if (state.stripeRetryOrderId === orderId) scheduleStripeRetryMount_();
     } catch (e) { global.toast(e.message, 'e'); }
   }
 
@@ -4761,6 +4996,10 @@
     downloadInvoice: downloadInvoice,
     printOrderInvoice: printOrderInvoice,
     submitOrder: submitOrder,
+    openStripeRetryPay: openStripeRetryPay,
+    submitStripeRetryPayment: submitStripeRetryPayment,
+    cancelStripeRetry: cancelStripeRetry,
+    cancelPendingOrder: cancelPendingOrder,
     copyLastOrderCode: copyLastOrderCode,
     openLastOrderTracking: openLastOrderTracking,
     openAccount: openAccount,
