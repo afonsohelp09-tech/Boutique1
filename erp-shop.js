@@ -87,7 +87,8 @@
     stripeRetryEmail: '',
     _stripePollTimer: null,
     contactSent: false,
-    theme: 'dark'
+    theme: 'dark',
+    pageScrollY: 0
   };
 
   function $(id) { return document.getElementById(id); }
@@ -342,6 +343,7 @@
   function openSearchOverlay() {
     var ov = $('soEl');
     if (!ov) return;
+    capturePageScroll();
     if ($('soIn') && $('srchIn')) $('soIn').value = $('srchIn').value;
     ov.classList.add('open');
     ov.setAttribute('aria-hidden', 'false');
@@ -353,12 +355,12 @@
     }, 50);
   }
 
-  function closeSearchOverlay() {
+  function closeSearchOverlay(updateLock) {
     var ov = $('soEl');
     if (!ov) return;
     ov.classList.remove('open');
     ov.setAttribute('aria-hidden', 'true');
-    updateScrollLock();
+    if (updateLock !== false) updateScrollLock();
   }
 
   function pickSearchChip(q) {
@@ -821,6 +823,14 @@
     }).join('');
     body.innerHTML = renderInfoContent(state.infoPage);
     body.scrollTop = 0;
+    var activeBtn = nav.querySelector('.info-nav-btn.on');
+    if (activeBtn && activeBtn.scrollIntoView) {
+      try {
+        activeBtn.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      } catch (e) {
+        activeBtn.scrollIntoView(false);
+      }
+    }
   }
 
   function openInfo(pageId) {
@@ -828,22 +838,23 @@
       global.location.href = legalPageHref(pageId);
       return;
     }
-    closeMobileNav();
+    dismissMobileNav(false);
     state.infoPage = pageId || 'returns';
     var bg = $('infoBg');
     if (!bg) return;
+    capturePageScroll();
     bg.classList.add('open');
     bg.setAttribute('aria-hidden', 'false');
     renderInfoHub(state.infoPage);
     updateScrollLock();
   }
 
-  function closeInfo() {
+  function closeInfo(updateLock) {
     var bg = $('infoBg');
     if (!bg) return;
     bg.classList.remove('open');
     bg.setAttribute('aria-hidden', 'true');
-    updateScrollLock();
+    if (updateLock !== false) updateScrollLock();
   }
 
   function openSizeGuide() {
@@ -854,32 +865,109 @@
     closeInfo();
   }
 
-  function updateScrollLock() {
-    var lock = false;
-    ['cartBg', 'wishBg', 'qvBg', 'coBg', 'contactBg', 'accBg', 'navMobileBg', 'imgZoomBg', 'infoBg'].forEach(function (id) {
-      var el = $(id);
-      if (el && el.classList.contains('open')) lock = true;
+  var SCROLL_STORE_KEY = 'azavision_page_scroll';
+
+  function getPageScrollY() {
+    return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  }
+
+  function capturePageScroll() {
+    if (document.body.classList.contains('scroll-lock')) {
+      return state.pageScrollY || 0;
+    }
+    var y = getPageScrollY();
+    state.pageScrollY = y;
+    try { sessionStorage.setItem(SCROLL_STORE_KEY, String(y)); } catch (e) { /* ignore */ }
+    return y;
+  }
+
+  function storedPageScrollY() {
+    if (state.pageScrollY != null && !isNaN(state.pageScrollY)) return state.pageScrollY;
+    try {
+      var n = parseInt(sessionStorage.getItem(SCROLL_STORE_KEY), 10);
+      if (!isNaN(n) && n >= 0) return n;
+    } catch (e) { /* ignore */ }
+    return 0;
+  }
+
+  function restorePageScrollY(y) {
+    var html = document.documentElement;
+    var prev = html.style.scrollBehavior;
+    html.style.scrollBehavior = 'auto';
+    window.scrollTo(0, y);
+    html.scrollTop = y;
+    requestAnimationFrame(function () {
+      window.scrollTo(0, y);
+      html.scrollTop = y;
+      requestAnimationFrame(function () {
+        window.scrollTo(0, y);
+        html.scrollTop = y;
+        html.style.scrollBehavior = prev;
+      });
     });
-    if ($('soEl') && $('soEl').classList.contains('open')) lock = true;
-    if (document.body) document.body.classList.toggle('scroll-lock', lock);
+  }
+
+  function isOverlayOpen() {
+    var ids = ['cartBg', 'wishBg', 'qvBg', 'coBg', 'contactBg', 'accBg', 'navMobileBg', 'imgZoomBg', 'infoBg'];
+    for (var i = 0; i < ids.length; i++) {
+      var el = $(ids[i]);
+      if (el && el.classList.contains('open')) return true;
+    }
+    if ($('soEl') && $('soEl').classList.contains('open')) return true;
+    return false;
+  }
+
+  function lockBodyScroll() {
+    var body = document.body;
+    var html = document.documentElement;
+    if (!body || body.classList.contains('scroll-lock')) return;
+    capturePageScroll();
+    var sw = window.innerWidth - html.clientWidth;
+    if (sw > 0) body.style.paddingRight = sw + 'px';
+    body.classList.add('scroll-lock');
+    html.classList.add('scroll-lock');
+    body.style.top = '-' + state.pageScrollY + 'px';
+  }
+
+  function unlockBodyScroll() {
+    var body = document.body;
+    var html = document.documentElement;
+    if (!body || !body.classList.contains('scroll-lock')) return;
+    var y = storedPageScrollY();
+    body.classList.remove('scroll-lock');
+    html.classList.remove('scroll-lock');
+    body.style.top = '';
+    body.style.paddingRight = '';
+    restorePageScrollY(y);
+  }
+
+  function updateScrollLock() {
+    if (isOverlayOpen()) lockBodyScroll();
+    else unlockBodyScroll();
+  }
+
+  function dismissMobileNav(updateLock) {
+    var bg = $('navMobileBg');
+    if (!bg || !bg.classList.contains('open')) return;
+    bg.classList.remove('open');
+    bg.setAttribute('aria-hidden', 'true');
+    var btn = $('btnNavMenu');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (updateLock !== false) updateScrollLock();
   }
 
   function closeAllOverlays() {
-    closeImageZoom();
-    closeCart();
-    closeCo();
-    closeWish();
-    closeQv();
-    closeAccount();
-    closeContact();
-    closeInfo();
-    closeMobileNav();
-    if (global.closeSo) global.closeSo();
+    closeImageZoom(false);
+    closeCart(false);
+    closeCo(false);
+    closeWish(false);
+    closeQv(false);
+    closeAccount(false);
+    closeContact(false);
+    closeInfo(false);
+    dismissMobileNav(false);
+    closeSearchOverlay(false);
     updateScrollLock();
-  }
-
-  function isMobileViewport() {
-    return global.matchMedia && global.matchMedia('(max-width: 768px)').matches;
   }
 
   function toggleMobileNav() {
@@ -887,6 +975,7 @@
     if (!bg) return;
     if (bg.classList.contains('open')) closeMobileNav();
     else {
+      capturePageScroll();
       renderMobileNav();
       bg.classList.add('open');
       bg.setAttribute('aria-hidden', 'false');
@@ -896,14 +985,8 @@
     }
   }
 
-  function closeMobileNav() {
-    var bg = $('navMobileBg');
-    if (!bg) return;
-    bg.classList.remove('open');
-    bg.setAttribute('aria-hidden', 'true');
-    var btn = $('btnNavMenu');
-    if (btn) btn.setAttribute('aria-expanded', 'false');
-    updateScrollLock();
+  function closeMobileNav(updateLock) {
+    dismissMobileNav(updateLock);
   }
 
   function renderMobileNav() {
@@ -1432,6 +1515,7 @@
     var img = $('imgZoomImg');
     var wrap = $('imgZoomWrap');
     if (!bg || !img) return;
+    capturePageScroll();
     resetImageZoomTransform();
     img.classList.remove('loaded');
     if (wrap) wrap.classList.remove('dragging');
@@ -1487,7 +1571,7 @@
     tryLoad();
   }
 
-  function closeImageZoom() {
+  function closeImageZoom(updateLock) {
     var bg = $('imgZoomBg');
     var img = $('imgZoomImg');
     if (!bg) return;
@@ -1503,7 +1587,7 @@
     imgZoomState.pinchDist = 0;
     var wrap = $('imgZoomWrap');
     if (wrap) wrap.classList.remove('dragging');
-    updateScrollLock();
+    if (updateLock !== false) updateScrollLock();
   }
 
   function openQvImageZoom() {
@@ -2287,17 +2371,27 @@
 
   function fillPromoPlaceholders(text) {
     var cfg = state.config || {};
-    var promoLabel = cfgOn('announcement_promo_label_display', true)
-      ? String(cfg.announcement_promo_label || '').trim()
-      : '';
+    function promoVal(displayKey, valueKey) {
+      if (!cfgOn(displayKey, true)) return '';
+      return String(cfg[valueKey] || '').trim();
+    }
     return String(text || '')
-      .replace(/\{\{\s*pct\s*\}\}/gi, String(cfg.announcement_promo_pct || '').trim())
-      .replace(/\{\{\s*pct2\s*\}\}/gi, String(cfg.announcement_promo_pct_2 || '').trim())
-      .replace(/\{\{\s*code\s*\}\}/gi, String(cfg.announcement_promo_code || '').trim())
-      .replace(/\{\{\s*amount\s*\}\}/gi, String(cfg.announcement_promo_amount_eur || '').trim())
-      .replace(/\{\{\s*min_cart\s*\}\}/gi, String(cfg.announcement_promo_min_cart_eur || '').trim())
-      .replace(/\{\{\s*valid_until\s*\}\}/gi, String(cfg.announcement_promo_valid_until || '').trim())
-      .replace(/\{\{\s*promo_label\s*\}\}/gi, promoLabel);
+      .replace(/\{\{\s*pct\s*\}\}/gi, promoVal('announcement_promo_pct_display', 'announcement_promo_pct'))
+      .replace(/\{\{\s*pct2\s*\}\}/gi, promoVal('announcement_promo_pct_2_display', 'announcement_promo_pct_2'))
+      .replace(/\{\{\s*code\s*\}\}/gi, promoVal('announcement_promo_code_display', 'announcement_promo_code'))
+      .replace(/\{\{\s*amount\s*\}\}/gi, promoVal('announcement_promo_amount_display', 'announcement_promo_amount_eur'))
+      .replace(/\{\{\s*min_cart\s*\}\}/gi, promoVal('announcement_promo_min_cart_display', 'announcement_promo_min_cart_eur'))
+      .replace(/\{\{\s*valid_until\s*\}\}/gi, promoVal('announcement_promo_valid_until_display', 'announcement_promo_valid_until'))
+      .replace(/\{\{\s*promo_label\s*\}\}/gi, promoVal('announcement_promo_label_display', 'announcement_promo_label'));
+  }
+
+  function cleanupPromoText(text) {
+    return String(text || '')
+      .replace(/\s*[·|]\s*[·|]\s*/g, ' · ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/^\s*[·|]\s*/g, '')
+      .replace(/\s*[·|]\s*$/g, '')
+      .trim();
   }
 
   function announcementActive() {
@@ -2330,9 +2424,9 @@
 
     if (annOn && annEnabled && annDisplay) {
       if (String(cfg.announcement_text || '').trim()) {
-        return fillPromoPlaceholders(cfg.announcement_text);
+        return cleanupPromoText(fillPromoPlaceholders(cfg.announcement_text));
       }
-      if (cfgOn('announcement_show_default', true) && String(cfg.announcement_promo_code || '').trim()) {
+      if (cfgOn('announcement_show_default', true) && cfgOn('announcement_promo_code_display', true) && String(cfg.announcement_promo_code || '').trim()) {
         return '✦ CODE : ' + String(cfg.announcement_promo_code).trim() + ' ✦';
       }
       return '';
@@ -2342,7 +2436,7 @@
 
     if (cfgOn('promo_banner_enabled', false)) {
       if (String(cfg.promo_banner_text || '').trim()) {
-        return fillPromoPlaceholders(cfg.promo_banner_text);
+        return cleanupPromoText(fillPromoPlaceholders(cfg.promo_banner_text));
       }
     }
 
@@ -2910,8 +3004,16 @@
     } catch (e2) { /* ignore */ }
   }
 
-  function openCart() { $('cartBg').classList.add('open'); renderCart(); updateScrollLock(); }
-  function closeCart() { $('cartBg').classList.remove('open'); updateScrollLock(); }
+  function openCart() {
+    capturePageScroll();
+    $('cartBg').classList.add('open');
+    renderCart();
+    updateScrollLock();
+  }
+  function closeCart(updateLock) {
+    $('cartBg').classList.remove('open');
+    if (updateLock !== false) updateScrollLock();
+  }
 
   function renderCart() {
     var db = $('cartDb'), df = $('cartDf');
@@ -3031,8 +3133,16 @@
     } catch (e) { /* ignore */ }
   }
 
-  function openWish() { $('wishBg').classList.add('open'); renderWish(); updateScrollLock(); }
-  function closeWish() { $('wishBg').classList.remove('open'); updateScrollLock(); }
+  function openWish() {
+    capturePageScroll();
+    $('wishBg').classList.add('open');
+    renderWish();
+    updateScrollLock();
+  }
+  function closeWish(updateLock) {
+    $('wishBg').classList.remove('open');
+    if (updateLock !== false) updateScrollLock();
+  }
 
   function renderWish() {
     if ($('wDN')) $('wDN').textContent = state.wish.length;
@@ -3063,6 +3173,8 @@
   }
 
   async function openQv(id) {
+    capturePageScroll();
+    if (!document.body.classList.contains('scroll-lock')) lockBodyScroll();
     var p = state.products.find(function (x) { return x.id === id; });
     var needsDetail = p && (!desc(p) || ((productSizeOptions(p).length || productColorOptions(p).length) && !(p.variantes && p.variantes.length)));
     var needsGallery = p && (!p.gallery || p.gallery.length <= 1);
@@ -3081,7 +3193,10 @@
         }
       } catch (e) { /* ignore */ }
     }
-    if (!p) return;
+    if (!p) {
+      updateScrollLock();
+      return;
+    }
     state.qvProd = p;
     state.qvGalleryIndex = 0;
     state.qvForceVariant = false;
@@ -3094,7 +3209,10 @@
     updateScrollLock();
   }
 
-  function closeQv() { $('qvBg').classList.remove('open'); updateScrollLock(); }
+  function closeQv(updateLock) {
+    $('qvBg').classList.remove('open');
+    if (updateLock !== false) updateScrollLock();
+  }
 
   function setQvViewMode(mode) {
     state.qvViewMode = mode === 'photo' ? 'photo' : 'shop';
@@ -3364,20 +3482,21 @@
       openAccount();
       return;
     }
-    closeCart();
+    closeCart(false);
     state.ordered = false;
     state.delStep = 0;
     state.payMethod = defaultPayMethod();
     prefillCheckoutFromProfile();
     renderCo();
+    capturePageScroll();
     $('coBg').classList.add('open');
     updateScrollLock();
   }
 
-  function closeCo() {
+  function closeCo(updateLock) {
     $('coBg').classList.remove('open');
     destroyStripeElement();
-    updateScrollLock();
+    if (updateLock !== false) updateScrollLock();
   }
 
   function destroyStripeElement() {
@@ -3985,15 +4104,16 @@
 
   // ─── Account ───────────────────────────────────────────────────────────
   function openAccount() {
+    capturePageScroll();
     $('accBg').classList.add('open');
     if (state.token && state.clientId && state.accountView !== 'track') state.accountView = 'dashboard';
     renderAccount();
     updateScrollLock();
   }
-  function closeAccount() {
+  function closeAccount(updateLock) {
     $('accBg').classList.remove('open');
     stopStripePaymentPoll_();
-    updateScrollLock();
+    if (updateLock !== false) updateScrollLock();
   }
 
   function openOrdersOrLogin() {
@@ -4673,14 +4793,15 @@
 
   function openContact() {
     state.contactSent = false;
+    capturePageScroll();
     $('contactBg').classList.add('open');
     renderContact();
     updateScrollLock();
   }
 
-  function closeContact() {
+  function closeContact(updateLock) {
     $('contactBg').classList.remove('open');
-    updateScrollLock();
+    if (updateLock !== false) updateScrollLock();
   }
 
   function renderContact() {
@@ -4839,8 +4960,23 @@
   }
 
   // ─── Init ──────────────────────────────────────────────────────────────
+  function bindScrollPreserve() {
+    if (document.documentElement.dataset.scrollPreserveBound === '1') return;
+    document.documentElement.dataset.scrollPreserveBound = '1';
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    document.addEventListener('click', function (ev) {
+      if (document.body.classList.contains('scroll-lock')) return;
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      if (t.closest('.card, .btn-qv, .btn-add-ov, .nav-info-btn, .nav-info-link, .f-legal a, #fSuppL a, .contact-fab, .icon-btn, .mob-bar button, .nav-ul button, .m-img-zoom, .qv-gthumb')) {
+        capturePageScroll();
+      }
+    }, true);
+  }
+
   async function init() {
     state.theme = getTheme();
+    bindScrollPreserve();
     loadSession();
     bindImageZoomEvents();
     showApiBanner(!apiUrlConfigured());
