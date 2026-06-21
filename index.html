@@ -1399,6 +1399,8 @@ a.info-nav-btn{display:block;text-decoration:none}
   transition:background .6s;
 }
 .tr-dot.done{background:#22c55e;animation:pulse 1.5s infinite}
+.tr-dot.current{background:var(--gold);box-shadow:0 0 0 3px rgba(201,169,110,.25)}
+.tr-step-current h4{color:var(--gold)}
 .tr-step h4{font-size:10px;font-weight:600}
 .tr-step p{font-size:9px;color:var(--muted);margin-top:2px;line-height:1.5}
 .tr-track-ref{font-size:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-hard);color:var(--muted);line-height:1.5}
@@ -1967,7 +1969,7 @@ footer{
 <!-- TOAST -->
 <div class="toast hide" id="toastEl"></div>
 
-<script src="i18n.js"></script>
+<script src="i18n.js?v=20260619"></script>
 <script>
 // UI SHELL (traductions i18n.js + catalogue erp-shop.js)
 let lang = 'pt';
@@ -2202,12 +2204,11 @@ boot();
      │ Aussi     : même URL dans 02-admin-erp/index.html                      │
      └──────────────────────────────────────────────────────────────────────────┘
 
-     ┌─ #3 STRIPE — Clé PUBLIQUE pk_ (pour paiement carte au checkout) ─────────┐
+     ┌─ #3 STRIPE — Clé PUBLIQUE pk_live_ (mode production) ────────────────────┐
      │ Où coller : STRIPE_PUBLISHABLE_KEY ci-dessous                            │
-     │ Exemple   : 'pk_test_51TiHOcF66c2mP9HPu4vHhd…'                         │
-     │ Dashboard : https://dashboard.stripe.com/test/apikeys                    │
+     │ Dashboard : https://dashboard.stripe.com/apikeys                         │
      │ Activer   : Admin → Boutique → Stripe actif + Afficher Stripe          │
-     │ ⚠ sk_test : NE PAS mettre ici → GAS Propriétés script STRIPE_SECRET_KEY│
+     │ ⚠ sk_live_ : GAS → Propriétés script → STRIPE_SECRET_KEY (pas ici)     │
      └──────────────────────────────────────────────────────────────────────────┘
 
      ┌─ #4 FACTURALUSA — Clé API (PAS dans ce fichier) ────────────────────────┐
@@ -2231,11 +2232,10 @@ boot();
   var ERP_API_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbzjeXiiobFsAFfMnTujXYkDZOca6dVHR3-__Vv2POTZWHcz2LONQRcpwTBZle-rh1XBbg/exec';
   var API_URL = ERP_API_URL_DEFAULT;
   //
-  // #3 Stripe — clé PUBLIQUE uniquement (pk_test_… ou pk_live_…)
-  //    La clé SECRÈTE sk_… va dans GAS → Paramètres → Propriétés du script
-  //    Nom propriété : STRIPE_SECRET_KEY
-  //    Exemple pk_   : pk_test_51TiHOcF66c2mP9HPu4vHhdIH9172V60clyZWCR2Ie7EcScp9AcXWlGYP1Y2QODyz6MrI5BOoERKrvKjV3XILSCUU005qPHWlev
-  var STRIPE_PUBLISHABLE_KEY = 'pk_test_51TiHOLFLQurzJpsoqtl0jtBg1qZvbcpJYTty1RO27Q9JxsNC8MOqdkE52hqj90W9LhVGWHcNMDaBCK30iuzv2AcH00J05aHnQF';
+  // #3 Stripe — clé PUBLIQUE LIVE (pk_live_…)
+  //    La clé SECRÈTE sk_live_… va dans GAS → Paramètres → Propriétés du script
+  //    Nom propriété : STRIPE_SECRET_KEY  (sk_live_… — jamais dans ce fichier)
+  var STRIPE_PUBLISHABLE_KEY = 'pk_live_51TiHOLFLQurzJpsorS0U3siutmAVpBq9aOmzUkvGj1JymQVEdyGw1qxA7UmrAdKNfhuwH70z3gxaVO5uFp1Vq8Dn00kVwf4gUh';
   //
   // #4 Facturalusa, #5 Contact → voir Admin ERP → Boutique (pas ici)
   // Guide complet : fin de 03-google-apps-script/api_apps_script.gs
@@ -2251,6 +2251,6 @@ boot();
 <script src="legal/index.js"></script>
 <script src="size-guide-content.js"></script>
 <script src="info-content.js"></script>
-<script src="erp-shop.js"></script>
+<script src="erp-shop.js?v=20260620live"></script>
 </body>
 </html>

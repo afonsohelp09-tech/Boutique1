@@ -7,6 +7,23 @@
   var API = global.API_URL || global.ERP_API_URL_DEFAULT || '';
   var STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY || '';
 
+  function refreshStripePk_() {
+    if (!STRIPE_PK && global.STRIPE_PUBLISHABLE_KEY) STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY;
+    return STRIPE_PK || '';
+  }
+
+  function getStripePk_() {
+    return refreshStripePk_();
+  }
+
+  function logStripeApiError_(action, res, extra) {
+    console.error('[AZAVISION] Stripe — ' + action + ':', res || extra || 'erreur inconnue');
+    if (res) {
+      try { console.error('[AZAVISION] Stripe — détail JSON:', JSON.stringify(res)); } catch (e) { /* ignore */ }
+    }
+    if (extra) console.error('[AZAVISION] Stripe — info:', extra);
+  }
+
   var PAGE_SIZE = 24;
   var SS_CATALOG_PREFIX = 'azav_catalog_v2_';
   var SS_CATALOG_TTL_MS = 8 * 60 * 1000;
@@ -86,6 +103,7 @@
     stripeRetryName: '',
     stripeRetryEmail: '',
     _stripePollTimer: null,
+    _stripeServerTotal: null,
     contactSent: false,
     theme: 'dark',
     pageScrollY: 0
@@ -3383,10 +3401,27 @@
     return rows;
   }
 
-  function isStripeOn() {
-    if (!STRIPE_PK) return false;
-    if (state.config.pay_stripe_enabled === '0' || state.config.pay_stripe_enabled === 0) return false;
-    return cfgOn('pay_stripe_enabled', true) && cfgOn('pay_show_stripe', true);
+  function isStripeOn(silent) {
+    refreshStripePk_();
+    var pk = getStripePk_();
+    if (!pk) {
+      if (silent !== true) console.error('[AZAVISION] Stripe OFF : STRIPE_PUBLISHABLE_KEY manquante dans index.html (erp-api-config)');
+      return false;
+    }
+    if (state.config.pay_stripe_enabled === '0' || state.config.pay_stripe_enabled === 0) {
+      if (silent !== true) console.warn('[AZAVISION] Stripe OFF : pay_stripe_enabled=0 (admin/Sheets CONFIG)');
+      return false;
+    }
+    var en = cfgOn('pay_stripe_enabled', true);
+    var show = cfgOn('pay_show_stripe', true);
+    if (!en || !show) {
+      if (silent !== true) {
+        console.warn('[AZAVISION] Stripe OFF : pay_stripe_enabled=', en, 'pay_show_stripe=', show,
+          '| config raw:', state.config.pay_stripe_enabled, state.config.pay_show_stripe);
+      }
+      return false;
+    }
+    return true;
   }
 
   function defaultPayMethod() {
@@ -3404,6 +3439,9 @@
   }
 
   function stripeAmountCents_() {
+    if (state._stripeServerTotal != null && !isNaN(state._stripeServerTotal)) {
+      return Math.max(50, Math.round(parseFloat(state._stripeServerTotal) * 100));
+    }
     if (state.stripeRetryOrderId && state.stripeRetryOrderTotal) {
       return Math.max(50, Math.round(parseFloat(state.stripeRetryOrderTotal) * 100));
     }
@@ -3488,6 +3526,7 @@
     state.payMethod = defaultPayMethod();
     prefillCheckoutFromProfile();
     renderCo();
+    if (state.payMethod === 'stripe' && !isStripeOn(true)) diagnoseStripe();
     capturePageScroll();
     $('coBg').classList.add('open');
     updateScrollLock();
@@ -3509,11 +3548,23 @@
   }
 
   async function initStripeElement() {
-    if (!STRIPE_PK || !global.Stripe || !isStripeOn()) return;
+    refreshStripePk_();
+    if (!getStripePk_()) {
+      console.error('[AZAVISION] STRIPE_PUBLISHABLE_KEY manquante dans index.html');
+      return;
+    }
+    if (typeof global.Stripe !== 'function') {
+      console.error('[AZAVISION] Stripe.js non chargé — vérifiez que js.stripe.com/v3/ est chargé avant erp-shop.js');
+      return;
+    }
+    if (!isStripeOn(true)) {
+      console.warn('[AZAVISION] initStripeElement ignoré — isStripeOn()=false (Shop.diagnoseStripe())');
+      return;
+    }
     var amountCents = stripeAmountCents_();
     if (state.stripePaymentElement && state.stripeAmountCents === amountCents && state.stripeElements) return;
     destroyStripeElement();
-    if (!state.stripe) state.stripe = global.Stripe(STRIPE_PK);
+    if (!state.stripe) state.stripe = global.Stripe(getStripePk_());
     var currency = String(state.config.currency_code || 'eur').toLowerCase();
     var stripeTheme = getTheme() === 'light' ? 'stripe' : 'night';
     var elementsOpts = {
@@ -3582,6 +3633,8 @@
     state.checkoutBusy = true;
     renderAccount();
     try {
+      state._stripeServerTotal = parseFloat(state.stripeRetryOrderTotal) || 0;
+      destroyStripeElement();
       await initStripeElement();
       if (!state.stripeElements) {
         global.toast(t().errStripe || 'Stripe não disponível', 'e');
@@ -3601,6 +3654,7 @@
           global.toast(t().ordTitle, 's');
           return;
         }
+        logStripeApiError_('createStripePaymentIntent (retry)', piRes);
         global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe'), 'e');
         return;
       }
@@ -3614,19 +3668,23 @@
         redirect: 'if_required'
       });
       if (conf.error) {
+        logStripeApiError_('confirmPayment (retry)', conf.error);
         global.toast(conf.error.message + ' — ' + (t().stripeRetryHint || ''), 'e');
         return;
       }
+      var piIdRetry = piRes.paymentIntentId;
+      if (conf.paymentIntent && conf.paymentIntent.id) piIdRetry = conf.paymentIntent.id;
       var confirmRes = await erpCall('confirmStripePayment', orderAccessPayload({
         orderId: orderId,
-        paymentIntentId: piRes.paymentIntentId,
+        paymentIntentId: piIdRetry,
         clientId: state.clientId || 'guest',
         nome: nome
       }), state.token);
-      if (!confirmRes || !confirmRes.success) {
-        global.toast((confirmRes && confirmRes.error) || (t().errPayment || 'Erro no pagamento'), 'e');
-        return;
-      }
+        if (!confirmRes || !confirmRes.success) {
+          logStripeApiError_('confirmStripePayment (retry)', confirmRes);
+          global.toast((confirmRes && confirmRes.error) || (t().errPayment || 'Erro no pagamento'), 'e');
+          return;
+        }
       stopStripePaymentPoll_();
       state.stripeRetryOrderId = '';
       state.stripeRetryOrderTotal = 0;
@@ -3636,6 +3694,7 @@
     } catch (e) {
       global.toast(e.message, 'e');
     } finally {
+      state._stripeServerTotal = null;
       state.checkoutBusy = false;
       if (state.stripeRetryOrderId) renderAccount();
     }
@@ -3671,7 +3730,7 @@
   }
 
   function scheduleStripeMount_() {
-    if (state.payMethod !== 'stripe' || !isStripeOn() || state.ordered) return;
+    if (state.payMethod !== 'stripe' || !isStripeOn(true) || state.ordered) return;
     setTimeout(function () {
       initStripeElement().catch(function (e) {
         global.toast((t().errStripe || 'Stripe') + ': ' + e.message, 'e');
@@ -3802,24 +3861,36 @@
   function orderTrackingStep_(order) {
     var o = order || {};
     var estado = String(o.estado || '').toLowerCase();
-    var pay = String(o.estado_pagamento || '').toLowerCase();
     var ship = String(o.estado_envio || '').toLowerCase();
     if (estado === 'delivered' || estado === 'entregue' || ship === 'delivered' || ship === 'entregue') return 4;
     if (estado === 'shipped' || ship === 'shipped' || ship === 'em_transito' || ship === 'enviado') return 3;
-    if (ship === 'preparacao' || estado === 'processing' || estado === 'paid') return 2;
-    if (pay === 'pago' || pay === 'paid' || pay === 'pago_stripe') return 2;
+    if (ship === 'preparacao' || estado === 'processing' || estado === 'em_processamento') return 2;
     return 1;
   }
 
-  function orderTrackingHtml(order, animated) {
-    var step = animated ? (state.delStep || 0) : orderTrackingStep_(order);
+  function orderTrackingDesc_(index, step, pair, deliveryLine, allowCurrent) {
+    if (index === 3) {
+      if (step >= 3) return String(t().tr4d || pair[1]).replace('{delivery}', deliveryLine);
+      return t().trDeliveryPending || 'Será atualizado quando a encomenda for expedida.';
+    }
+    if (index < step) return pair[1];
+    if (allowCurrent && index === step) return pair[1];
+    return t().trStepPending || 'Aguarda atualização.';
+  }
+
+  function orderTrackingHtml(order) {
+    var step = orderTrackingStep_(order);
+    var o = order || {};
+    var estado = String(o.estado || '').toLowerCase();
+    var ship = String(o.estado_envio || '').toLowerCase();
+    var allowCurrent = ship === 'preparacao' || estado === 'processing' || estado === 'em_processamento' ||
+      estado === 'shipped' || ship === 'shipped' || ship === 'em_transito' || ship === 'enviado';
     var delivery = formatDeliveryLine_(order);
-    var tr4d = String(t().tr4d || '').replace('{delivery}', delivery);
     var pairs = [
       [t().tr1t, t().tr1d],
       [t().tr2t, t().tr2d],
       [t().tr3t, t().tr3d],
-      [t().tr4t, tr4d]
+      [t().tr4t, t().tr4d]
     ];
     var trackInfo = '';
     if (order && order.tracking_number) {
@@ -3828,22 +3899,12 @@
     }
     return '<div class="tracking"><p class="tr-title">' + esc(t().trTitle) + '</p><div class="tr-steps">' +
       pairs.map(function (pair, i) {
-        var done = animated ? (state.delStep > i) : (step > i);
-        var dotClass = done ? 'done' : '';
-        var dotId = animated ? ' id="td' + i + '"' : '';
-        return '<div class="tr-step"><span class="tr-dot ' + dotClass + '"' + dotId + '></span><h4>' + esc(pair[0]) + '</h4><p>' + esc(pair[1]) + '</p></div>';
+        var done = i < step;
+        var current = allowCurrent && i === step;
+        var dotClass = (done ? 'done' : '') + (current ? ' current' : '');
+        var desc = orderTrackingDesc_(i, step, pair, delivery, allowCurrent);
+        return '<div class="tr-step' + (current ? ' tr-step-current' : '') + '"><span class="tr-dot ' + dotClass.trim() + '"></span><h4>' + esc(pair[0]) + '</h4><p>' + esc(desc) + '</p></div>';
       }).join('') + '</div>' + trackInfo + '</div>';
-  }
-
-  function startOrderTrackingAnimation_(initialStep) {
-    state.delStep = initialStep || 1;
-    updDots();
-    clearTimeout(state._trackAnim1);
-    clearTimeout(state._trackAnim2);
-    clearTimeout(state._trackAnim3);
-    state._trackAnim1 = setTimeout(function () { state.delStep = 2; updDots(); }, 4000);
-    state._trackAnim2 = setTimeout(function () { state.delStep = 3; updDots(); }, 8000);
-    state._trackAnim3 = setTimeout(function () { state.delStep = 4; updDots(); }, 12000);
   }
 
   function renderCo() {
@@ -3856,11 +3917,10 @@
         '<div class="order-ref-card"><p class="order-ref-label">' + esc(t().orderCodeLabel) + '</p><div class="order-ref-row"><strong>#' + esc(state.lastOrderId) + '</strong><button type="button" class="btn-copy-ref" onclick="Shop.copyLastOrderCode()">' + esc(t().copyOrderCode) + '</button></div><p class="order-ref-help">' + esc(t().orderCodeHint) + '</p></div>' +
         receiptSectionHtml() +
         paymentInstructionsHtml() +
-        orderTrackingHtml(state.lastOrderSnapshot, true) +
+        orderTrackingHtml(state.lastOrderSnapshot) +
         '</div><div class="order-ok-actions"><button class="btn-gold" type="button" onclick="Shop.openLastOrderTracking()">' + esc(t().trackOrderNow) + '</button>' +
         '<button class="btn-order-secondary" type="button" onclick="Shop.loadOrderReceipt()">' + esc(t().receiptLater || t().receiptPrint) + '</button>' +
         '<button class="btn-order-secondary" type="button" onclick="Shop.closeCo()">' + esc(t().backBtn) + '</button></div></div>';
-      startOrderTrackingAnimation_(state.payMethod === 'stripe' ? 1 : 0);
       return;
     }
 
@@ -3925,13 +3985,6 @@
     openOrderDetail(state.lastOrderId);
   }
 
-  function updDots() {
-    [0, 1, 2, 3].forEach(function (i) {
-      var d = $('td' + i);
-      if (d) d.classList.toggle('done', state.delStep > i);
-    });
-  }
-
   async function registerOfflinePaymentSafe_(payload) {
     try {
       var res = await erpCall('registerOfflinePayment', payload);
@@ -3971,19 +4024,6 @@
     renderCo();
 
     try {
-      if (awaitStripe) {
-        await initStripeElement();
-        if (!state.stripeElements) {
-          global.toast(t().errStripe || 'Stripe não disponível', 'e');
-          return;
-        }
-        var submitUi = await state.stripeElements.submit();
-        if (submitUi && submitUi.error) {
-          global.toast(submitUi.error.message, 'e');
-          return;
-        }
-      }
-
       var orderPayload = {
         clientId: state.clientId || 'guest',
         email: normEmail(f.email),
@@ -4015,8 +4055,28 @@
       saveSession();
 
       if (awaitStripe) {
+        state._stripeServerTotal = parseFloat(orderRes.total != null ? orderRes.total : totals.total);
+        if (isNaN(state._stripeServerTotal)) state._stripeServerTotal = totals.total;
+        destroyStripeElement();
+        await initStripeElement();
+        if (!state.stripeElements) {
+          logStripeApiError_('initStripeElement', null, 'stripeElements null après createOrder');
+          global.toast(t().errStripe || 'Stripe não disponível', 'e');
+          openAccount();
+          openOrderDetail(orderRes.orderId);
+          return;
+        }
+        var submitUi = await state.stripeElements.submit();
+        if (submitUi && submitUi.error) {
+          logStripeApiError_('elements.submit', submitUi.error);
+          global.toast(submitUi.error.message, 'e');
+          openAccount();
+          openOrderDetail(orderRes.orderId);
+          return;
+        }
         var piRes = await erpCall('createStripePaymentIntent', orderAccessPayload({ orderId: orderRes.orderId, email: f.email, nome: f.name, clientId: state.clientId || 'guest' }), state.token);
         if (!piRes || !piRes.success || !piRes.clientSecret) {
+          logStripeApiError_('createStripePaymentIntent', piRes);
           global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe') + ' — ' + (t().stripeRetryHint || ''), 'e');
           openAccount();
           openOrderDetail(orderRes.orderId);
@@ -4032,19 +4092,23 @@
           redirect: 'if_required'
         });
         if (conf.error) {
+          logStripeApiError_('confirmPayment', conf.error);
           global.toast(conf.error.message + ' — ' + (t().stripeRetryHint || ''), 'e');
           openAccount();
           openOrderDetail(orderRes.orderId);
           return;
         }
+        var piId = piRes.paymentIntentId;
+        if (conf.paymentIntent && conf.paymentIntent.id) piId = conf.paymentIntent.id;
         var confirmRes = await erpCall('confirmStripePayment', orderAccessPayload({
           orderId: orderRes.orderId,
-          paymentIntentId: piRes.paymentIntentId,
+          paymentIntentId: piId,
           clientId: state.clientId || 'guest',
           nome: f.name,
           cartId: state.cartId || ''
         }), state.token);
         if (!confirmRes || !confirmRes.success) {
+          logStripeApiError_('confirmStripePayment', confirmRes);
           global.toast((confirmRes && confirmRes.error) || (t().errPayment || 'Erro no pagamento') + ' — ' + (t().stripeRetryHint || ''), 'e');
           openAccount();
           openOrderDetail(orderRes.orderId);
@@ -4086,9 +4150,10 @@
       else if (state.payMethod === 'cod') paySnap = 'pago';
       state.lastOrderSnapshot = {
         pedido_id: orderRes.orderId,
-        estado: state.payMethod === 'cod' || state.payMethod === 'stripe' ? 'paid' : 'pending',
+        estado: 'pending',
         estado_pagamento: paySnap,
         estado_envio: 'pending',
+        endereco: endereco,
         tracking_number: '',
         transportadora: ''
       };
@@ -4097,6 +4162,7 @@
     } catch (e) {
       global.toast(e.message, 'e');
     } finally {
+      state._stripeServerTotal = null;
       state.checkoutBusy = false;
       if ($('coBg') && $('coBg').classList.contains('open') && !state.ordered) renderCo();
     }
@@ -4194,9 +4260,10 @@
         state.lastPayMethod = 'stripe';
         state.lastOrderSnapshot = {
           pedido_id: orderId,
-          estado: 'paid',
+          estado: 'pending',
           estado_pagamento: 'pago_stripe',
           estado_envio: 'pending',
+          endereco: [state.form.addr, state.form.zip, state.form.city].filter(Boolean).join(', '),
           tracking_number: '',
           transportadora: ''
         };
@@ -5068,6 +5135,22 @@
     renderFooterLegal();
   }
 
+  function diagnoseStripe() {
+    refreshStripePk_();
+    var pk = getStripePk_();
+    console.group('[AZAVISION] Diagnostic Stripe');
+    console.log('STRIPE_PK définie :', !!pk);
+    console.log('STRIPE_PK (12 premiers chars) :', pk ? pk.slice(0, 12) + '...' : 'VIDE');
+    console.log('global.Stripe chargé :', typeof global.Stripe === 'function');
+    console.log('isStripeOn() :', isStripeOn());
+    console.log('pay_stripe_enabled (config) :', state.config.pay_stripe_enabled);
+    console.log('pay_show_stripe (config) :', state.config.pay_show_stripe);
+    console.log('state.stripe initialisé :', !!state.stripe);
+    console.log('state.stripeElements :', !!state.stripeElements);
+    console.log('Montant checkout (cents) :', stripeAmountCents_());
+    console.groupEnd();
+  }
+
   global.Shop = {
     init: init,
     setLang: setLang,
@@ -5136,6 +5219,7 @@
     submitStripeRetryPayment: submitStripeRetryPayment,
     cancelStripeRetry: cancelStripeRetry,
     cancelPendingOrder: cancelPendingOrder,
+    diagnoseStripe: diagnoseStripe,
     copyLastOrderCode: copyLastOrderCode,
     openLastOrderTracking: openLastOrderTracking,
     openAccount: openAccount,
