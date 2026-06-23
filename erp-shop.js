@@ -78,6 +78,7 @@
     qvGalleryIndex: 0,
     qvForceVariant: false,
     qvViewMode: 'shop',
+    qvAddedFlash: null,
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '' },
     payMethod: 'stripe',
     ordered: false,
@@ -2859,7 +2860,8 @@
     if ($('wDN')) $('wDN').textContent = wn;
   }
 
-  async function addCart(id, sz, cl) {
+  async function addCart(id, sz, cl, opts) {
+    opts = opts || {};
     var p = state.products.find(function (x) { return x.id === id; });
     if (!p) return;
     if (!p.disponivel) {
@@ -2924,7 +2926,7 @@
     }
     updBadge();
     await refreshActivePromo({ silent: true });
-    global.toast(t().tAdd.replace('{n}', nm(p)), 's');
+    if (!opts.silentToast) global.toast(t().tAdd.replace('{n}', nm(p)), 's');
     if ($('cartBg') && $('cartBg').classList.contains('open')) renderCart();
     if ($('coBg') && $('coBg').classList.contains('open') && !state.ordered) renderCo();
   }
@@ -3222,12 +3224,14 @@
     state.qvColor = hasColorOptions(p) ? '' : (normalizeOptionValue((p.colors || [])[0]) || '—');
     state.qvGuide = false;
     state.qvViewMode = 'shop';
+    state.qvAddedFlash = null;
     renderQv();
     $('qvBg').classList.add('open');
     updateScrollLock();
   }
 
   function closeQv(updateLock) {
+    state.qvAddedFlash = null;
     $('qvBg').classList.remove('open');
     if (updateLock !== false) updateScrollLock();
   }
@@ -3261,6 +3265,62 @@
     }
     html += '<p class="qv-selection-note' + (canAdd ? ' ok' : '') + '">' + esc(canAdd ? tm.selectionReady : tm.selectOptionsNotice) + '</p></div>';
     return html;
+  }
+
+  function qvAddedSummaryText(flash) {
+    if (!flash || !state.qvProd) return '';
+    var parts = [nm(state.qvProd)];
+    var size = normalizeOptionValue(flash.size);
+    var color = normalizeOptionValue(flash.color);
+    if (size && size !== '—') parts.push(size);
+    if (color && color !== '—') parts.push(colorDisplayName(color));
+    return parts.join(' · ');
+  }
+
+  function renderQvCtaBlock(pid, canAdd, faved, tm) {
+    var flash = state.qvAddedFlash;
+    var html = '<div class="m-cta">';
+    if (flash) {
+      var summary = qvAddedSummaryText(flash);
+      html += '<div class="qv-added-ok" role="status" aria-live="polite">' +
+        '<span class="qv-added-icon" aria-hidden="true">✓</span>' +
+        '<p class="qv-added-title">' + esc((tm.qvAddedTitle || '✓ Added to bag — {n}').replace('{n}', summary)) + '</p>' +
+        '<p class="qv-added-hint">' + esc(tm.qvAddedHint || 'Browse photos or pick another size/colour, then add again.') + '</p></div>';
+    }
+    html += '<button class="btn-madd' + (canAdd ? '' : ' disabled') + '" ' +
+      (canAdd ? 'onclick="Shop.addCartFromQv()"' : 'type="button" disabled') + '>' +
+      esc(flash ? (tm.qvAddAnother || tm.addSel) : tm.addSel) + '</button>';
+    if (flash) {
+      html += '<div class="qv-added-actions">' +
+        '<button type="button" class="btn-ghost-sm qv-act-btn" onclick="Shop.closeQv()">' + esc(tm.qvContinueShop || tm.contShopping) + '</button>' +
+        '<button type="button" class="btn-gold qv-act-btn" onclick="Shop.openCartFromQv()">' + esc(tm.qvViewCart || 'View bag') + '</button></div>';
+    }
+    html += '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' +
+      (faved ? esc(tm.favAdded) : esc(tm.favAdd)) + '</button></div>';
+    return html;
+  }
+
+  async function addCartFromQv() {
+    var p = state.qvProd;
+    if (!p) return;
+    if (!hasValidVariantSelection(p, state.qvSize, state.qvColor)) {
+      global.toast(t().selectOptionsNotice, 'i');
+      return;
+    }
+    await addCart(p.id, state.qvSize, state.qvColor, { silentToast: true });
+    if ($('qvBg') && $('qvBg').classList.contains('open')) {
+      state.qvAddedFlash = {
+        size: state.qvSize,
+        color: state.qvColor,
+        at: Date.now()
+      };
+      renderQv();
+    }
+  }
+
+  function openCartFromQv() {
+    closeQv(false);
+    openCart();
   }
 
   function renderQv() {
@@ -3329,13 +3389,11 @@
       (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div></div>' +
       '<div class="tab-panel qv-desc"><p>' + esc(desc(p)) + '</p></div>' +
       renderQvOptionsBlock(colorOptions, sizeOptions, canAdd) +
-      '<div class="m-cta">' +
-      '<button class="btn-madd' + (canAdd ? '' : ' disabled') + '" ' + (canAdd ? 'onclick="Shop.addCart(\'' + pid + '\',\'' + esc(state.qvSize).replace(/'/g, "\\'") + '\',\'' + esc(state.qvColor).replace(/'/g, "\\'") + '\');Shop.closeQv()"' : 'type="button" disabled') + '>' + esc(tm.addSel) + '</button>' +
-      '<button class="btn-mfav" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderQv()">' + (faved ? esc(tm.favAdded) : esc(tm.favAdd)) + '</button></div></div></div>';
+      renderQvCtaBlock(pid, canAdd, faved, tm) + '</div></div>';
   }
 
-  function setQvSize(s) { state.qvSize = s; state.qvForceVariant = true; renderQv(); }
-  function setQvColor(c) { state.qvColor = c; state.qvForceVariant = true; renderQv(); }
+  function setQvSize(s) { state.qvSize = s; state.qvForceVariant = true; state.qvAddedFlash = null; renderQv(); }
+  function setQvColor(c) { state.qvColor = c; state.qvForceVariant = true; state.qvAddedFlash = null; renderQv(); }
   function toggleQvGuide() { state.qvGuide = !state.qvGuide; renderQv(); }
 
   function setQvGallery(idx) {
@@ -3479,6 +3537,33 @@
     }, 12000);
   }
 
+  function isTransferPaymentOn() {
+    return cfgOn('pay_transfer_enabled', true) && cfgOn('pay_show_transfer', true) &&
+      String(state.config.transfer_iban || '').trim().length >= 15;
+  }
+
+  function isMbwayPaymentOn() {
+    return cfgOn('pay_show_mbway', false) && !!String(state.config.pay_mbway_phone || '').trim();
+  }
+
+  function isWhatsappPaymentOn() {
+    return cfgOn('pay_show_whatsapp', true) && !!contactWhatsAppUrl();
+  }
+
+  function buildWhatsappPayMessage_(ref, amount) {
+    var msg = String(t().payWhatsappMsg || 'Olá, pretendo pagar a encomenda {ref} no valor de {amount} €.')
+      .replace('{ref}', ref).replace('{amount}', amount);
+    var iban = String((state.config || {}).transfer_iban || '').trim();
+    var holder = String((state.config || {}).transfer_account_holder || '').trim();
+    if (iban) {
+      msg += '\n' + String(t().payInstrIban || 'IBAN') + ': ' + iban;
+      if (holder) msg += '\n' + String(t().transferHolder || 'Titular') + ': ' + holder;
+    }
+    var mb = String((state.config || {}).pay_mbway_phone || '').trim();
+    if (mb) msg += '\nMB Way: ' + mb;
+    return msg;
+  }
+
   function paymentOptionsHtml() {
     var opts = [];
     if (isStripeOn()) {
@@ -3488,17 +3573,21 @@
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" ' + (state.payMethod === 'cod' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'cod\')"/> ' +
         esc(t().payCod) + '</label>');
     }
-    if (cfgOn('pay_show_transfer', true)) {
+    if (isTransferPaymentOn()) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="transfer" ' + (state.payMethod === 'transfer' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'transfer\')"/> ' +
         esc(t().payTransfer) + '</label>');
     }
-    if (cfgOn('pay_show_mbway', false) && String(state.config.pay_mbway_phone || '').trim()) {
+    if (isMbwayPaymentOn()) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="mbway" ' + (state.payMethod === 'mbway' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'mbway\')"/> ' +
         esc(t().payMbway || 'MB Way') + '</label>');
     }
-    if (cfgOn('pay_show_paypal', false) && String(state.config.pay_paypal_me || '').trim()) {
+    if (cfgOn('pay_show_paypal', false) && cfgOn('pay_paypal_enabled', true) && String(state.config.pay_paypal_me || '').trim()) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="paypal" ' + (state.payMethod === 'paypal' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'paypal\')"/> ' +
         esc(t().payPaypal || 'PayPal') + '</label>');
+    }
+    if (isWhatsappPaymentOn()) {
+      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="whatsapp" ' + (state.payMethod === 'whatsapp' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'whatsapp\')"/> ' +
+        esc(t().payWhatsapp || 'WhatsApp') + '</label>');
     }
     if (!opts.length) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" checked/> ' +
@@ -3594,7 +3683,7 @@
     if (!state.stripeRetryOrderId || !isStripeOn()) return;
     setTimeout(function () {
       initStripeElement().catch(function (e) {
-        global.toast((t().errStripe || 'Stripe') + ': ' + e.message, 'e');
+        global.toast((t().errStripe || 'Erro no pagamento') + ': ' + e.message, 'e');
       });
     }, 0);
   }
@@ -3655,7 +3744,7 @@
           return;
         }
         logStripeApiError_('createStripePaymentIntent (retry)', piRes);
-        global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe'), 'e');
+        global.toast((piRes && piRes.error) || (t().errStripe || 'Erro no pagamento'), 'e');
         return;
       }
       var conf = await state.stripe.confirmPayment({
@@ -3733,7 +3822,7 @@
     if (state.payMethod !== 'stripe' || !isStripeOn(true) || state.ordered) return;
     setTimeout(function () {
       initStripeElement().catch(function (e) {
-        global.toast((t().errStripe || 'Stripe') + ': ' + e.message, 'e');
+        global.toast((t().errStripe || 'Erro no pagamento') + ': ' + e.message, 'e');
       });
     }, 0);
   }
@@ -3745,7 +3834,16 @@
     var ref = '#' + (state.lastOrderId || '');
     var rows = [];
     if (m === 'transfer' && String(cfg.transfer_iban || '').trim()) {
-      rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().payInstrIban || 'Transferência para o IBAN') + ' : <strong>' + esc(cfg.transfer_iban) + '</strong></p>');
+      var holder = String(cfg.transfer_account_holder || '').trim();
+      var bank = String(cfg.transfer_bank_name || '').trim();
+      if (holder) {
+        rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().transferHolder || 'Titular da conta') + ' : <strong>' + esc(holder) + '</strong></p>');
+      }
+      if (bank) {
+        rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().transferBank || 'Banco') + ' : <strong>' + esc(bank) + '</strong></p>');
+      }
+      rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().payInstrIban || 'Transferência para o IBAN') + ' : <strong id="pay-iban-value">' + esc(cfg.transfer_iban) + '</strong> ' +
+        '<button type="button" class="btn-copy-ref" onclick="Shop.copyPayIban()">' + esc(t().copyIban || t().copyOrderCode || 'Copiar') + '</button></p>');
     } else if (m === 'mbway' && String(cfg.pay_mbway_phone || '').trim()) {
       rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().payInstrMbway || 'Envie o pagamento MB Way para') + ' <strong>' + esc(cfg.pay_mbway_phone) + '</strong></p>');
     } else if (m === 'paypal' && String(cfg.pay_paypal_me || '').trim()) {
@@ -3753,6 +3851,11 @@
       if (!/^https?:\/\//i.test(link)) link = 'https://paypal.me/' + link.replace(/^@/, '');
       if (amount) link = link.replace(/\/+$/, '') + '/' + amount;
       rows.push('<p style="margin:8px 0;"><a class="btn-gold" style="display:inline-block;text-decoration:none;padding:10px 18px;" href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(t().payPaypalBtn || 'Pagar com PayPal') + '</a></p>');
+    } else if (m === 'whatsapp' && contactWhatsAppUrl()) {
+      var waMsg = buildWhatsappPayMessage_(ref, amount);
+      var waLink = contactWhatsAppUrl(waMsg);
+      rows.push('<p style="font-size:11px;margin:4px 0;">' + esc(t().payInstrWhatsapp || 'Envie-nos uma mensagem WhatsApp para confirmar o pagamento') + '</p>');
+      rows.push('<p style="margin:8px 0;"><a class="btn-gold" style="display:inline-block;text-decoration:none;padding:10px 18px;" href="' + esc(waLink) + '" target="_blank" rel="noopener noreferrer">💬 ' + esc(t().payWhatsappBtn || 'Pagar via WhatsApp') + '</a></p>');
     } else {
       return '';
     }
@@ -3973,6 +4076,13 @@
     }
   }
 
+  async function copyPayIban() {
+    var iban = String((state.config && state.config.transfer_iban) || '').trim();
+    if (!iban) return;
+    var ok = await copyText(iban.replace(/\s+/g, ''));
+    global.toast(ok ? (t().copyIbanOk || t().copyOrderCodeOk || 'IBAN copiado') : iban, ok ? 's' : 'i');
+  }
+
   async function copyLastOrderCode() {
     if (!state.lastOrderId) return;
     var ok = await copyText(state.lastOrderId);
@@ -4014,6 +4124,22 @@
       global.toast(t().apiUrlMissing || 'API não configurada (index.html)', 'e');
       return;
     }
+    if (state.payMethod === 'transfer' && !isTransferPaymentOn()) {
+      global.toast(t().transferIbanRequired || 'IBAN não configurado na loja — contacte o vendedor.', 'e');
+      return;
+    }
+    if (state.payMethod === 'mbway' && !isMbwayPaymentOn()) {
+      global.toast(t().mbwayRequired || 'MB Way não configurado na loja.', 'e');
+      return;
+    }
+    if (state.payMethod === 'paypal' && !(cfgOn('pay_paypal_enabled', true) && String(state.config.pay_paypal_me || '').trim())) {
+      global.toast(t().paypalRequired || 'PayPal não configurado na loja.', 'e');
+      return;
+    }
+    if (state.payMethod === 'whatsapp' && !isWhatsappPaymentOn()) {
+      global.toast(t().whatsappRequired || 'WhatsApp não configurado na loja.', 'e');
+      return;
+    }
 
     await refreshActivePromo({ silent: true });
     var totals = orderTotals();
@@ -4039,6 +4165,7 @@
         coupon_code: state.couponCode || (state.promo || ''),
         cartId: state.cartId || '',
         items: buildOrderItems(),
+        lang: state.lang || 'pt',
         awaitOnlinePayment: awaitStripe
       };
 
@@ -4061,7 +4188,7 @@
         await initStripeElement();
         if (!state.stripeElements) {
           logStripeApiError_('initStripeElement', null, 'stripeElements null après createOrder');
-          global.toast(t().errStripe || 'Stripe não disponível', 'e');
+          global.toast(t().errStripe || 'Pagamento não disponível', 'e');
           openAccount();
           openOrderDetail(orderRes.orderId);
           return;
@@ -4128,13 +4255,14 @@
           return;
         }
         if (codRes.fiscal_doc_url) state.lastFiscalUrl = codRes.fiscal_doc_url;
-      } else if (state.payMethod === 'transfer' || state.payMethod === 'mbway' || state.payMethod === 'paypal') {
+      } else if (state.payMethod === 'transfer' || state.payMethod === 'mbway' || state.payMethod === 'paypal' || state.payMethod === 'whatsapp') {
         await registerOfflinePaymentSafe_({
           orderId: orderRes.orderId,
           metodo: state.payMethod,
           valor: totals.total.toFixed(2),
           clientId: state.clientId || 'guest',
-          email: f.email
+          email: f.email,
+          lang: state.lang || 'pt'
         });
       }
 
@@ -4326,9 +4454,10 @@
 
   function termsAcceptLabelHtml() {
     var a = accT();
-    var link = '<a href="' + esc(legalPageHref('privacy')) + '" target="_blank" rel="noopener noreferrer" class="acc-legal-link">' + esc(a.privacyLinkText || 'Privacy') + '</a>';
-    if (a.termsWithLink) return String(a.termsWithLink).replace(/\{\{privacyLink\}\}/g, link);
-    return esc(a.terms || '');
+    var privacy = '<a href="' + esc(legalPageHref('privacy')) + '" target="_blank" rel="noopener noreferrer" class="acc-legal-link">' + esc(a.privacyLinkText || 'Privacy') + '</a>';
+    var terms = '<a href="#" onclick="event.preventDefault();Shop.openInfo(\'terms\')" class="acc-legal-link">' + esc(a.termsLinkText || 'Terms') + '</a>';
+    var html = a.termsWithLink || a.terms || '';
+    return String(html).replace(/\{\{privacyLink\}\}/g, privacy).replace(/\{\{termsLink\}\}/g, terms);
   }
 
   function renderRegisterForm() {
@@ -4336,11 +4465,12 @@
     var d = state.regDraft || {};
     return accountTabsHtml('register') +
       '<p class="form-title">' + esc(a.register) + '</p>' +
+      '<p class="acc-hint">' + esc(a.registerIntro || '') + '</p>' +
       '<p class="acc-hint">' + esc(a.passMin) + '</p>' +
       '<div class="fgrid one">' +
-      '<div class="field"><label>' + esc(a.name) + ' *</label><input id="regName" value="' + esc(d.nome || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.name) + ' *</label><input id="regName" autocomplete="name" value="' + esc(d.nome || '') + '"/></div>' +
       '<div class="field"><label>' + esc(a.email) + ' *</label><input id="regEmail" type="email" autocomplete="email" value="' + esc(d.email || '') + '"/></div>' +
-      '<div class="field"><label>' + esc(a.phone) + '</label><input id="regPhone" type="tel" value="' + esc(d.telefone || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.phone) + '</label><input id="regPhone" type="tel" autocomplete="tel" inputmode="tel" value="' + esc(d.telefone || '') + '"/></div>' +
       '<div class="field"><label>' + esc(a.pass) + ' *</label><input id="regPass" type="password" autocomplete="new-password"/></div>' +
       '<div class="field"><label>' + esc(a.passConfirm) + ' *</label><input id="regPass2" type="password" autocomplete="new-password"/></div></div>' +
       '<label class="acc-check"><input type="checkbox" id="regTerms"' + (d.terms ? ' checked' : '') + '/><span>' + termsAcceptLabelHtml() + '</span></label>' +
@@ -4850,12 +4980,18 @@
     return digits ? 'tel:' + digits : '';
   }
 
-  function contactWhatsAppUrl() {
+  function contactWhatsAppUrl(message) {
     var wa = state.config.contact_whatsapp || '';
     if (!wa) return '';
-    if (String(wa).indexOf('http') === 0) return wa;
-    var digits = String(wa).replace(/\D/g, '');
-    return digits ? 'https://wa.me/' + digits : '';
+    var base = '';
+    if (String(wa).indexOf('http') === 0) base = wa.split('?')[0];
+    else {
+      var digits = String(wa).replace(/\D/g, '');
+      base = digits ? 'https://wa.me/' + digits : '';
+    }
+    if (!base) return '';
+    if (message) return base + '?text=' + encodeURIComponent(String(message));
+    return base;
   }
 
   function openContact() {
@@ -5181,6 +5317,8 @@
     renderCats: renderCats,
     render: render,
     addCart: addCart,
+    addCartFromQv: addCartFromQv,
+    openCartFromQv: openCartFromQv,
     addWishlistToCart: addWishlistToCart,
     remCart: remCart,
     updQty: updQty,
@@ -5221,6 +5359,7 @@
     cancelPendingOrder: cancelPendingOrder,
     diagnoseStripe: diagnoseStripe,
     copyLastOrderCode: copyLastOrderCode,
+    copyPayIban: copyPayIban,
     openLastOrderTracking: openLastOrderTracking,
     openAccount: openAccount,
     closeAccount: closeAccount,
