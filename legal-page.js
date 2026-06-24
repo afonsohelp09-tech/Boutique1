@@ -5,6 +5,9 @@
 (function (global) {
   'use strict';
 
+  var LIVRO_URL = 'https://www.livroreclamacoes.pt/Inicio/';
+  var DEFAULT_CONTACT_EMAIL = 'azavision1@outlook.com';
+
   var PAGE_COPY = {
     pt: { back: '← Voltar à loja', loading: 'A carregar…' },
     fr: { back: '← Retour à la boutique', loading: 'Chargement…' },
@@ -40,7 +43,12 @@
     return String(text || '')
       .replace(/\{\{storeName\}\}/g, vars.storeName)
       .replace(/\{\{email\}\}/g, vars.email)
-      .replace(/\{\{country\}\}/g, vars.country);
+      .replace(/\{\{country\}\}/g, vars.country)
+      .replace(/\{\{nif\}\}/g, vars.nif || '—')
+      .replace(/\{\{phone\}\}/g, vars.phone || vars.email)
+      .replace(/\{\{morada\}\}/g, vars.morada || '—')
+      .replace(/\{\{address\}\}/g, vars.address || vars.country)
+      .replace(/\{\{livroUrl\}\}/g, vars.livroUrl || LIVRO_URL);
   }
 
   function buildLegalDocHtml(pageKey, lang, vars) {
@@ -62,30 +70,89 @@
   }
 
   function defaultVars() {
-    return { storeName: 'AZAVISION', email: 'contacto@azavision.pt', country: 'Portugal' };
+    return {
+      storeName: 'AZAVISION',
+      email: DEFAULT_CONTACT_EMAIL,
+      country: 'Portugal',
+      nif: '',
+      phone: '',
+      morada: '',
+      cidade: '',
+      address: 'Portugal',
+      livroUrl: LIVRO_URL
+    };
+  }
+
+  function mergeEmpresaVars(base, emp) {
+    emp = emp || {};
+    var morada = String(emp.morada || '').trim();
+    var cidade = String(emp.cidade || '').trim();
+    var pais = String(emp.pais || base.country || 'Portugal').trim() || 'Portugal';
+    var address = [morada, cidade, pais].filter(Boolean).join(', ');
+    return {
+      storeName: String(emp.nome || base.storeName || 'AZAVISION').trim() || base.storeName,
+      email: String(emp.email || base.email || DEFAULT_CONTACT_EMAIL).trim(),
+      country: pais,
+      nif: String(emp.nif || '').trim(),
+      phone: String(emp.telefone || '').trim(),
+      morada: morada,
+      cidade: cidade,
+      address: address || pais,
+      livroUrl: LIVRO_URL
+    };
   }
 
   function apiUrl() {
     return String(global.API_URL || global.ERP_API_URL_DEFAULT || '').trim();
   }
 
-  function fetchConfigVars() {
+  function apiPost(action) {
     var url = apiUrl();
-    if (!url) return Promise.resolve(defaultVars());
+    if (!url) return Promise.reject(new Error('no api'));
     return fetch(url, {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getConfig', data: {} })
-    }).then(function (res) { return res.json(); }).then(function (res) {
-      var cfg = (res && res.config) || {};
-      return {
-        storeName: String(cfg.site_name || 'AZAVISION').trim() || 'AZAVISION',
-        email: String(cfg.contact_public_email || cfg.store_email || 'contacto@azavision.pt').trim(),
-        country: 'Portugal'
-      };
+      body: JSON.stringify({ action: action, data: {} })
+    }).then(function (res) { return res.json(); });
+  }
+
+  function fetchConfigVars() {
+    var base = defaultVars();
+    if (!apiUrl()) return Promise.resolve(base);
+    return apiPost('getPublicBrand').then(function (res) {
+      if (res && res.success && res.brand) {
+        var cfg = res.brand.config || {};
+        base = {
+          storeName: String(res.brand.storeName || cfg.site_name || 'AZAVISION').trim() || 'AZAVISION',
+          email: String(cfg.contact_public_email || cfg.store_email || DEFAULT_CONTACT_EMAIL).trim(),
+          country: 'Portugal',
+          nif: '',
+          phone: '',
+          morada: '',
+          cidade: '',
+          address: 'Portugal',
+          livroUrl: LIVRO_URL
+        };
+        if (res.brand.empresa) return mergeEmpresaVars(base, res.brand.empresa);
+        return base;
+      }
+      return apiPost('getConfig').then(function (cfgRes) {
+        var cfg = (cfgRes && cfgRes.config) || {};
+        return {
+          storeName: String(cfg.site_name || 'AZAVISION').trim() || 'AZAVISION',
+          email: String(cfg.contact_public_email || cfg.store_email || DEFAULT_CONTACT_EMAIL).trim(),
+          country: 'Portugal',
+          nif: '',
+          phone: '',
+          morada: '',
+          cidade: '',
+          address: 'Portugal',
+          livroUrl: LIVRO_URL
+        };
+      });
     }).catch(function () {
-      return defaultVars();
+      return base;
     });
   }
 

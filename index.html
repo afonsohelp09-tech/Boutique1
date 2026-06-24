@@ -173,6 +173,7 @@ input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
    PROMO MARQUEE
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .promo-bar{
+  display:none;
   background:var(--gold);color:var(--on-gold);
   font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
   padding:10px 0;overflow:hidden;border-bottom:1px solid var(--gold-dk);
@@ -182,6 +183,9 @@ input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
 .marquee-wrap:hover{animation-play-state:paused}
 .marquee-wrap span{padding:0 40px;white-space:nowrap}
 @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+body.vitrine-pending .promo-bar,
+body.vitrine-pending .services-in-footer,
+body.vitrine-pending .services{display:none!important}
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    NAVBAR
@@ -1514,9 +1518,19 @@ footer{
   display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
 }
 .f-copy{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
-.f-legal{display:flex;gap:18px}
+.f-legal{display:flex;flex-wrap:wrap;gap:18px}
 .f-legal a{font-size:8px;color:var(--muted);text-decoration:none;letter-spacing:1px;text-transform:uppercase}
 .f-legal a:hover{text-decoration:underline}
+.cookie-banner{position:fixed;bottom:0;left:0;right:0;z-index:10050;background:var(--bg-card,#fff);border-top:1px solid var(--border,#e8e4df);box-shadow:0 -8px 32px rgba(0,0,0,.08);padding:16px 20px}
+.cookie-banner-inner{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.cookie-banner-title{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin:0}
+.cookie-banner-text{font-size:10px;line-height:1.55;color:var(--muted);margin:0}
+.cookie-banner-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn-cookie-accept,.btn-cookie-essential{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:10px 16px;border-radius:2px;cursor:pointer;border:1px solid var(--border,#ddd)}
+.btn-cookie-accept{background:var(--gold,#c9a96e);color:#fff;border-color:var(--gold,#c9a96e)}
+.btn-cookie-essential{background:transparent;color:var(--text-body)}
+.cookie-policy-link{font-size:9px;color:var(--muted);text-decoration:underline;margin-left:4px}
+.co-terms{margin:12px 0 8px}
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    RESPONSIVE
@@ -1686,7 +1700,7 @@ footer{
 .pay-opt input{accent-color:var(--gold)}
 </style>
 </head>
-<body>
+<body class="vitrine-pending">
 
 <div id="apiBanner" class="api-banner" style="display:none"></div>
 
@@ -2089,7 +2103,9 @@ function boot() {
   if (window.Shop && window.Shop.applyPromoBanner) {
     window.Shop.applyPromoBanner();
   } else {
-    ['mq1', 'mq2', 'mq3', 'mq4'].forEach(id => { if ($(id)) $(id).textContent = t.promo; });
+    var promoBar = document.querySelector('.promo-bar');
+    if (promoBar) promoBar.style.display = 'none';
+    ['mq1', 'mq2', 'mq3', 'mq4'].forEach(function (id) { if ($(id)) $(id).textContent = ''; });
   }
   if (window.Shop && window.Shop.renderNav) {
     window.Shop.renderNav();
@@ -2108,11 +2124,12 @@ function boot() {
   if ($('hBtn1')) $('hBtn1').textContent = t.hBtn1;
   if ($('hBtn2')) $('hBtn2').textContent = t.hBtn2;
   if ($('scrollHint')) $('scrollHint').textContent = t.scrollHint;
-  if ($('svcGrid')) {
-    $('svcGrid').innerHTML = t.svc.map(function (s, i) {
-      var ico = (window.IconUi && IconUi.svc) ? IconUi.svc(i) : s.i;
-      return '<div class="svc"><span class="svc-icon">' + ico + '</span><h3 class="svc-title">' + s.t + '</h3><p class="svc-desc">' + s.d + '</p></div>';
-    }).join('');
+  if ($('svcGrid') && window.Shop && Shop.applyServicesStrip) {
+    Shop.applyServicesStrip();
+  } else if ($('svcGrid')) {
+    $('svcGrid').innerHTML = '';
+    var svcSec = document.querySelector('.services-in-footer') || document.querySelector('.services');
+    if (svcSec) svcSec.style.display = 'none';
   }
   if (window.IconUi) {
     IconUi.wireSocialButton($('socInsta'), 'instagram');
@@ -2260,6 +2277,17 @@ boot();
 <script src="legal/index.js"></script>
 <script src="size-guide-content.js"></script>
 <script src="info-content.js"></script>
-<script src="erp-shop.js?v=20260622pay"></script>
+<div id="cookieBanner" class="cookie-banner" role="dialog" aria-labelledby="cookieBannerTitle" aria-hidden="true" style="display:none">
+  <div class="cookie-banner-inner">
+    <p class="cookie-banner-title" id="cookieBannerTitle"></p>
+    <p class="cookie-banner-text" id="cookieBannerText"></p>
+    <div class="cookie-banner-actions">
+      <button type="button" class="btn-cookie-essential" id="cookieEssentialBtn" onclick="Shop.acceptEssentialCookies()"></button>
+      <button type="button" class="btn-cookie-accept" id="cookieAcceptBtn" onclick="Shop.acceptAllCookies()"></button>
+      <a href="#" id="cookiePolicyLink" class="cookie-policy-link"></a>
+    </div>
+  </div>
+</div>
+<script src="erp-shop.js?v=20260624legal"></script>
 </body>
 </html>

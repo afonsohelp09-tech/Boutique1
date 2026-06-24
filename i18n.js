@@ -32,7 +32,8 @@
       trackOrderId: 'N° de commande', trackBtn: 'Voir la commande', trackEmailMismatch: 'E-mail ne correspond pas à cette commande',
       trackNotFound: 'Commande introuvable',
       emailOrPhone: 'E-mail ou téléphone', forgotHint: 'Entrez votre e-mail ou votre numéro de téléphone — le code de récupération est envoyé à l\'e-mail du compte.',
-      loginRequired: 'Connectez-vous pour finaliser votre commande.'
+      loginRequired: 'Connectez-vous pour finaliser votre commande.',
+      returnBtn: 'Demander un retour', returnTitle: 'Demande de retour', returnReason: 'Motif du retour', returnNotes: 'Notes (optionnel)', returnSubmit: 'Envoyer la demande', returnThanks: 'Demande enregistrée — nous vous contacterons.', returnLogin: 'Connectez-vous pour demander un retour.'
     },
     pt: {
       title: 'A minha conta', login: 'Entrar', register: 'Registo', forgot: 'Palavra-passe esquecida',
@@ -61,7 +62,8 @@
       trackOrderId: 'N.º da encomenda', trackBtn: 'Ver encomenda', trackEmailMismatch: 'O e-mail não corresponde a esta encomenda',
       trackNotFound: 'Encomenda não encontrada',
       emailOrPhone: 'E-mail ou telefone', forgotHint: 'Indique o seu e-mail ou número de telefone — o código de recuperação é enviado para o e-mail da conta.',
-      loginRequired: 'Inicie sessão para finalizar a compra.'
+      loginRequired: 'Inicie sessão para finalizar a compra.',
+      returnBtn: 'Pedir devolução', returnTitle: 'Pedido de devolução', returnReason: 'Motivo da devolução', returnNotes: 'Notas (opcional)', returnSubmit: 'Enviar pedido', returnThanks: 'Pedido registado — entraremos em contacto.', returnLogin: 'Inicie sessão para pedir devolução.'
     },
     en: {
       title: 'My account', login: 'Sign in', register: 'Register', forgot: 'Forgot password',
@@ -90,7 +92,8 @@
       trackOrderId: 'Order number', trackBtn: 'View order', trackEmailMismatch: 'Email does not match this order',
       trackNotFound: 'Order not found',
       emailOrPhone: 'Email or phone', forgotHint: 'Enter your email or phone number — the recovery code is sent to the account email.',
-      loginRequired: 'Sign in to complete your purchase.'
+      loginRequired: 'Sign in to complete your purchase.',
+      returnBtn: 'Request a return', returnTitle: 'Return request', returnReason: 'Reason for return', returnNotes: 'Notes (optional)', returnSubmit: 'Submit request', returnThanks: 'Request recorded — we will contact you.', returnLogin: 'Sign in to request a return.'
     },
     es: {
       title: 'Mi cuenta', login: 'Iniciar sesión', register: 'Registro', forgot: 'Contraseña olvidada',
@@ -119,7 +122,8 @@
       trackOrderId: 'N.º de pedido', trackBtn: 'Ver pedido', trackEmailMismatch: 'El correo no coincide con este pedido',
       trackNotFound: 'Pedido no encontrado',
       emailOrPhone: 'Correo o teléfono', forgotHint: 'Introduzca su correo o número de teléfono — el código de recuperación se envía al correo de la cuenta.',
-      loginRequired: 'Inicie sesión para finalizar su compra.'
+      loginRequired: 'Inicie sesión para finalizar su compra.',
+      returnBtn: 'Solicitar devolución', returnTitle: 'Solicitud de devolución', returnReason: 'Motivo de la devolución', returnNotes: 'Notas (opcional)', returnSubmit: 'Enviar solicitud', returnThanks: 'Solicitud registrada — le contactaremos.', returnLogin: 'Inicie sesión para solicitar devolución.'
     }
   };
 
@@ -344,6 +348,14 @@
       fNwPH: lang.fNwPH,
       fCopy: lang.fCopy,
       fLegal: lang.fLegal,
+      livroReclamacoes: lang.livroReclamacoes,
+      coTermsWithLink: lang.coTermsWithLink,
+      coTermsRequired: lang.coTermsRequired,
+      cookieTitle: lang.cookieTitle,
+      cookieText: lang.cookieText,
+      cookieAccept: lang.cookieAccept,
+      cookieEssential: lang.cookieEssential,
+      cookiePolicy: lang.cookiePolicy,
       tAdd: lang.tAdd,
       tRem: lang.tRem,
       tFavA: lang.tFavA,
@@ -524,6 +536,14 @@
     fNwT: "La gazette de l'atelier", fNwD: 'Rejoignez notre lettre pour les ventes privées et capsules limitées.', fNwBtn: 'Rejoindre', fNwPH: 'votre@email.fr',
     fCopy: "© 2026 AZAVISION — Tous droits réservés. Marque certifiée éthique.",
     fLegal: ['CGV', 'Confidentialité', 'Mentions légales'],
+    livroReclamacoes: 'Livre de réclamations',
+    coTermsWithLink: "J'accepte les {{termsLink}} et la {{privacyLink}} avant de commander.",
+    coTermsRequired: 'Veuillez accepter les conditions de vente pour continuer',
+    cookieTitle: 'Cookies et confidentialité',
+    cookieText: 'Nous utilisons des cookies et le stockage local essentiels au fonctionnement de la boutique (panier, langue, session). Vous pouvez tout accepter ou limiter aux cookies essentiels.',
+    cookieAccept: 'Tout accepter',
+    cookieEssential: 'Essentiels uniquement',
+    cookiePolicy: 'Politique de confidentialité',
     tAdd: '"{n}" ajouté au panier !', tRem: 'Article retiré', tFavA: 'Ajouté aux favoris ♥', tFavR: 'Retiré des favoris',
     tReq: 'Merci de remplir les champs obligatoires', reviews: 'avis',
     reviewTitle: 'Votre avis', reviewRating: 'Note', reviewComment: 'Commentaire', reviewPlaceholder: 'Partagez votre expérience…',
@@ -649,6 +669,14 @@
     fNwT: 'A gazeta do atelier', fNwD: 'Subscreva para vendas privadas e novas coleções.', fNwBtn: 'Subscrever', fNwPH: 'o.seu@email.pt',
     fCopy: '© 2026 AZAVISION — Todos os direitos reservados. Marca ética certificada.',
     fLegal: ['Termos', 'Privacidade', 'Aviso legal'],
+    livroReclamacoes: 'Livro de Reclamações',
+    coTermsWithLink: 'Aceito os {{termsLink}} e a {{privacyLink}} antes de finalizar a encomenda.',
+    coTermsRequired: 'Aceite os termos e condições de venda para continuar',
+    cookieTitle: 'Cookies e privacidade',
+    cookieText: 'Utilizamos cookies e armazenamento local essenciais ao funcionamento da loja (carrinho, idioma, sessão). Pode aceitar todos ou apenas os essenciais.',
+    cookieAccept: 'Aceitar todos',
+    cookieEssential: 'Apenas essenciais',
+    cookiePolicy: 'Política de Privacidade',
     tAdd: '"{n}" adicionado ao cesto!', tRem: 'Artigo removido', tFavA: 'Adicionado aos favoritos ♥', tFavR: 'Removido dos favoritos',
     tReq: 'Preencha os campos obrigatórios', reviews: 'avaliações',
     reviewTitle: 'A sua avaliação', reviewRating: 'Nota', reviewComment: 'Comentário', reviewPlaceholder: 'Partilhe a sua experiência…',
@@ -775,6 +803,14 @@
     fNwT: 'The atelier gazette', fNwD: 'Join our list for private sales and limited capsules.', fNwBtn: 'Subscribe', fNwPH: 'you@email.com',
     fCopy: '© 2026 AZAVISION — All rights reserved. Ethically certified brand.',
     fLegal: ['Terms', 'Privacy', 'Legal notice'],
+    livroReclamacoes: 'Complaints Book',
+    coTermsWithLink: 'I accept the {{termsLink}} and {{privacyLink}} before placing my order.',
+    coTermsRequired: 'Please accept the terms of sale to continue',
+    cookieTitle: 'Cookies & privacy',
+    cookieText: 'We use essential cookies and local storage for shop functionality (cart, language, session). You may accept all or essential cookies only.',
+    cookieAccept: 'Accept all',
+    cookieEssential: 'Essential only',
+    cookiePolicy: 'Privacy Policy',
     tAdd: '"{n}" added to bag!', tRem: 'Item removed', tFavA: 'Added to wishlist ♥', tFavR: 'Removed from wishlist',
     tReq: 'Please fill in all required fields', reviews: 'reviews',
     reviewTitle: 'Your review', reviewRating: 'Rating', reviewComment: 'Comment', reviewPlaceholder: 'Share your experience…',
@@ -899,6 +935,14 @@
     fNwT: 'La gazette del taller', fNwD: 'Suscríbase para ventas privadas y cápsulas limitadas.', fNwBtn: 'Suscribirse', fNwPH: 'su@email.es',
     fCopy: '© 2026 AZAVISION — Todos los derechos reservados. Marca certificada ética.',
     fLegal: ['Condiciones', 'Privacidad', 'Aviso legal'],
+    livroReclamacoes: 'Libro de reclamaciones',
+    coTermsWithLink: 'Acepto los {{termsLink}} y la {{privacyLink}} antes de finalizar el pedido.',
+    coTermsRequired: 'Debe aceptar las condiciones de venta para continuar',
+    cookieTitle: 'Cookies y privacidad',
+    cookieText: 'Utilizamos cookies y almacenamiento local esenciales para el funcionamiento de la tienda (cesta, idioma, sesión). Puede aceptar todas o solo las esenciales.',
+    cookieAccept: 'Aceptar todas',
+    cookieEssential: 'Solo esenciales',
+    cookiePolicy: 'Política de privacidad',
     tAdd: '"{n}" añadido a la cesta!', tRem: 'Artículo eliminado', tFavA: 'Añadido a favoritos ♥', tFavR: 'Eliminado de favoritos',
     tReq: 'Complete los campos obligatorios', reviews: 'valoraciones',
     reviewTitle: 'Su valoración', reviewRating: 'Nota', reviewComment: 'Comentario', reviewPlaceholder: 'Comparta su experiencia…',

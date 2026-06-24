@@ -6,6 +6,7 @@
 
   var API = global.API_URL || global.ERP_API_URL_DEFAULT || '';
   var STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY || '';
+  var DEFAULT_CONTACT_EMAIL = 'azavision1@outlook.com';
 
   function refreshStripePk_() {
     if (!STRIPE_PK && global.STRIPE_PUBLISHABLE_KEY) STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY;
@@ -50,6 +51,7 @@
     categories: [],
     store: null,
     config: {},
+    storeConfigReady: false,
     cat: 'all',
     cart: [],
     cartId: '',
@@ -66,6 +68,7 @@
     profile: null,
     addresses: [],
     selectedOrder: null,
+    returnFormOrderId: '',
     promo: '',
     discAmount: 0,
     discPct: 0,
@@ -79,7 +82,7 @@
     qvForceVariant: false,
     qvViewMode: 'shop',
     qvAddedFlash: null,
-    form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '' },
+    form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '', acceptCheckoutTerms: false },
     payMethod: 'stripe',
     ordered: false,
     lastOrderId: '',
@@ -692,12 +695,16 @@
     var tm = t();
     var labels = (tm.fLegal && tm.fLegal.length >= 3) ? tm.fLegal : ['Terms', 'Privacy', 'Legal notice'];
     var pages = ['terms', 'privacy', 'legal'];
-    box.innerHTML = pages.map(function (page, i) {
+    var livroUrl = 'https://www.livroreclamacoes.pt/Inicio/';
+    var livroLabel = tm.livroReclamacoes || 'Livro de Reclamações';
+    var html = pages.map(function (page, i) {
       if (isExternalLegalPage(page)) {
         return '<a href="' + esc(legalPageHref(page)) + '">' + esc(labels[i]) + '</a>';
       }
       return '<a href="#" onclick="event.preventDefault();Shop.openInfo(\'' + page + '\')">' + esc(labels[i]) + '</a>';
     }).join('');
+    html += '<a href="' + livroUrl + '" target="_blank" rel="noopener noreferrer">' + esc(livroLabel) + '</a>';
+    box.innerHTML = html;
   }
 
   function renderFooterSupport() {
@@ -2001,6 +2008,22 @@
 
   var VITRINE_LANGS = ['pt', 'fr', 'en', 'es'];
 
+  function isStoreConfigReady() {
+    return !!state.storeConfigReady;
+  }
+
+  function setVitrinePending(pending) {
+    try {
+      if (pending) document.body.classList.add('vitrine-pending');
+      else document.body.classList.remove('vitrine-pending');
+    } catch (ePend) { /* ignore */ }
+  }
+
+  function markStoreConfigReady() {
+    state.storeConfigReady = true;
+    setVitrinePending(false);
+  }
+
   function buildVitrineContentFromConfig(cfg) {
     cfg = cfg || {};
     var content = {};
@@ -2013,10 +2036,22 @@
         hBtn2: String(cfg['vitrine_hero_btn2_' + lg] || '').trim(),
         shopLabel: String(cfg['vitrine_shop_label_' + lg] || '').trim(),
         shopTitle: String(cfg['vitrine_shop_title_' + lg] || '').trim(),
-        fDesc: String(cfg['vitrine_footer_desc_' + lg] || cfg.boutique_footer_tagline || '').trim()
+        fDesc: String(cfg['vitrine_footer_desc_' + lg] || cfg.boutique_footer_tagline || '').trim(),
+        svc: buildSvcContentFromConfig(cfg, lg)
       };
     });
     return content;
+  }
+
+  function buildSvcContentFromConfig(cfg, lg) {
+    var svc = [];
+    for (var i = 0; i < 4; i++) {
+      svc.push({
+        t: String(cfg['vitrine_svc' + i + '_title_' + lg] || '').trim(),
+        d: String(cfg['vitrine_svc' + i + '_desc_' + lg] || '').trim()
+      });
+    }
+    return svc;
   }
 
   function buildSocialFromConfig(cfg) {
@@ -2054,6 +2089,9 @@
     try { brandRes = await erpCall('getPublicBrand', {}); } catch (e) { /* ignore */ }
     if (brandRes && brandRes.success && brandRes.brand) {
       state.store = brandRes.brand;
+      if (brandRes.brand.empresa && typeof brandRes.brand.empresa === 'object') {
+        state.store.empresa = brandRes.brand.empresa;
+      }
       if (brandRes.brand.config && typeof brandRes.brand.config === 'object') {
         state.config = brandRes.brand.config;
       }
@@ -2076,6 +2114,7 @@
         if (sd.content && Object.keys(sd.content).length) state.store.content = sd.content;
         if (sd.social && Object.keys(sd.social).length) state.store.social = sd.social;
         if (sd.colors) state.store.colors = sd.colors;
+        if (sd.empresa && typeof sd.empresa === 'object') state.store.empresa = sd.empresa;
       }
     } catch (e3) { /* ignore */ }
     if (!state.store) state.store = {};
@@ -2102,9 +2141,11 @@
       else state.lang = 'pt';
       if (global.applyShopLang) global.applyShopLang(state.lang);
     }
+    markStoreConfigReady();
     applyBrandUi();
     applyHeroTextColors();
     applyPromoBanner();
+    applyVitrineContent(state.lang);
   }
 
   var SOCIAL_NET = { socInsta: 'instagram', socPin: 'pinterest', socTik: 'tiktok', socFb: 'facebook' };
@@ -2150,6 +2191,10 @@
   function applyVitrineContent(lang) {
     lang = lang || state.lang || 'pt';
     applyHeroTextColors();
+    if (!isStoreConfigReady()) {
+      applyServicesStrip();
+      return;
+    }
     var cfg = state.config || {};
     var c = state.store && state.store.content && state.store.content[lang];
     if (!c) c = {};
@@ -2195,9 +2240,41 @@
 
   function applyServicesStrip() {
     var cfg = state.config || {};
-    var show = cfgOn('vitrine_display_services', true);
+    var lang = state.lang || 'pt';
+    var showSection = cfgOn('vitrine_display_services', true);
     var sec = document.querySelector('.services-in-footer') || document.querySelector('.services');
-    if (sec) sec.style.display = show ? '' : 'none';
+    var grid = document.getElementById('svcGrid');
+    if (!grid && !sec) return;
+
+    if (!isStoreConfigReady()) {
+      if (grid) grid.innerHTML = '';
+      if (sec) sec.style.display = 'none';
+      return;
+    }
+
+    var customSvc = (state.store && state.store.content && state.store.content[lang] && state.store.content[lang].svc) || [];
+    var offlineFallback = !apiUrlConfigured();
+    var fallbackSvc = [];
+    if (offlineFallback) {
+      try {
+        var tr = t();
+        fallbackSvc = (tr && tr.svc) || [];
+      } catch (eFb) { /* ignore */ }
+    }
+    var parts = [];
+    for (var i = 0; i < 4; i++) {
+      if (!cfgOn('vitrine_display_svc' + i, true)) continue;
+      var custom = customSvc[i] || {};
+      var fb = fallbackSvc[i] || {};
+      var title = String(custom.t || '').trim() || (offlineFallback ? String(fb.t || '').trim() : '');
+      var desc = String(custom.d || '').trim() || (offlineFallback ? String(fb.d || '').trim() : '');
+      if (!title && !desc) continue;
+      var ico = (global.IconUi && IconUi.svc) ? IconUi.svc(i) : (fb.i || '');
+      parts.push('<div class="svc"><span class="svc-icon">' + ico + '</span><h3 class="svc-title">' + esc(title) + '</h3><p class="svc-desc">' + esc(desc) + '</p></div>');
+    }
+
+    if (grid) grid.innerHTML = parts.join('');
+    if (sec) sec.style.display = (showSection && parts.length) ? '' : 'none';
   }
 
   function resetHeroBackgroundTuning(heroBg) {
@@ -2434,6 +2511,7 @@
   }
 
   function resolvePromoBarText() {
+    if (!isStoreConfigReady()) return '';
     var cfg = state.config || {};
     if (!cfgOn('promo_bar_display', true)) return '';
 
@@ -2470,7 +2548,13 @@
     var text = resolvePromoBarText();
     var bar = document.querySelector('.promo-bar');
     if (bar) bar.style.display = text ? '' : 'none';
-    if (!text) return;
+    if (!text) {
+      ['mq1', 'mq2', 'mq3', 'mq4'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.textContent = '';
+      });
+      return;
+    }
     var mq = $('mq');
     if (mq) {
       var annMarquee = cfgOn('announcement_marquee', true);
@@ -3388,8 +3472,49 @@
       '<div class="m-price"><span class="c">' + displayPrice.toFixed(2) + ' €</span>' +
       (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div></div>' +
       '<div class="tab-panel qv-desc"><p>' + esc(desc(p)) + '</p></div>' +
+      renderQvReviewBlock(p) +
       renderQvOptionsBlock(colorOptions, sizeOptions, canAdd) +
       renderQvCtaBlock(pid, canAdd, faved, tm) + '</div></div>';
+  }
+
+  function renderQvReviewBlock(p) {
+    if (!p || !p.id) return '';
+    var tm = t();
+    if (!state.clientId || !state.token) {
+      return '<div class="qv-review-block"><p class="acc-hint">' + esc(tm.reviewLoginHint || '') + '</p></div>';
+    }
+    return '<div class="qv-review-block" style="margin:12px 0;padding:12px;border:1px solid var(--border-hard);border-radius:3px;">' +
+      '<p class="form-title" style="margin:0 0 8px;">' + esc(tm.reviewTitle || 'Review') + '</p>' +
+      '<div class="field" style="margin-bottom:8px;"><label>' + esc(tm.reviewRating || 'Rating') + '</label>' +
+      '<select id="qvReviewRating" style="width:100%;"><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></div>' +
+      '<div class="field" style="margin-bottom:8px;"><label>' + esc(tm.reviewComment || 'Comment') + '</label>' +
+      '<textarea id="qvReviewComment" rows="2" placeholder="' + esc(tm.reviewPlaceholder || '') + '" style="width:100%;"></textarea></div>' +
+      '<button type="button" class="btn-ghost-sm" onclick="Shop.submitProductReview(\'' + esc(p.id).replace(/'/g, "\\'") + '\')">' + esc(tm.reviewSubmit || 'Submit') + '</button></div>';
+  }
+
+  async function submitProductReview(produtoId) {
+    produtoId = String(produtoId || '').trim();
+    if (!produtoId || !state.token) {
+      global.toast(t().reviewLoginHint || 'Login required', 'e');
+      return;
+    }
+    var commentEl = $('qvReviewComment');
+    var ratingEl = $('qvReviewRating');
+    var comentario = commentEl ? String(commentEl.value || '').trim() : '';
+    var nota = ratingEl ? parseInt(ratingEl.value, 10) || 5 : 5;
+    if (!comentario) {
+      global.toast(t().reviewRequired || 'Comment required', 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('createReview', { produtoId: produtoId, produto_id: produtoId, nota: nota, comentario: comentario }, state.token);
+      if (!res || !res.success) {
+        global.toast((res && res.error) || t().errGeneric || 'Error', 'e');
+        return;
+      }
+      global.toast(t().reviewThanks || 'Thanks', 's');
+      if (commentEl) commentEl.value = '';
+    } catch (e) { global.toast(e.message, 'e'); }
   }
 
   function setQvSize(s) { state.qvSize = s; state.qvForceVariant = true; state.qvAddedFlash = null; renderQv(); }
@@ -4049,6 +4174,7 @@
       '<div id="stripe-payment-element" style="margin:12px 0;' + (state.payMethod === 'stripe' ? '' : 'display:none;') + '"></div>' +
       '<div class="sec-note"><span>' + esc(t().secN) + '</span><strong>' + esc(t().secS) + '</strong></div>' +
       checkoutTotalsHtml(totals) +
+      '<label class="acc-check co-terms"><input type="checkbox" id="coTerms"' + (f.acceptCheckoutTerms ? ' checked' : '') + ' onchange="Shop.setForm(\'acceptCheckoutTerms\',this.checked)"/><span>' + checkoutTermsLabelHtml() + '</span></label>' +
       '<button class="btn-pay" id="btnPayOrder" onclick="Shop.submitOrder()" ' + (state.checkoutBusy ? 'disabled' : '') + '>' +
       esc(state.checkoutBusy ? (t().payProcessing || 'A processar…') : t().payBtn) + '</button></div>';
 
@@ -4138,6 +4264,10 @@
     }
     if (state.payMethod === 'whatsapp' && !isWhatsappPaymentOn()) {
       global.toast(t().whatsappRequired || 'WhatsApp não configurado na loja.', 'e');
+      return;
+    }
+    if (!f.acceptCheckoutTerms) {
+      global.toast(t().coTermsRequired || t().termsRequired || 'Aceite os termos de venda', 'e');
       return;
     }
 
@@ -4460,6 +4590,15 @@
     return String(html).replace(/\{\{privacyLink\}\}/g, privacy).replace(/\{\{termsLink\}\}/g, terms);
   }
 
+  function checkoutTermsLabelHtml() {
+    var a = accT();
+    var tm = t();
+    var privacy = '<a href="' + esc(legalPageHref('privacy')) + '" target="_blank" rel="noopener noreferrer" class="acc-legal-link">' + esc(a.privacyLinkText || 'Privacy') + '</a>';
+    var terms = '<a href="#" onclick="event.preventDefault();Shop.openInfo(\'terms\')" class="acc-legal-link">' + esc(a.termsLinkText || 'Terms') + '</a>';
+    var html = tm.coTermsWithLink || a.termsWithLink || '';
+    return String(html).replace(/\{\{privacyLink\}\}/g, privacy).replace(/\{\{termsLink\}\}/g, terms);
+  }
+
   function renderRegisterForm() {
     var a = accT();
     var d = state.regDraft || {};
@@ -4591,8 +4730,58 @@
       (o.tracking_number ? '<p style="font-size:10px;"><strong>' + esc(a.tracking) + ':</strong> ' + esc(o.tracking_number) + (o.transportadora ? ' (' + esc(o.transportadora) + ')' : '') + '</p>' : '') +
       stripePayBlock +
       orderTrackingHtml(o) +
+      (state.clientId && state.token ? renderReturnRequestBlock(o) : '') +
       '<div class="receipt-inline"><button type="button" class="btn-rc" style="width:100%;margin-top:8px;" onclick="Shop.printOrderInvoice(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().receiptPrint || 'Imprimer le reçu') + '</button></div>' +
       '<ul style="list-style:none;padding:12px 0 0;font-size:10px;color:var(--muted);">' + lines + '</ul>';
+  }
+
+  function renderReturnRequestBlock(o) {
+    var a = accT();
+    var oid = esc(o.pedido_id).replace(/'/g, "\\'");
+    if (state.returnFormOrderId === o.pedido_id) {
+      return '<div class="order-return-form" style="margin:14px 0;padding:14px;border:1px solid var(--border-hard);border-radius:3px;">' +
+        '<p class="form-title">' + esc(a.returnTitle || 'Return') + '</p>' +
+        '<div class="field"><label>' + esc(a.returnReason) + '</label><input id="retReasonIn" type="text"/></div>' +
+        '<div class="field"><label>' + esc(a.returnNotes) + '</label><textarea id="retNotesIn" rows="2"></textarea></div>' +
+        '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.submitClientReturn(\'' + oid + '\')">' + esc(a.returnSubmit) + '</button>' +
+        '<button type="button" class="btn-ghost-sm" style="width:100%;margin-top:6px;" onclick="Shop.cancelReturnForm()">' + esc(a.back) + '</button></div>';
+    }
+    return '<button type="button" class="btn-order-secondary" style="width:100%;margin-top:10px;" onclick="Shop.openReturnForm(\'' + oid + '\')">' + esc(a.returnBtn || 'Return') + '</button>';
+  }
+
+  function openReturnForm(orderId) {
+    if (!state.clientId || !state.token) {
+      global.toast(accT().returnLogin || accT().loginRequired, 'e');
+      return;
+    }
+    state.returnFormOrderId = orderId;
+    renderAccount();
+  }
+
+  function cancelReturnForm() {
+    state.returnFormOrderId = '';
+    renderAccount();
+  }
+
+  async function submitClientReturn(orderId) {
+    orderId = String(orderId || '').trim();
+    if (!orderId || !state.token) return;
+    var reason = $('retReasonIn') ? String($('retReasonIn').value || '').trim() : '';
+    var notes = $('retNotesIn') ? String($('retNotesIn').value || '').trim() : '';
+    if (!reason) {
+      global.toast(accT().fieldsRequired || t().tReq, 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('createClientReturn', { order_id: orderId, reason: reason, notes: notes }, state.token);
+      if (!res || !res.success) {
+        global.toast((res && res.error) || t().errGeneric || 'Error', 'e');
+        return;
+      }
+      global.toast(accT().returnThanks || t().reviewThanks, 's');
+      state.returnFormOrderId = '';
+      renderAccount();
+    } catch (e) { global.toast(e.message, 'e'); }
   }
 
   function renderLoggedIn() {
@@ -4966,7 +5155,9 @@
   function contactT() { return t().contact || {}; }
 
   function contactEmailPublic() {
-    return state.config.contact_public_email || state.config.store_email || '';
+    var emp = state.store && state.store.empresa;
+    return state.config.contact_public_email || state.config.store_email ||
+      (emp && emp.email) || DEFAULT_CONTACT_EMAIL;
   }
 
   function contactPhonePublic() {
@@ -5104,17 +5295,102 @@
   }
 
   function legalVars() {
-    var storeName = (state.store && state.store.storeName) || state.config.site_name || 'AZAVISION';
-    var email = contactEmailPublic() || 'contacto@azavision.pt';
-    var country = state.lang === 'pt' ? 'Portugal' : state.lang === 'fr' ? 'Portugal' : state.lang === 'es' ? 'Portugal' : 'Portugal';
-    return { storeName: String(storeName).trim(), email: String(email).trim(), country: country };
+    var emp = (state.store && state.store.empresa) || {};
+    var storeName = emp.nome || (state.store && state.store.storeName) || state.config.site_name || 'AZAVISION';
+    var email = emp.email || contactEmailPublic() || DEFAULT_CONTACT_EMAIL;
+    var phone = emp.telefone || contactPhonePublic() || '';
+    var morada = String(emp.morada || '').trim();
+    var cidade = String(emp.cidade || '').trim();
+    var pais = String(emp.pais || 'Portugal').trim() || 'Portugal';
+    var nif = String(emp.nif || '').trim();
+    var address = [morada, cidade, pais].filter(Boolean).join(', ');
+    return {
+      storeName: String(storeName).trim(),
+      email: String(email).trim(),
+      country: pais,
+      nif: nif,
+      phone: phone,
+      morada: morada,
+      cidade: cidade,
+      address: address || pais,
+      livroUrl: 'https://www.livroreclamacoes.pt/Inicio/'
+    };
   }
 
   function fillLegalText(text, vars) {
     return String(text || '')
       .replace(/\{\{storeName\}\}/g, vars.storeName)
       .replace(/\{\{email\}\}/g, vars.email)
-      .replace(/\{\{country\}\}/g, vars.country);
+      .replace(/\{\{country\}\}/g, vars.country)
+      .replace(/\{\{nif\}\}/g, vars.nif || '—')
+      .replace(/\{\{phone\}\}/g, vars.phone || vars.email)
+      .replace(/\{\{morada\}\}/g, vars.morada || '—')
+      .replace(/\{\{address\}\}/g, vars.address || vars.country)
+      .replace(/\{\{livroUrl\}\}/g, vars.livroUrl || 'https://www.livroreclamacoes.pt/Inicio/');
+  }
+
+  var LS_COOKIE_CONSENT = 'azav_cookie_consent';
+
+  function getCookieConsent() {
+    try { return localStorage.getItem(LS_COOKIE_CONSENT) || ''; } catch (e) { return ''; }
+  }
+
+  function setCookieConsent(value) {
+    try { localStorage.setItem(LS_COOKIE_CONSENT, value); } catch (e2) { /* ignore */ }
+  }
+
+  function hideCookieBanner() {
+    var el = $('cookieBanner');
+    if (!el) return;
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+  }
+
+  function renderCookieBanner() {
+    var el = $('cookieBanner');
+    if (!el) return;
+    var tm = t();
+    var title = $('cookieBannerTitle');
+    var text = $('cookieBannerText');
+    var acceptBtn = $('cookieAcceptBtn');
+    var essentialBtn = $('cookieEssentialBtn');
+    var policyLink = $('cookiePolicyLink');
+    if (title) title.textContent = tm.cookieTitle || 'Cookies';
+    if (text) text.textContent = tm.cookieText || '';
+    if (acceptBtn) acceptBtn.textContent = tm.cookieAccept || 'Accept';
+    if (essentialBtn) essentialBtn.textContent = tm.cookieEssential || 'Essential only';
+    if (policyLink) {
+      policyLink.textContent = tm.cookiePolicy || 'Privacy';
+      if (isExternalLegalPage('privacy')) {
+        policyLink.href = legalPageHref('privacy');
+        policyLink.onclick = null;
+      } else {
+        policyLink.href = '#';
+        policyLink.onclick = function (ev) { ev.preventDefault(); openLegal('privacy'); };
+      }
+    }
+  }
+
+  function initCookieBanner() {
+    if (getCookieConsent()) {
+      hideCookieBanner();
+      return;
+    }
+    var el = $('cookieBanner');
+    if (!el) return;
+    renderCookieBanner();
+    el.style.display = '';
+    el.setAttribute('aria-hidden', 'false');
+  }
+
+  function acceptAllCookies() {
+    setCookieConsent('all');
+    hideCookieBanner();
+  }
+
+  function acceptEssentialCookies() {
+    setCookieConsent('essential');
+    hideCookieBanner();
   }
 
   function renderLegal(pageKey) {
@@ -5179,6 +5455,7 @@
 
   async function init() {
     state.theme = getTheme();
+    setVitrinePending(true);
     bindScrollPreserve();
     loadSession();
     bindImageZoomEvents();
@@ -5187,11 +5464,13 @@
 
     if (!apiUrlConfigured()) {
       state.productsLoading = false;
+      markStoreConfigReady();
       if (global.boot) global.boot();
       renderNav();
       renderFooterShop();
       renderFooterSupport();
       renderFooterLegal();
+      initCookieBanner();
       render();
       return;
     }
@@ -5203,6 +5482,7 @@
     renderFooterShop();
     renderFooterSupport();
     renderFooterLegal();
+    initCookieBanner();
     render();
 
     pingApi().then(function (ok) {
@@ -5224,6 +5504,9 @@
       renderFooterShop();
     }).catch(function () {
       state.storeLoading = false;
+      markStoreConfigReady();
+      applyPromoBanner();
+      applyVitrineContent(state.lang);
     });
 
     loadCategories().then(function () {
@@ -5269,6 +5552,7 @@
     renderFooterShop();
     renderFooterSupport();
     renderFooterLegal();
+    if (!getCookieConsent()) renderCookieBanner();
   }
 
   function diagnoseStripe() {
@@ -5392,7 +5676,14 @@
     imgError: imgError,
     logoError: logoError,
     applyVitrineContent: applyVitrineContent,
-    applyPromoBanner: applyPromoBanner
+    applyServicesStrip: applyServicesStrip,
+    applyPromoBanner: applyPromoBanner,
+    submitProductReview: submitProductReview,
+    openReturnForm: openReturnForm,
+    cancelReturnForm: cancelReturnForm,
+    submitClientReturn: submitClientReturn,
+    acceptAllCookies: acceptAllCookies,
+    acceptEssentialCookies: acceptEssentialCookies
   };
 
   document.addEventListener('DOMContentLoaded', function () {
