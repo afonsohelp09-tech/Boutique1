@@ -1901,10 +1901,10 @@
   function loadSession() {
     try {
       state.cartId = localStorage.getItem(LS.cartId) || '';
-      state.token = localStorage.getItem(LS.token) || '';
-      state.clientId = localStorage.getItem(LS.clientId) || '';
-      state.clientName = localStorage.getItem(LS.clientName) || '';
-      state.clientEmail = localStorage.getItem(LS.clientEmail) || '';
+      state.token = storageGet(LS.token);
+      state.clientId = storageGet(LS.clientId);
+      state.clientName = storageGet(LS.clientName);
+      state.clientEmail = storageGet(LS.clientEmail);
       state.lastOrderId = localStorage.getItem(LS.lastOrderId) || '';
       state.lastOrderEmail = localStorage.getItem(LS.lastOrderEmail) || '';
       var wl = localStorage.getItem(LS.wishLocal);
@@ -1912,17 +1912,34 @@
     } catch (e) { state.wish = []; }
   }
 
+  function storageGet(key) {
+    try {
+      var v = localStorage.getItem(key);
+      if (v != null && v !== '') return v;
+    } catch (e) { /* ignore */ }
+    try {
+      return sessionStorage.getItem(key) || '';
+    } catch (e2) { return ''; }
+  }
+
+  function storageSet(key, val) {
+    try {
+      if (val) localStorage.setItem(key, val);
+      else localStorage.removeItem(key);
+    } catch (e) { /* ignore */ }
+    try {
+      if (val) sessionStorage.setItem(key, val);
+      else sessionStorage.removeItem(key);
+    } catch (e2) { /* ignore */ }
+  }
+
   function saveSession() {
     try {
       if (state.cartId) localStorage.setItem(LS.cartId, state.cartId);
-      if (state.token) localStorage.setItem(LS.token, state.token);
-      else localStorage.removeItem(LS.token);
-      if (state.clientId) localStorage.setItem(LS.clientId, state.clientId);
-      else localStorage.removeItem(LS.clientId);
-      if (state.clientName) localStorage.setItem(LS.clientName, state.clientName);
-      else localStorage.removeItem(LS.clientName);
-      if (state.clientEmail) localStorage.setItem(LS.clientEmail, state.clientEmail);
-      else localStorage.removeItem(LS.clientEmail);
+      storageSet(LS.token, state.token || '');
+      storageSet(LS.clientId, state.clientId || '');
+      storageSet(LS.clientName, state.clientName || '');
+      storageSet(LS.clientEmail, state.clientEmail || '');
       if (state.lastOrderId) localStorage.setItem(LS.lastOrderId, state.lastOrderId);
       else localStorage.removeItem(LS.lastOrderId);
       if (state.lastOrderEmail) localStorage.setItem(LS.lastOrderEmail, state.lastOrderEmail);
@@ -1969,8 +1986,16 @@
       await loadWishlistServer();
       return true;
     } catch (e) {
-      return false;
+      return !!(state.token && state.clientId);
     }
+  }
+
+  function loginDeviceLabel() {
+    var ua = String(navigator.userAgent || '');
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'iPhone/iPad';
+    if (/Android/i.test(ua)) return 'Android';
+    if (/Mobi/i.test(ua)) return 'mobile';
+    return 'desktop';
   }
 
   async function loadClientProfile() {
@@ -4842,7 +4867,7 @@
       return;
     }
     try {
-      var res = await erpCall('clientLogin', { email: email, password: password });
+      var res = await erpCall('clientLogin', { email: email, password: password, device: loginDeviceLabel() });
       if (!res || !res.success) {
         global.toast((res && res.error) || 'Login', 'e');
         return;
