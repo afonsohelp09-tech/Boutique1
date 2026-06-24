@@ -3880,7 +3880,8 @@
     state.stripeAmountCents = amountCents;
     state.stripePaymentElement = state.stripeElements.create('payment', {
       layout: { type: 'tabs', defaultCollapsed: false },
-      wallets: { applePay: 'auto', googlePay: 'auto' }
+      wallets: { applePay: 'auto', googlePay: 'auto' },
+      defaultValues: stripeBillingDefaults_()
     });
     var mount = state.stripeRetryOrderId ? $('stripe-retry-element') : $('stripe-payment-element');
     if (mount) {
@@ -3929,16 +3930,18 @@
       global.toast(t().tReq, 'e');
       return;
     }
+    if (!state.stripeElements || !state.stripePaymentElement) {
+      await initStripeElement();
+    }
+    if (!state.stripeElements) {
+      global.toast(t().errStripe || 'Stripe não disponível', 'e');
+      return;
+    }
     state.checkoutBusy = true;
-    renderAccount();
+    var retryBtn = $('btnStripeRetry');
+    if (retryBtn) { retryBtn.disabled = true; retryBtn.textContent = t().payProcessing || 'A processar…'; }
     try {
       state._stripeServerTotal = parseFloat(state.stripeRetryOrderTotal) || 0;
-      destroyStripeElement();
-      await initStripeElement();
-      if (!state.stripeElements) {
-        global.toast(t().errStripe || 'Stripe não disponível', 'e');
-        return;
-      }
       var submitUi = await state.stripeElements.submit();
       if (submitUi && submitUi.error) {
         global.toast(submitUi.error.message, 'e');
@@ -3995,6 +3998,7 @@
     } finally {
       state._stripeServerTotal = null;
       state.checkoutBusy = false;
+      if (retryBtn) { retryBtn.disabled = false; retryBtn.textContent = t().stripePayNow || 'Pagar agora'; }
       if (state.stripeRetryOrderId) renderAccount();
     }
   }
@@ -4029,12 +4033,29 @@
   }
 
   function scheduleStripeMount_() {
-    if (state.payMethod !== 'stripe' || !isStripeOn(true) || state.ordered) return;
+    if (state.payMethod !== 'stripe' || !isStripeOn(true) || state.ordered || state.checkoutBusy) return;
     setTimeout(function () {
       initStripeElement().catch(function (e) {
         global.toast((t().errStripe || 'Erro no pagamento') + ': ' + e.message, 'e');
       });
     }, 0);
+  }
+
+  function stripeBillingDefaults_() {
+    var phone = String(state.form.phone || state.clientPhone || '').trim();
+    var out = {
+      name: String(state.form.name || state.clientName || '').trim(),
+      email: normEmail(state.form.email || state.clientEmail || '')
+    };
+    if (phone) out.phone = phone;
+    return { billingDetails: out };
+  }
+
+  function updateCheckoutBusyUi_(busy) {
+    var btn = $('btnPayOrder');
+    if (!btn) return;
+    btn.disabled = !!busy;
+    btn.textContent = busy ? (t().payProcessing || 'A processar…') : t().payBtn;
   }
 
   function paymentInstructionsHtml() {
@@ -4221,6 +4242,10 @@
   }
 
   function renderCo() {
+    if (state.checkoutBusy && state.payMethod === 'stripe' && !state.ordered) {
+      updateCheckoutBusyUi_(true);
+      return;
+    }
     if (state.ordered) {
       var lastEmail = state.lastOrderEmail || state.form.email || state.clientEmail || '';
       $('coBody').innerHTML =
@@ -4256,6 +4281,7 @@
       '<div class="field"><label>' + esc(t().fCity) + '</label><input value="' + esc(f.city) + '" oninput="Shop.setForm(\'city\',this.value)"/></div></div>' +
       '<p class="form-title" style="margin-top:16px;">' + esc(t().s2) + '</p>' +
       paymentOptionsHtml() +
+      (state.payMethod === 'stripe' ? '<p class="acc-hint" style="margin:8px 0 4px;">' + esc(t().stripeMbWayHint || '') + '</p>' : '') +
       '<div id="stripe-payment-element" style="margin:12px 0;' + (state.payMethod === 'stripe' ? '' : 'display:none;') + '"></div>' +
       '<div class="sec-note"><span>' + esc(t().secN) + '</span><strong>' + esc(t().secS) + '</strong></div>' +
       checkoutTotalsHtml(totals) +
@@ -4361,8 +4387,24 @@
     var endereco = [f.addr, f.zip, f.city].filter(Boolean).join(', ');
     var awaitStripe = state.payMethod === 'stripe' && isStripeOn();
 
+    if (awaitStripe) {
+      if (!state.stripeElements || !state.stripePaymentElement) {
+        await initStripeElement();
+      }
+      if (!state.stripeElements) {
+        global.toast(t().errStripe || 'Pagamento não disponível', 'e');
+        return;
+      }
+      var preStripeSubmit = await state.stripeElements.submit();
+      if (preStripeSubmit && preStripeSubmit.error) {
+        global.toast(preStripeSubmit.error.message, 'e');
+        return;
+      }
+    }
+
     state.checkoutBusy = true;
-    renderCo();
+    if (awaitStripe) updateCheckoutBusyUi_(true);
+    else renderCo();
 
     try {
       var orderPayload = {
@@ -4399,19 +4441,10 @@
       if (awaitStripe) {
         state._stripeServerTotal = parseFloat(orderRes.total != null ? orderRes.total : totals.total);
         if (isNaN(state._stripeServerTotal)) state._stripeServerTotal = totals.total;
-        destroyStripeElement();
-        await initStripeElement();
-        if (!state.stripeElements) {
-          logStripeApiError_('initStripeElement', null, 'stripeElements null après createOrder');
-          global.toast(t().errStripe || 'Pagamento não disponível', 'e');
-          openAccount();
-          openOrderDetail(orderRes.orderId);
-          return;
-        }
-        var submitUi = await state.stripeElements.submit();
-        if (submitUi && submitUi.error) {
-          logStripeApiError_('elements.submit', submitUi.error);
-          global.toast(submitUi.error.message, 'e');
+        var serverCents = Math.max(50, Math.round(state._stripeServerTotal * 100));
+        if (!state.stripeElements || state.stripeAmountCents !== serverCents) {
+          logStripeApiError_('stripe_amount_mismatch', null, 'el=' + state.stripeAmountCents + ' srv=' + serverCents);
+          global.toast(t().stripeAmountChanged || 'Montant mis à jour — complétez le paiement depuis le détail de commande.', 'e');
           openAccount();
           openOrderDetail(orderRes.orderId);
           return;
@@ -4457,6 +4490,7 @@
           return;
         }
         if (confirmRes.fiscal_doc_url) state.lastFiscalUrl = confirmRes.fiscal_doc_url;
+        destroyStripeElement();
       } else if (state.payMethod === 'cod') {
         var codRes = await erpCall('processPayment', {
           orderId: orderRes.orderId,

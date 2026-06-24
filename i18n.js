@@ -33,7 +33,15 @@
       trackNotFound: 'Commande introuvable',
       emailOrPhone: 'E-mail ou téléphone', forgotHint: 'Entrez votre e-mail ou votre numéro de téléphone — le code de récupération est envoyé à l\'e-mail du compte.',
       loginRequired: 'Connectez-vous pour finaliser votre commande.',
-      returnBtn: 'Demander un retour', returnTitle: 'Demande de retour', returnReason: 'Motif du retour', returnNotes: 'Notes (optionnel)', returnSubmit: 'Envoyer la demande', returnThanks: 'Demande enregistrée — nous vous contacterons.', returnLogin: 'Connectez-vous pour demander un retour.'
+      returnBtn: 'Demander un retour', returnTitle: 'Demande de retour', returnReason: 'Motif du retour', returnNotes: 'Notes (optionnel)', returnSubmit: 'Envoyer la demande', returnThanks: 'Demande enregistrée — nous vous contacterons.',       returnLogin: 'Connectez-vous pour demander un retour.',
+      otpCode: 'Code à 6 chiffres',
+      emailAlreadyRegistered: 'Cet e-mail est déjà utilisé. Connectez-vous ou réinitialisez votre mot de passe.',
+      otpRateLimit: 'Trop de tentatives. Réessayez dans quelques minutes.',
+      emailSendFailed: 'Impossible d\'envoyer l\'e-mail. Réessayez plus tard ou contactez le support.',
+      otpInvalid: 'Code invalide ou expiré.',
+      otpExpired: 'Code expiré. Demandez un nouveau code.',
+      otpSmsUnavailable: 'Inscription par SMS non disponible — utilisez une adresse e-mail.',
+      processing: 'Traitement en cours…'
     },
     pt: {
       title: 'A minha conta', login: 'Entrar', register: 'Registo', forgot: 'Palavra-passe esquecida',
@@ -63,7 +71,15 @@
       trackNotFound: 'Encomenda não encontrada',
       emailOrPhone: 'E-mail ou telefone', forgotHint: 'Indique o seu e-mail ou número de telefone — o código de recuperação é enviado para o e-mail da conta.',
       loginRequired: 'Inicie sessão para finalizar a compra.',
-      returnBtn: 'Pedir devolução', returnTitle: 'Pedido de devolução', returnReason: 'Motivo da devolução', returnNotes: 'Notas (opcional)', returnSubmit: 'Enviar pedido', returnThanks: 'Pedido registado — entraremos em contacto.', returnLogin: 'Inicie sessão para pedir devolução.'
+      returnBtn: 'Pedir devolução', returnTitle: 'Pedido de devolução', returnReason: 'Motivo da devolução', returnNotes: 'Notas (opcional)', returnSubmit: 'Enviar pedido', returnThanks: 'Pedido registado — entraremos em contacto.',       returnLogin: 'Inicie sessão para pedir devolução.',
+      otpCode: 'Código de 6 dígitos',
+      emailAlreadyRegistered: 'Este e-mail já está registado. Entre na conta ou recupere a palavra-passe.',
+      otpRateLimit: 'Demasiadas tentativas. Tente novamente dentro de alguns minutos.',
+      emailSendFailed: 'Não foi possível enviar o e-mail. Tente mais tarde ou contacte o suporte.',
+      otpInvalid: 'Código inválido ou expirado.',
+      otpExpired: 'Código expirado. Peça um novo código.',
+      otpSmsUnavailable: 'Registo por SMS não disponível — utilize um e-mail.',
+      processing: 'A processar…'
     },
     en: {
       title: 'My account', login: 'Sign in', register: 'Register', forgot: 'Forgot password',
@@ -93,7 +109,15 @@
       trackNotFound: 'Order not found',
       emailOrPhone: 'Email or phone', forgotHint: 'Enter your email or phone number — the recovery code is sent to the account email.',
       loginRequired: 'Sign in to complete your purchase.',
-      returnBtn: 'Request a return', returnTitle: 'Return request', returnReason: 'Reason for return', returnNotes: 'Notes (optional)', returnSubmit: 'Submit request', returnThanks: 'Request recorded — we will contact you.', returnLogin: 'Sign in to request a return.'
+      returnBtn: 'Request a return', returnTitle: 'Return request', returnReason: 'Reason for return', returnNotes: 'Notes (optional)', returnSubmit: 'Submit request', returnThanks: 'Request recorded — we will contact you.',       returnLogin: 'Sign in to request a return.',
+      otpCode: '6-digit code',
+      emailAlreadyRegistered: 'This email is already registered. Sign in or reset your password.',
+      otpRateLimit: 'Too many attempts. Please try again in a few minutes.',
+      emailSendFailed: 'Could not send the email. Try again later or contact support.',
+      otpInvalid: 'Invalid or expired code.',
+      otpExpired: 'Code expired. Request a new code.',
+      otpSmsUnavailable: 'SMS registration is not available — please use an email address.',
+      processing: 'Processing…'
     },
     es: {
       title: 'Mi cuenta', login: 'Iniciar sesión', register: 'Registro', forgot: 'Contraseña olvidada',
@@ -123,7 +147,15 @@
       trackNotFound: 'Pedido no encontrado',
       emailOrPhone: 'Correo o teléfono', forgotHint: 'Introduzca su correo o número de teléfono — el código de recuperación se envía al correo de la cuenta.',
       loginRequired: 'Inicie sesión para finalizar su compra.',
-      returnBtn: 'Solicitar devolución', returnTitle: 'Solicitud de devolución', returnReason: 'Motivo de la devolución', returnNotes: 'Notas (opcional)', returnSubmit: 'Enviar solicitud', returnThanks: 'Solicitud registrada — le contactaremos.', returnLogin: 'Inicie sesión para solicitar devolución.'
+      returnBtn: 'Solicitar devolución', returnTitle: 'Solicitud de devolución', returnReason: 'Motivo de la devolución', returnNotes: 'Notas (opcional)', returnSubmit: 'Enviar solicitud', returnThanks: 'Solicitud registrada — le contactaremos.',       returnLogin: 'Inicie sesión para solicitar devolución.',
+      otpCode: 'Código de 6 dígitos',
+      emailAlreadyRegistered: 'Este correo ya está registrado. Inicie sesión o restablezca la contraseña.',
+      otpRateLimit: 'Demasiados intentos. Inténtelo de nuevo en unos minutos.',
+      emailSendFailed: 'No se pudo enviar el correo. Inténtelo más tarde o contacte con soporte.',
+      otpInvalid: 'Código no válido o caducado.',
+      otpExpired: 'Código caducado. Solicite un nuevo código.',
+      otpSmsUnavailable: 'Registro por SMS no disponible — use un correo electrónico.',
+      processing: 'Procesando…'
     }
   };
 
@@ -430,6 +462,8 @@
       stripeCancelConfirm: lang.stripeCancelConfirm,
       stripeCancelledOk: lang.stripeCancelledOk,
       stripeRetryHint: lang.stripeRetryHint,
+      stripeMbWayHint: lang.stripeMbWayHint,
+      stripeAmountChanged: lang.stripeAmountChanged,
       transferHolder: lang.transferHolder,
       transferBank: lang.transferBank,
       copyIban: lang.copyIban,
@@ -556,6 +590,8 @@
     stripePayNow: 'Payer maintenant', stripePayPending: 'Paiement en attente — finalisez ci-dessous.',
     stripeCancelOrder: 'Annuler la commande', stripeCancelConfirm: 'Annuler cette commande en attente de paiement ?',
     stripeCancelledOk: 'Commande annulée', stripeRetryHint: 'Vous pouvez réessayer depuis le détail de commande.',
+    stripeMbWayHint: 'Pour MB Way : onglet « MB Way » + numéro (+351…). Pour paiement manuel au numéro boutique, choisissez l\'option MB Way séparée.',
+    stripeAmountChanged: 'Montant mis à jour — complétez le paiement depuis le détail de commande.',
     oneSize: 'Taille unique', sizeMeta: 'Taille', colorMeta: 'Couleur',
     badgeSoldOut: 'Épuisé', badgeSale: 'Offre',
     soldOut: 'Article épuisé', cartEmptyToast: 'Panier vide',
@@ -689,6 +725,8 @@
     stripePayNow: 'Pagar agora', stripePayPending: 'Pagamento pendente — conclua abaixo.',
     stripeCancelOrder: 'Cancelar encomenda', stripeCancelConfirm: 'Cancelar esta encomenda à espera de pagamento?',
     stripeCancelledOk: 'Encomenda cancelada', stripeRetryHint: 'Pode tentar novamente no detalhe da encomenda.',
+    stripeMbWayHint: 'MB Way online: separador « MB Way » + número (+351…). Para pagamento manual ao número da loja, escolha a opção MB Way separada.',
+    stripeAmountChanged: 'Montante atualizado — conclua o pagamento no detalhe da encomenda.',
     oneSize: 'Tamanho único', sizeMeta: 'Tamanho', colorMeta: 'Cor',
     badgeSoldOut: 'Esgotado', badgeSale: 'Promoção',
     soldOut: 'Artigo esgotado', cartEmptyToast: 'Cesto vazio',
@@ -823,6 +861,8 @@
     stripePayNow: 'Pay now', stripePayPending: 'Payment pending — complete below.',
     stripeCancelOrder: 'Cancel order', stripeCancelConfirm: 'Cancel this order awaiting payment?',
     stripeCancelledOk: 'Order cancelled', stripeRetryHint: 'You can retry from the order details.',
+    stripeMbWayHint: 'Online MB Way: « MB Way » tab + phone (+351…). For manual payment to the shop number, choose the separate MB Way option.',
+    stripeAmountChanged: 'Amount updated — complete payment from order details.',
     oneSize: 'One size', sizeMeta: 'Size', colorMeta: 'Colour',
     badgeSoldOut: 'Sold out', badgeSale: 'Sale',
     soldOut: 'Item sold out', cartEmptyToast: 'Bag is empty',
@@ -955,6 +995,8 @@
     stripePayNow: 'Pagar ahora', stripePayPending: 'Pago pendiente — complete abajo.',
     stripeCancelOrder: 'Cancelar pedido', stripeCancelConfirm: '¿Cancelar este pedido pendiente de pago?',
     stripeCancelledOk: 'Pedido cancelado', stripeRetryHint: 'Puede reintentar desde el detalle del pedido.',
+    stripeMbWayHint: 'MB Way online: pestaña « MB Way » + número (+351…). Para pago manual al número de la tienda, elija la opción MB Way separada.',
+    stripeAmountChanged: 'Importe actualizado — complete el pago desde el detalle del pedido.',
     oneSize: 'Talla única', sizeMeta: 'Talla', colorMeta: 'Color',
     badgeSoldOut: 'Agotado', badgeSale: 'Oferta',
     soldOut: 'Artículo agotado', cartEmptyToast: 'Cesta vacía',
