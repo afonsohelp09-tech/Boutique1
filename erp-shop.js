@@ -42,7 +42,9 @@
     clientEmail: 'azav_client_email',
     wishLocal: 'azav_wish_local',
     lastOrderId: 'azav_last_order_id',
-    lastOrderEmail: 'azav_last_order_email'
+    lastOrderEmail: 'azav_last_order_email',
+    regDraft: 'azav_reg_draft',
+    otpTarget: 'azav_otp_target'
   };
 
   var state = {
@@ -102,6 +104,7 @@
     stripePaymentElement: null,
     stripeAmountCents: 0,
     checkoutBusy: false,
+    registerInFlight: false,
     stripeRetryOrderId: '',
     stripeRetryOrderTotal: 0,
     stripeRetryName: '',
@@ -119,11 +122,31 @@
     return API && API.indexOf('INSEREZ_VOTRE') === -1 && API.indexOf('/exec') > -1;
   }
 
-  function translateApiError(msg) {
+  function translateApiError(msg, code) {
     var m = String(msg || '').trim();
+    var a = accT();
+    if (code) {
+      var codeMap = {
+        REG_EMAIL_EXISTS: a.emailAlreadyRegistered,
+        OTP_RATE_LIMIT: a.otpRateLimit,
+        EMAIL_SEND_FAILED: a.emailSendFailed,
+        OTP_INVALID: a.otpInvalid,
+        OTP_EXPIRED: a.otpExpired,
+        OTP_SMS_UNAVAILABLE: a.otpSmsUnavailable,
+        REG_PASS_SHORT: a.passMin,
+        REG_EMAIL_INVALID: a.emailInvalid,
+        USE_OTP: a.registerIntro
+      };
+      if (codeMap[code]) return codeMap[code];
+    }
     if (!m) return t().errGeneric || 'Erro';
     var L = state.lang || 'pt';
     var map = {
+      'Email já registado': { pt: a.emailAlreadyRegistered, fr: a.emailAlreadyRegistered, en: a.emailAlreadyRegistered, es: a.emailAlreadyRegistered },
+      'Code invalide ou expiré': { pt: a.otpInvalid, fr: a.otpInvalid, en: a.otpInvalid, es: a.otpInvalid },
+      'Code expiré. Demandez un nouveau code.': { pt: a.otpExpired, fr: a.otpExpired, en: a.otpExpired, es: a.otpExpired },
+      'Erro ao enviar email. Verifique a ligação ou tente mais tarde.': { pt: a.emailSendFailed, fr: a.emailSendFailed, en: a.emailSendFailed, es: a.emailSendFailed },
+      'Trop de tentatives. Réessayez dans quelques minutes.': { pt: a.otpRateLimit, fr: a.otpRateLimit, en: a.otpRateLimit, es: a.otpRateLimit },
       'Commande déjà payée': { pt: 'Encomenda já paga.', fr: 'Commande déjà payée.', en: 'Order already paid.', es: 'Pedido ya pagado.' },
       'Méthode de paiement non autorisée': { pt: 'Método de pagamento não autorizado.', fr: 'Méthode de paiement non autorisée.', en: 'Payment method not allowed.', es: 'Método de pago no autorizado.' },
       'Pedido não encontrado': { pt: 'Encomenda não encontrada.', fr: 'Commande introuvable.', en: 'Order not found.', es: 'Pedido no encontrado.' },
@@ -151,7 +174,7 @@
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var json = await res.json();
-    if (json && json.error) json.error = translateApiError(json.error);
+    if (json && json.error) json.error = translateApiError(json.error, json.code);
     return json;
   }
 
@@ -1909,7 +1932,44 @@
       state.lastOrderEmail = localStorage.getItem(LS.lastOrderEmail) || '';
       var wl = localStorage.getItem(LS.wishLocal);
       state.wish = wl ? JSON.parse(wl) : [];
+      loadRegDraftFromStorage();
     } catch (e) { state.wish = []; }
+  }
+
+  function loadRegDraftFromStorage() {
+    try {
+      var raw = storageGet(LS.regDraft);
+      if (raw) {
+        var d = JSON.parse(raw);
+        if (d && typeof d === 'object') {
+          state.regDraft = d;
+          if (!d.password) state.regDraft.password = '';
+          if (!d.password2) state.regDraft.password2 = '';
+        }
+      }
+      var ot = storageGet(LS.otpTarget);
+      if (ot) state.otpTarget = ot;
+      if (state.regDraft && state.otpTarget && !state.token) state.accountView = 'otp';
+    } catch (e2) { /* ignore */ }
+  }
+
+  function saveRegDraftToStorage() {
+    try {
+      if (state.regDraft) {
+        var safe = Object.assign({}, state.regDraft);
+        storageSet(LS.regDraft, JSON.stringify(safe));
+      } else {
+        storageSet(LS.regDraft, '');
+      }
+      storageSet(LS.otpTarget, state.otpTarget || '');
+    } catch (e) { /* ignore */ }
+  }
+
+  function clearRegDraftStorage() {
+    state.regDraft = null;
+    state.otpTarget = '';
+    storageSet(LS.regDraft, '');
+    storageSet(LS.otpTarget, '');
   }
 
   function storageGet(key) {
@@ -4646,7 +4706,7 @@
     var a = accT();
     return '<p class="form-title">' + esc(a.otpTitle) + '</p>' +
       '<p class="acc-hint">' + esc(a.otpHint) + ' <strong>' + esc(state.otpTarget) + '</strong></p>' +
-      '<div class="field"><label>Code</label><input id="regOtp" class="acc-otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000"/></div>' +
+      '<div class="field"><label>' + esc(a.otpCode || 'Code') + '</label><input id="regOtp" class="acc-otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code"/></div>' +
       '<button type="button" class="btn-pay" style="width:100%;margin:12px 0;" onclick="Shop.verifyRegisterOtp()">' + esc(a.otpVerify) + '</button>' +
       '<p style="text-align:center;"><button type="button" class="acc-link" onclick="Shop.resendRegisterOtp()">' + esc(a.otpResend) + '</button> · ' +
       '<button type="button" class="acc-link" onclick="Shop.setAccountView(\'register\')">' + esc(a.back) + '</button></p>';
@@ -4666,7 +4726,7 @@
     return '<p class="form-title">' + esc(a.forgot) + '</p>' +
       '<p class="acc-hint">' + esc(state.resetMaskedEmail || state.resetEmail) + '</p>' +
       '<div class="fgrid one">' +
-      '<div class="field"><label>Code</label><input id="resetCode" class="acc-otp" type="text" inputmode="numeric" maxlength="6"/></div>' +
+      '<div class="field"><label>' + esc(a.otpCode || 'Code') + '</label><input id="resetCode" class="acc-otp" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"/></div>' +
       '<div class="field"><label>' + esc(a.pass) + '</label><input id="resetPass" type="password" autocomplete="new-password"/></div>' +
       '<div class="field"><label>' + esc(a.passConfirm) + '</label><input id="resetPass2" type="password"/></div></div>' +
       '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.confirmPasswordReset()">' + esc(a.resetBtn) + '</button>';
@@ -4896,9 +4956,11 @@
   }
 
   async function startRegister() {
+    if (state.registerInFlight) return;
     var a = accT();
     var d = collectRegisterDraft();
     state.regDraft = d;
+    saveRegDraftToStorage();
     if (!d.nome || !d.email || !d.password) {
       global.toast(a.fieldsRequired, 'e');
       return;
@@ -4919,20 +4981,20 @@
       global.toast(a.termsRequired, 'e');
       return;
     }
+    state.registerInFlight = true;
     try {
-      var otpRes = await erpCall('sendRegistrationOTP', { target: d.email });
+      var otpRes = await erpCall('sendRegistrationOTP', { target: d.email, lang: state.lang });
       if (!otpRes || !otpRes.success) {
         global.toast((otpRes && otpRes.error) || 'OTP', 'e');
         return;
       }
       state.otpTarget = d.email;
+      saveRegDraftToStorage();
       state.accountView = 'otp';
       renderAccount();
       global.toast(a.codeSent, 's');
-      if (otpRes.simulated_code && /localhost|127\.0\.0\.1/i.test(global.location && global.location.hostname || '')) {
-        global.toast('DEV: ' + otpRes.simulated_code, 'i');
-      }
     } catch (e) { global.toast(e.message, 'e'); }
+    finally { state.registerInFlight = false; }
   }
 
   async function resendRegisterOtp() {
@@ -4944,6 +5006,7 @@
   }
 
   async function verifyRegisterOtp() {
+    if (state.registerInFlight) return;
     var a = accT();
     var code = normalizeOtp($('regOtp') && $('regOtp').value);
     var d = state.regDraft;
@@ -4951,16 +5014,21 @@
       global.toast(a.fieldsRequired, 'e');
       return;
     }
+    state.registerInFlight = true;
     try {
       var res = await erpCall('verifyRegistrationOTP', {
         target: state.otpTarget,
         code: code,
+        lang: state.lang,
+        device: loginDeviceLabel(),
         userData: {
           nome: d.nome,
           email: d.email,
           telefone: d.telefone,
           password: d.password,
-          newsletter: d.newsletter
+          newsletter: d.newsletter,
+          lang: state.lang,
+          device: loginDeviceLabel()
         }
       });
       if (!res || !res.success) {
@@ -4970,13 +5038,14 @@
       applySessionFromAuth(res, d.nome, d.email);
       state.clientPhone = d.telefone;
       state.accountView = 'dashboard';
-      state.regDraft = null;
+      clearRegDraftStorage();
       await loadClientProfile();
       await loadWishlistServer();
       prefillCheckoutFromProfile();
       renderAccount();
       global.toast(a.created, 's');
     } catch (e) { global.toast(e.message, 'e'); }
+    finally { state.registerInFlight = false; }
   }
 
   function normalizeOtp(v) {
@@ -4997,7 +5066,7 @@
       return;
     }
     try {
-      var payload = isEmail ? { email: normEmail(raw) } : { telefone: raw };
+      var payload = isEmail ? { email: normEmail(raw), lang: state.lang } : { telefone: raw, lang: state.lang };
       var res = await erpCall('requestPasswordReset', payload);
       if (!res || !res.success) {
         global.toast((res && res.error) || 'Reset', 'e');
@@ -5052,6 +5121,7 @@
     state.profile = null;
     state.addresses = [];
     state.accountView = 'login';
+    clearRegDraftStorage();
     saveSession();
     renderAccount();
     if (!silent) global.toast(accT().logout, 'i');
