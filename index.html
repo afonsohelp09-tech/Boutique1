@@ -390,6 +390,10 @@ nav{
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    HERO
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+@media (prefers-reduced-motion: reduce){
+  .hero-motion-canvas{display:none!important}
+  .hero.hero-motion-on .hero-bg.hero-bg-hidden{opacity:.9;visibility:visible}
+}
 .hero{
   position:relative;height:88vh;min-height:560px;
   --hero-bg-pos:center center;
@@ -405,7 +409,7 @@ nav{
   display:flex;align-items:center;justify-content:center;overflow:hidden;
 }
 .hero-bg{
-  position:absolute;inset:0;
+  position:absolute;inset:0;z-index:0;
   background-position:var(--hero-bg-pos);
   background-size:cover;
   background-repeat:no-repeat;
@@ -417,6 +421,14 @@ nav{
   will-change:transform,background-position;
 }
 .hero:hover .hero-bg{transform:scale(1.06)}
+.hero-motion-canvas{
+  position:absolute;inset:0;z-index:0;width:100%;height:100%;
+  display:none;pointer-events:none;opacity:.94;
+}
+.hero.hero-motion-on .hero-motion-canvas{display:block}
+.hero.hero-motion-on .hero-bg.hero-bg-hidden{
+  opacity:0;visibility:hidden;pointer-events:none;
+}
 .hero-media{
   position:absolute;inset:0;z-index:1;
   display:flex;align-items:center;justify-content:center;
@@ -1835,6 +1847,7 @@ footer{
 <!-- HERO -->
 <header class="hero">
   <div class="hero-bg"></div>
+  <canvas class="hero-motion-canvas" id="heroMotionCanvas" aria-hidden="true"></canvas>
   <div class="hero-media"><img class="hero-photo" id="heroPhoto" alt="" decoding="async" loading="eager" fetchpriority="high"/></div>
   <div class="hero-grad"></div>
   <div class="hero-content">
@@ -2324,6 +2337,6 @@ boot();
     </div>
   </div>
 </div>
-<script src="erp-shop.js?v=20260624stripe-mbway"></script>
+<script src="erp-shop.js?v=20260624hero-motion"></script>
 </body>
 </html>
