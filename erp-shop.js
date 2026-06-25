@@ -85,7 +85,7 @@
     qvViewMode: 'shop',
     qvAddedFlash: null,
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '', acceptCheckoutTerms: false },
-    payMethod: 'stripe',
+    payMethod: 'stripe_card',
     ordered: false,
     lastOrderId: '',
     lastOrderEmail: '',
@@ -103,10 +103,12 @@
     stripeElements: null,
     stripePaymentElement: null,
     stripeAmountCents: 0,
+    stripeMountedPmType: '',
     checkoutBusy: false,
     registerInFlight: false,
     stripeRetryOrderId: '',
     stripeRetryOrderTotal: 0,
+    stripeRetryPayMethod: 'stripe_card',
     stripeRetryName: '',
     stripeRetryEmail: '',
     _stripePollTimer: null,
@@ -3908,8 +3910,48 @@
     return true;
   }
 
+  function stripeSeparatedPtMethods_() {
+    return cfgOn('stripe_pt_local_methods', true);
+  }
+
+  function isStripePayMethod_(m) {
+    m = m || state.payMethod;
+    return m === 'stripe' || m === 'stripe_card' || m === 'stripe_mb_way' || m === 'stripe_multibanco';
+  }
+
+  function stripePmStripeType_(m) {
+    m = m || state.payMethod;
+    if (m === 'stripe_mb_way') return 'mb_way';
+    if (m === 'stripe_multibanco') return 'multibanco';
+    return 'card';
+  }
+
+  function stripePmPayload_(m) {
+    if (!isStripePayMethod_(m)) return {};
+    if (!stripeSeparatedPtMethods_() && m === 'stripe') return {};
+    return { stripePmType: stripePmStripeType_(m) };
+  }
+
+  function stripePayMethodLabel_(m) {
+    if (m === 'stripe_mb_way') return t().payStripeMbWay || 'MB Way';
+    if (m === 'stripe_multibanco') return t().payStripeMultibanco || 'Multibanco';
+    if (m === 'stripe_card' || m === 'stripe') return t().payStripeCard || t().payStripe || 'Cartão';
+    return '';
+  }
+
+  function stripePaymentHintHtml_(m) {
+    m = m || state.payMethod;
+    if (!isStripePayMethod_(m)) return '';
+    var hint = '';
+    if (m === 'stripe_mb_way') hint = t().stripeMbWayHint || '';
+    else if (m === 'stripe_multibanco') hint = t().stripeMultibancoHint || '';
+    else if (m === 'stripe_card' || m === 'stripe') hint = t().stripeCardHint || '';
+    if (!hint) return '';
+    return '<p class="acc-hint" style="margin:8px 0 4px;">' + esc(hint) + '</p>';
+  }
+
   function defaultPayMethod() {
-    if (isStripeOn()) return 'stripe';
+    if (isStripeOn()) return stripeSeparatedPtMethods_() ? 'stripe_card' : 'stripe';
     if (cfgOn('pay_cod_enabled', true)) return 'cod';
     return 'cod';
   }
@@ -3993,7 +4035,15 @@
   function paymentOptionsHtml() {
     var opts = [];
     if (isStripeOn()) {
-      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> ' + esc(t().payStripePt || t().payStripe) + '</label>');
+      if (stripeSeparatedPtMethods_()) {
+        opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe_card" ' + (state.payMethod === 'stripe_card' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe_card\')"/> ' + esc(t().payStripeCard || t().payStripe) + '</label>');
+        opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe_mb_way" ' + (state.payMethod === 'stripe_mb_way' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe_mb_way\')"/> ' + esc(t().payStripeMbWay || 'MB Way') + '</label>');
+        if (cfgOn('pay_show_multibanco', true)) {
+          opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe_multibanco" ' + (state.payMethod === 'stripe_multibanco' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe_multibanco\')"/> ' + esc(t().payStripeMultibanco || 'Multibanco') + '</label>');
+        }
+      } else {
+        opts.push('<label class="pay-opt"><input type="radio" name="payM" value="stripe" ' + (state.payMethod === 'stripe' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'stripe\')"/> ' + esc(t().payStripe || 'Pagamento online') + '</label>');
+      }
     }
     if (cfgOn('pay_show_cod', true) && cfgOn('pay_cod_enabled', true)) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" ' + (state.payMethod === 'cod' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'cod\')"/> ' +
@@ -4023,9 +4073,30 @@
   }
 
   function setPayMethod(m) {
-    if (m !== 'stripe') destroyStripeElement();
+    var wasStripe = isStripePayMethod_(state.payMethod);
+    if (!isStripePayMethod_(m) || (wasStripe && state.payMethod !== m)) destroyStripeElement();
     state.payMethod = m;
     renderCo();
+  }
+
+  function setStripeRetryPayMethod(m) {
+    if (!isStripePayMethod_(m)) return;
+    if (state.stripeRetryPayMethod !== m) destroyStripeElement();
+    state.stripeRetryPayMethod = m;
+    renderAccount();
+    scheduleStripeRetryMount_();
+  }
+
+  function stripeRetryPaymentOptionsHtml_() {
+    if (!stripeSeparatedPtMethods_()) return '';
+    var m = state.stripeRetryPayMethod || 'stripe_card';
+    var opts = [];
+    opts.push('<label class="pay-opt"><input type="radio" name="payMRetry" value="stripe_card" ' + (m === 'stripe_card' ? 'checked' : '') + ' onchange="Shop.setStripeRetryPayMethod(\'stripe_card\')"/> ' + esc(t().payStripeCard || t().payStripe) + '</label>');
+    opts.push('<label class="pay-opt"><input type="radio" name="payMRetry" value="stripe_mb_way" ' + (m === 'stripe_mb_way' ? 'checked' : '') + ' onchange="Shop.setStripeRetryPayMethod(\'stripe_mb_way\')"/> ' + esc(t().payStripeMbWay || 'MB Way') + '</label>');
+    if (cfgOn('pay_show_multibanco', true)) {
+      opts.push('<label class="pay-opt"><input type="radio" name="payMRetry" value="stripe_multibanco" ' + (m === 'stripe_multibanco' ? 'checked' : '') + ' onchange="Shop.setStripeRetryPayMethod(\'stripe_multibanco\')"/> ' + esc(t().payStripeMultibanco || 'Multibanco') + '</label>');
+    }
+    return '<div class="pay-opts" style="margin:10px 0;">' + opts.join('') + '</div>' + stripePaymentHintHtml_(m);
   }
 
   function openCo() {
@@ -4041,7 +4112,7 @@
     state.payMethod = defaultPayMethod();
     prefillCheckoutFromProfile();
     renderCo();
-    if (state.payMethod === 'stripe' && !isStripeOn(true)) diagnoseStripe();
+    if (isStripePayMethod_(state.payMethod) && !isStripeOn(true)) diagnoseStripe();
     capturePageScroll();
     $('coBg').classList.add('open');
     updateScrollLock();
@@ -4060,6 +4131,12 @@
     }
     state.stripeElements = null;
     state.stripeAmountCents = 0;
+    state.stripeMountedPmType = '';
+  }
+
+  function activeStripePayMethod_() {
+    if (state.stripeRetryOrderId) return state.stripeRetryPayMethod || 'stripe_card';
+    return state.payMethod;
   }
 
   async function initStripeElement() {
@@ -4077,7 +4154,9 @@
       return;
     }
     var amountCents = stripeAmountCents_();
-    if (state.stripePaymentElement && state.stripeAmountCents === amountCents && state.stripeElements) return;
+    var pmType = stripePmStripeType_(activeStripePayMethod_());
+    var mountedKey = stripeSeparatedPtMethods_() ? pmType : 'all';
+    if (state.stripePaymentElement && state.stripeAmountCents === amountCents && state.stripeElements && state.stripeMountedPmType === mountedKey) return;
     destroyStripeElement();
     if (!state.stripe) state.stripe = global.Stripe(getStripePk_());
     var currency = String(state.config.currency_code || 'eur').toLowerCase();
@@ -4089,16 +4168,23 @@
       locale: stripeLocale_(),
       appearance: { theme: stripeTheme }
     };
-    if (cfgOn('stripe_pt_local_methods', true)) {
-      elementsOpts.paymentMethodTypes = ['card', 'mb_way', 'multibanco'];
+    if (stripeSeparatedPtMethods_()) {
+      elementsOpts.paymentMethodTypes = [pmType];
     }
     state.stripeElements = state.stripe.elements(elementsOpts);
     state.stripeAmountCents = amountCents;
-    state.stripePaymentElement = state.stripeElements.create('payment', {
-      layout: { type: 'tabs', defaultCollapsed: false },
-      wallets: { applePay: 'auto', googlePay: 'auto' },
+    state.stripeMountedPmType = mountedKey;
+    var paymentElOpts = {
+      layout: (stripeSeparatedPtMethods_() && pmType !== 'card')
+        ? { type: 'accordion', defaultCollapsed: false, radios: false, spacedAccordionItems: false }
+        : { type: 'tabs', defaultCollapsed: false },
+      wallets: pmType === 'card' ? { applePay: 'auto', googlePay: 'auto' } : { applePay: 'never', googlePay: 'never' },
       defaultValues: stripeBillingDefaults_()
-    });
+    };
+    if (pmType === 'mb_way') {
+      paymentElOpts.fields = { billingDetails: { phone: 'always' } };
+    }
+    state.stripePaymentElement = state.stripeElements.create('payment', paymentElOpts);
     var mount = state.stripeRetryOrderId ? $('stripe-retry-element') : $('stripe-payment-element');
     if (mount) {
       mount.innerHTML = '';
@@ -4119,6 +4205,7 @@
     orderId = String(orderId || '').trim();
     if (!orderId || !isStripeOn()) return;
     state.stripeRetryOrderId = orderId;
+    state.stripeRetryPayMethod = state.lastPayMethod && isStripePayMethod_(state.lastPayMethod) ? state.lastPayMethod : 'stripe_card';
     state.stripeRetryOrderTotal = parseFloat(total) || 0;
     state.stripeRetryEmail = state.clientEmail || state.form.email || state.lastOrderEmail || '';
     state.stripeRetryName = state.clientName || state.form.name || '';
@@ -4163,7 +4250,9 @@
         global.toast(submitUi.error.message, 'e');
         return;
       }
-      var piRes = await erpCall('createStripePaymentIntent', orderAccessPayload({ orderId: orderId, email: email, nome: nome, clientId: state.clientId || 'guest' }), state.token);
+      var piRes = await erpCall('createStripePaymentIntent', orderAccessPayload(Object.assign({
+        orderId: orderId, email: email, nome: nome, clientId: state.clientId || 'guest'
+      }, stripePmPayload_(state.stripeRetryPayMethod))), state.token);
       if (!piRes || !piRes.success || !piRes.clientSecret) {
         if (piRes && piRes.alreadyPaid) {
           stopStripePaymentPoll_();
@@ -4181,7 +4270,7 @@
         clientSecret: piRes.clientSecret,
         confirmParams: {
           return_url: window.location.href.split('#')[0] + '#order-' + orderId,
-          payment_method_data: { billing_details: { name: nome, email: email } }
+          payment_method_data: { billing_details: stripeBillingDefaults_().billingDetails }
         },
         redirect: 'if_required'
       });
@@ -4249,7 +4338,7 @@
   }
 
   function scheduleStripeMount_() {
-    if (state.payMethod !== 'stripe' || !isStripeOn(true) || state.ordered || state.checkoutBusy) return;
+    if (!isStripePayMethod_(state.payMethod) || !isStripeOn(true) || state.ordered || state.checkoutBusy) return;
     setTimeout(function () {
       initStripeElement().catch(function (e) {
         global.toast((t().errStripe || 'Erro no pagamento') + ': ' + e.message, 'e');
@@ -4458,7 +4547,7 @@
   }
 
   function renderCo() {
-    if (state.checkoutBusy && state.payMethod === 'stripe' && !state.ordered) {
+    if (state.checkoutBusy && isStripePayMethod_(state.payMethod) && !state.ordered) {
       updateCheckoutBusyUi_(true);
       return;
     }
@@ -4497,8 +4586,8 @@
       '<div class="field"><label>' + esc(t().fCity) + '</label><input value="' + esc(f.city) + '" oninput="Shop.setForm(\'city\',this.value)"/></div></div>' +
       '<p class="form-title" style="margin-top:16px;">' + esc(t().s2) + '</p>' +
       paymentOptionsHtml() +
-      (state.payMethod === 'stripe' ? '<p class="acc-hint" style="margin:8px 0 4px;">' + esc(t().stripeMbWayHint || '') + '</p>' : '') +
-      '<div id="stripe-payment-element" style="margin:12px 0;' + (state.payMethod === 'stripe' ? '' : 'display:none;') + '"></div>' +
+      (isStripePayMethod_(state.payMethod) ? stripePaymentHintHtml_(state.payMethod) : '') +
+      '<div id="stripe-payment-element" style="margin:12px 0;' + (isStripePayMethod_(state.payMethod) ? '' : 'display:none;') + '"></div>' +
       '<div class="sec-note"><span>' + esc(t().secN) + '</span><strong>' + esc(t().secS) + '</strong></div>' +
       checkoutTotalsHtml(totals) +
       '<label class="acc-check co-terms"><input type="checkbox" id="coTerms"' + (f.acceptCheckoutTerms ? ' checked' : '') + ' onchange="Shop.setForm(\'acceptCheckoutTerms\',this.checked)"/><span>' + checkoutTermsLabelHtml() + '</span></label>' +
@@ -4601,7 +4690,7 @@
     await refreshActivePromo({ silent: true });
     var totals = orderTotals();
     var endereco = [f.addr, f.zip, f.city].filter(Boolean).join(', ');
-    var awaitStripe = state.payMethod === 'stripe' && isStripeOn();
+    var awaitStripe = isStripePayMethod_(state.payMethod) && isStripeOn();
 
     if (awaitStripe) {
       if (!state.stripeElements || !state.stripePaymentElement) {
@@ -4665,7 +4754,9 @@
           openOrderDetail(orderRes.orderId);
           return;
         }
-        var piRes = await erpCall('createStripePaymentIntent', orderAccessPayload({ orderId: orderRes.orderId, email: f.email, nome: f.name, clientId: state.clientId || 'guest' }), state.token);
+        var piRes = await erpCall('createStripePaymentIntent', orderAccessPayload(Object.assign({
+          orderId: orderRes.orderId, email: f.email, nome: f.name, clientId: state.clientId || 'guest'
+        }, stripePmPayload_(state.payMethod))), state.token);
         if (!piRes || !piRes.success || !piRes.clientSecret) {
           logStripeApiError_('createStripePaymentIntent', piRes);
           global.toast((piRes && piRes.error) || (t().errStripe || 'Erro Stripe') + ' — ' + (t().stripeRetryHint || ''), 'e');
@@ -4678,7 +4769,7 @@
           clientSecret: piRes.clientSecret,
           confirmParams: {
             return_url: window.location.href.split('#')[0] + '#order-' + orderRes.orderId,
-            payment_method_data: { billing_details: { name: f.name, email: f.email } }
+            payment_method_data: { billing_details: stripeBillingDefaults_().billingDetails }
           },
           redirect: 'if_required'
         });
@@ -4739,7 +4830,7 @@
       updBadge();
       state.ordered = true;
       var paySnap = 'aguardando_pagamento';
-      if (state.payMethod === 'stripe') paySnap = 'pago_stripe';
+      if (isStripePayMethod_(state.payMethod)) paySnap = 'pago_stripe';
       else if (state.payMethod === 'cod') paySnap = 'pago';
       state.lastOrderSnapshot = {
         pedido_id: orderRes.orderId,
@@ -5050,7 +5141,8 @@
         stripePayBlock += '<button type="button" class="btn-gold" style="width:100%;margin-bottom:8px;" onclick="Shop.openStripeRetryPay(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\',\'' + esc(String(parseFloat(o.total || 0).toFixed(2))) + '\')">' + esc(t().stripePayNow || 'Pagar agora (Stripe)') + '</button>' +
           '<button type="button" class="btn-order-secondary" style="width:100%;" onclick="Shop.cancelPendingOrder(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().stripeCancelOrder || 'Cancelar encomenda') + '</button>';
       } else {
-        stripePayBlock += '<div id="stripe-retry-element" style="margin:10px 0;"></div>' +
+        stripePayBlock += stripeRetryPaymentOptionsHtml_() +
+          '<div id="stripe-retry-element" style="margin:10px 0;"></div>' +
           '<button type="button" class="btn-pay" id="btnStripeRetry" onclick="Shop.submitStripeRetryPayment()" ' + (state.checkoutBusy ? 'disabled' : '') + '>' +
           esc(state.checkoutBusy ? (t().payProcessing || 'A processar…') : (t().stripePayNow || 'Pagar agora')) + '</button>' +
           '<button type="button" class="btn-order-secondary" style="width:100%;margin-top:8px;" onclick="Shop.cancelStripeRetry()">' + esc(t().backBtn) + '</button>';
@@ -5777,7 +5869,7 @@
   function onThemeChange(theme) {
     state.theme = theme;
     if (isHeroMotionCanvasOn()) applyBrandUi();
-    if (state.payMethod === 'stripe' && $('coBg') && $('coBg').classList.contains('open') && !state.ordered) {
+    if (isStripePayMethod_(state.payMethod) && $('coBg') && $('coBg').classList.contains('open') && !state.ordered) {
       state.stripeAmountCents = 0;
       destroyStripeElement();
       scheduleStripeMount_();
@@ -5978,6 +6070,7 @@
     closeCo: closeCo,
     setForm: setForm,
     setPayMethod: setPayMethod,
+    setStripeRetryPayMethod: setStripeRetryPayMethod,
     printInvoice: printInvoice,
     loadOrderReceipt: loadOrderReceipt,
     downloadInvoice: downloadInvoice,
