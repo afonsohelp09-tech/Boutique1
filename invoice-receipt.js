@@ -45,18 +45,48 @@
       '</div></div>';
   }
 
+  function printViaIframe_(html) {
+    try {
+      var existing = document.getElementById('azv-print-frame');
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      var iframe = document.createElement('iframe');
+      iframe.id = 'azv-print-frame';
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;';
+      document.body.appendChild(iframe);
+      var doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(html);
+      doc.close();
+      setTimeout(function () {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (e) { /* ignore */ }
+      }, 500);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function openPrintDocument(html) {
     if (!html) return false;
-    var w = global.open('', '_blank', 'noopener,noreferrer,width=820,height=960');
-    if (!w) return false;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    setTimeout(function () {
-      try { w.print(); } catch (e) { /* ignore */ }
-    }, 450);
-    return true;
+    var w = null;
+    // Pas de "noopener" : sinon window.open renvoie null et l'impression échoue.
+    try { w = global.open('', '_blank', 'width=820,height=960'); } catch (e) { w = null; }
+    if (w && w.document) {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(function () {
+        try { w.print(); } catch (e) { /* ignore */ }
+      }, 450);
+      return true;
+    }
+    // Repli (popup bloqué, fréquent sur mobile) : impression via iframe caché.
+    return printViaIframe_(html);
   }
 
   global.InvoiceReceipt = {

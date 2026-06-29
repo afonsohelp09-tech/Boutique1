@@ -1065,9 +1065,11 @@
       var langs = ['fr', 'pt', 'en', 'es'];
       var th = getTheme();
       foot.innerHTML =
+        '<div class="nav-foot-row">' +
+        '<span class="nav-foot-label">' + esc(t().navLangLabel || 'Langue') + '</span>' +
         '<div class="lang-switch lang-box" role="group">' + langs.map(function (l) {
           return '<button type="button" class="' + (state.lang === l ? 'on' : '') + '" onclick="setLang(\'' + l + '\')">' + l.toUpperCase() + '</button>';
-        }).join('') + '</div>' +
+        }).join('') + '</div></div>' +
         (typeof buildThemeSwitchHtml === 'function' ? buildThemeSwitchHtml() : '');
       if (typeof updateThemeButtons === 'function') updateThemeButtons();
     }
@@ -2015,6 +2017,21 @@
   function accT() {
     var tr = t();
     return tr.account || (global.T && global.T.pt && global.T.pt.account) || {};
+  }
+
+  function orderStateLabel_(code) {
+    var a = accT();
+    var k = String(code || '').toLowerCase().trim();
+    if (!k) return '—';
+    var map = {
+      pending: a.ostPending, processing: a.ostProcessing, em_processamento: a.ostProcessing, preparacao: a.ostPrep,
+      paid: a.ostPaid, pago: a.ostPaid, pago_stripe: a.ostPaid,
+      shipped: a.ostShipped, enviado: a.ostShipped, em_transito: a.ostTransit,
+      delivered: a.ostDelivered, entregue: a.ostDelivered,
+      cancelled: a.ostCancelled, cancelado: a.ostCancelled,
+      aguardando_pagamento: a.ostAwaiting, reembolsado: a.ostRefunded
+    };
+    return map[k] || code || '—';
   }
 
   function normEmail(e) { return String(e || '').trim().toLowerCase(); }
@@ -5283,8 +5300,8 @@
     return '<button type="button" class="acc-link" style="margin-bottom:12px;" onclick="Shop.setAccountView(\'' + backView + '\')">← ' + esc(a.back) + '</button>' +
       '<p class="acc-order-id">#' + esc(o.pedido_id) + '</p>' +
       '<p style="font-size:10px;color:var(--muted);margin:8px 0;">' + esc(o.data) + '</p>' +
-      '<p style="font-size:10px;"><strong>' + esc(a.total) + ':</strong> ' + esc(o.total) + ' € · <strong>' + esc(a.status) + ':</strong> ' + esc(o.estado || '') + '</p>' +
-      '<p style="font-size:10px;"><strong>' + esc(a.pay) + ':</strong> ' + esc(o.estado_pagamento || '') + ' · <strong>' + esc(a.ship) + ':</strong> ' + esc(o.estado_envio || '') + '</p>' +
+      '<p style="font-size:10px;"><strong>' + esc(a.total) + ':</strong> ' + esc(o.total) + ' € · <strong>' + esc(a.status) + ':</strong> ' + esc(orderStateLabel_(o.estado)) + '</p>' +
+      '<p style="font-size:10px;"><strong>' + esc(a.pay) + ':</strong> ' + esc(orderStateLabel_(o.estado_pagamento)) + ' · <strong>' + esc(a.ship) + ':</strong> ' + esc(orderStateLabel_(o.estado_envio)) + '</p>' +
       (o.tracking_number ? '<p style="font-size:10px;"><strong>' + esc(a.tracking) + ':</strong> ' + esc(o.tracking_number) + (o.transportadora ? ' (' + esc(o.transportadora) + ')' : '') + '</p>' : '') +
       stripePayBlock +
       orderTrackingHtml(o) +
@@ -5694,7 +5711,7 @@
           '<div class="acc-order-main" onclick="Shop.openOrderDetail(\'' + oid + '\')">' +
           '<div class="acc-order-id">#' + esc(o.pedido_id) + '</div>' +
           '<p style="font-size:10px;color:var(--muted);margin-top:4px;">' + esc(o.data) + ' · ' + esc(o.total) + ' €</p>' +
-          '<p style="font-size:9px;color:var(--gold);margin-top:4px;">' + esc(o.estado || '') + ' · ' + esc(o.estado_pagamento || '') + '</p></div>' +
+          '<p style="font-size:9px;color:var(--gold);margin-top:4px;">' + esc(orderStateLabel_(o.estado)) + ' · ' + esc(orderStateLabel_(o.estado_pagamento)) + '</p></div>' +
           '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.printOrderInvoice(\'' + oid + '\')">' + esc(t().receiptPrint || 'Imprimir') + '</button></div>';
       }).join('');
     } catch (e) { box.textContent = e.message; }
