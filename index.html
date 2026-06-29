@@ -14,7 +14,7 @@
 <link rel="dns-prefetch" href="https://drive.google.com"/>
 <meta name="theme-color" content="#0b0a09" id="metaThemeColor"/>
 <meta property="og:image" content="icons/icon-512.png"/>
-<title>AZAVISION â€” Boutique en ligne</title>
+<title>AZAVISION</title>
 <script>
 (function(){
   var k='azav_theme',s=localStorage.getItem(k);
@@ -95,7 +95,7 @@ body{
   transition:background .25s,color .25s;
   padding-bottom:env(safe-area-inset-bottom,0);
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
-  line-height:1.5;
+  line-height:1.3;
 }
 body.scroll-lock{
   overflow:hidden;touch-action:none;position:fixed;width:100%;left:0;right:0;
@@ -320,7 +320,8 @@ nav{
 }
 .lang-box{display:inline-flex}
 /* Controles compacts mobile (langue + theme) - Option B */
-.lang-mini,.theme-mini{display:none}
+.lang-mini,.theme-mini{display:inline-flex}
+.nav-right>.lang-box,.nav-right>.theme-switch{display:none}
 .lang-mini{position:relative}
 .lang-mini-btn{
   display:inline-flex;align-items:center;gap:3px;
