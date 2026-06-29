@@ -3927,7 +3927,12 @@
     return true;
   }
 
+  function stripeDynamicMethods_() {
+    return cfgOn('stripe_dynamic_methods', true);
+  }
+
   function stripeSeparatedPtMethods_() {
+    if (stripeDynamicMethods_()) return false;
     return cfgOn('stripe_pt_local_methods', true);
   }
 
@@ -4032,7 +4037,7 @@
   }
 
   function isWhatsappPaymentOn() {
-    return cfgOn('pay_show_whatsapp', true) && !!contactWhatsAppUrl();
+    return false;
   }
 
   function buildWhatsappPayMessage_(ref, amount) {
@@ -4077,10 +4082,6 @@
     if (cfgOn('pay_show_paypal', false) && cfgOn('pay_paypal_enabled', true) && String(state.config.pay_paypal_me || '').trim()) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="paypal" ' + (state.payMethod === 'paypal' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'paypal\')"/> ' +
         esc(t().payPaypal || 'PayPal') + '</label>');
-    }
-    if (isWhatsappPaymentOn()) {
-      opts.push('<label class="pay-opt"><input type="radio" name="payM" value="whatsapp" ' + (state.payMethod === 'whatsapp' ? 'checked' : '') + ' onchange="Shop.setPayMethod(\'whatsapp\')"/> ' +
-        esc(t().payWhatsapp || 'WhatsApp') + '</label>');
     }
     if (!opts.length) {
       opts.push('<label class="pay-opt"><input type="radio" name="payM" value="cod" checked/> ' +
@@ -4293,7 +4294,7 @@
     orderId = String(orderId || '').trim();
     if (!orderId || !isStripeOn()) return;
     state.stripeRetryOrderId = orderId;
-    state.stripeRetryPayMethod = state.lastPayMethod && isStripePayMethod_(state.lastPayMethod) ? state.lastPayMethod : 'stripe_card';
+    state.stripeRetryPayMethod = state.lastPayMethod && isStripePayMethod_(state.lastPayMethod) ? state.lastPayMethod : (stripeSeparatedPtMethods_() ? 'stripe_card' : 'stripe');
     state.stripeRetryOrderTotal = parseFloat(total) || 0;
     state.stripeRetryEmail = state.clientEmail || state.form.email || state.lastOrderEmail || '';
     state.stripeRetryName = state.clientName || state.form.name || '';
