@@ -6,7 +6,7 @@
   'use strict';
 
   var LIVRO_URL = 'https://www.livroreclamacoes.pt/Inicio/';
-  var DEFAULT_CONTACT_EMAIL = 'azavision1@outlook.com';
+  var DEFAULT_CONTACT_EMAIL = 'azavision1@gmail.com';
 
   var PAGE_COPY = {
     pt: { back: '← Voltar à loja', loading: 'A carregar…' },

@@ -6,7 +6,7 @@
 
   var API = global.API_URL || global.ERP_API_URL_DEFAULT || '';
   var STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY || '';
-  var DEFAULT_CONTACT_EMAIL = 'azavision1@outlook.com';
+  var DEFAULT_CONTACT_EMAIL = 'azavision1@gmail.com';
 
   function refreshStripePk_() {
     if (!STRIPE_PK && global.STRIPE_PUBLISHABLE_KEY) STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY;
@@ -2079,6 +2079,87 @@
     return 'desktop';
   }
 
+  // ---- Connexion Google (OAuth / Google Identity Services) ---------------
+  function googleClientId_() {
+    return String((state.config && state.config.google_client_id) || '').trim();
+  }
+
+  /** Bloc « ou / Continuer avec Google » — visible seulement si google_client_id est configuré. */
+  function googleSignInBoxHtml_() {
+    if (!googleClientId_()) return '';
+    var a = accT();
+    return '<div class="acc-or"><span>' + esc(a.orSeparator || 'ou') + '</span></div>' +
+      '<div id="googleBtnBox" class="g-signin-box" aria-label="Google"></div>';
+  }
+
+  function onGoogleCredential_(resp) {
+    var cred = resp && resp.credential;
+    if (!cred) return;
+    var a = accT();
+    erpCall('googleSignIn', { credential: cred, device: loginDeviceLabel(), lang: state.lang || 'pt' })
+      .then(function (res) {
+        if (!res || !res.success) {
+          global.toast((res && res.error) || (a.googleError || 'Connexion Google impossible'), 'e');
+          return;
+        }
+        applySessionFromAuth(res, res.nome || '', res.email || '');
+        state.accountView = 'dashboard';
+        saveSession();
+        Promise.all([loadClientProfile(), loadWishlistServer()]).catch(function () {}).then(function () {
+          prefillCheckoutFromProfile();
+          renderAccount();
+          global.toast(res.isNew ? (a.connected || 'Conta criada') : (a.connected || 'Ligado'), 's');
+        });
+      })
+      .catch(function (e) { global.toast((e && e.message) || (a.googleError || 'Google'), 'e'); });
+  }
+
+  function initGoogleId_() {
+    var cid = googleClientId_();
+    if (!cid) return false;
+    if (!global.google || !global.google.accounts || !global.google.accounts.id) return false;
+    if (state._googleIdInited) return true;
+    try {
+      global.google.accounts.id.initialize({
+        client_id: cid,
+        callback: onGoogleCredential_,
+        ux_mode: 'popup',
+        auto_select: false
+      });
+      state._googleIdInited = true;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function mountGoogleButton_() {
+    if (!googleClientId_()) return;
+    var box = $('googleBtnBox');
+    if (!box) return;
+    if (!initGoogleId_()) {
+      // GIS pas encore chargé : nouvelle tentative courte (mobile / réseau lent).
+      if ((state._googleMountTries || 0) < 20) {
+        state._googleMountTries = (state._googleMountTries || 0) + 1;
+        setTimeout(mountGoogleButton_, 250);
+      }
+      return;
+    }
+    state._googleMountTries = 0;
+    try {
+      box.innerHTML = '';
+      var width = Math.min(360, Math.max(220, box.offsetWidth || 300));
+      global.google.accounts.id.renderButton(box, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        shape: 'pill',
+        text: 'continue_with',
+        logo_alignment: 'center',
+        locale: state.lang || 'pt',
+        width: width
+      });
+    } catch (e) { /* ignore */ }
+  }
+
   async function loadClientProfile() {
     if (!state.clientId || !apiUrlConfigured()) return;
     try {
@@ -2853,13 +2934,13 @@
 
     if (!cfgOn('vitrine_display_promo_faixa', true)) return '';
 
-    if (cfgOn('promo_banner_enabled', false)) {
-      if (String(cfg.promo_banner_text || '').trim()) {
-        return cleanupPromoText(fillPromoPlaceholders(cfg.promo_banner_text));
-      }
+    var customFaixa = String(cfg.promo_banner_text || '').trim();
+    var faixaOn = cfgOn('promo_banner_enabled', false) || !!customFaixa;
+    if (faixaOn && customFaixa) {
+      return cleanupPromoText(fillPromoPlaceholders(customFaixa));
     }
 
-    if (cfgOn('promo_banner_show_default', true)) {
+    if (cfgOn('promo_banner_show_default', false)) {
       return t().promo || '';
     }
     return '';
@@ -4135,7 +4216,8 @@
   }
 
   function openCo() {
-    if (!state.clientId && !cfgOn('guest_checkout_enabled', true)) {
+    // Compte client obligatoire pour payer (sauf si la boutique active explicitement l'achat invité).
+    if (!state.clientId && !cfgOn('guest_checkout_enabled', false)) {
       global.toast(accT().loginRequired || t().guestCheckout || 'Inicie sessão para finalizar a compra.', 'i');
       state.accountView = 'login';
       openAccount();
@@ -4145,6 +4227,8 @@
     state.ordered = false;
     state.lastStripePending = false;
     state.lastStripeVoucher = null;
+    state.lastInvoice = null;
+    state.lastInvoiceTried = false;
     state.delStep = 0;
     state.payMethod = defaultPayMethod();
     prefillCheckoutFromProfile();
@@ -4614,8 +4698,26 @@
     else global.toast(t().receiptError || 'Reçu indisponible', 'e');
   }
 
+  function invoiceFileName_(inv) {
+    var ref = (inv && (inv.invoiceRef || (inv.order && inv.order.pedido_id))) || state.lastOrderId || 'comprovativo';
+    return 'comprovativo-' + String(ref).replace(/[^\w\-]/g, '') + '.pdf';
+  }
+
   function downloadInvoice() {
-    printInvoice();
+    var inv = state.lastInvoice;
+    var html = inv && inv.html;
+    if (!global.InvoiceReceipt || !global.InvoiceReceipt.downloadPdf) { printInvoice(); return; }
+    if (html) { global.InvoiceReceipt.downloadPdf(html, invoiceFileName_(inv)); return; }
+    if (state.lastOrderId) {
+      loadInvoiceForOrder(state.lastOrderId, state.form.name).then(function (res) {
+        if (res && res.html) {
+          state.lastInvoice = res;
+          global.InvoiceReceipt.downloadPdf(res.html, invoiceFileName_(res));
+        } else {
+          global.toast(t().receiptError || 'Comprovativo indisponível', 'e');
+        }
+      });
+    }
   }
 
   async function printOrderInvoice(orderId) {
@@ -4623,6 +4725,19 @@
     if (!orderId) return;
     var inv = await loadInvoiceForOrder(orderId, state.clientName || state.form.name);
     if (inv && inv.html && global.InvoiceReceipt) {
+      global.InvoiceReceipt.openPrintDocument(inv.html);
+    } else {
+      global.toast(t().receiptError || 'Reçu indisponible', 'e');
+    }
+  }
+
+  async function downloadOrderInvoice(orderId) {
+    orderId = String(orderId || '').trim();
+    if (!orderId) return;
+    var inv = await loadInvoiceForOrder(orderId, state.clientName || state.form.name);
+    if (inv && inv.html && global.InvoiceReceipt && global.InvoiceReceipt.downloadPdf) {
+      global.InvoiceReceipt.downloadPdf(inv.html, invoiceFileName_(inv));
+    } else if (inv && inv.html && global.InvoiceReceipt) {
       global.InvoiceReceipt.openPrintDocument(inv.html);
     } else {
       global.toast(t().receiptError || 'Reçu indisponible', 'e');
@@ -4694,6 +4809,11 @@
       return;
     }
     if (state.ordered) {
+      // Auto-chargement du comprovativo une seule fois (puis renderCo se relancera quand prêt).
+      if (state.lastOrderId && !state.lastInvoice && !state.lastInvoiceLoading && !state.lastInvoiceTried) {
+        state.lastInvoiceTried = true;
+        fetchLastInvoice();
+      }
       var lastEmail = state.lastOrderEmail || state.form.email || state.clientEmail || '';
       $('coBody').innerHTML =
         '<div class="order-ok"><span class="ok-emoji">🎉</span>' +
@@ -5153,7 +5273,8 @@
       '<div class="fgrid one"><div class="field"><label>' + esc(a.email) + '</label><input id="loginEmail" type="email" autocomplete="email" value="' + esc(state.clientEmail || state.form.email || '') + '"/></div>' +
       '<div class="field"><label>' + esc(a.pass) + '</label><input id="loginPass" type="password" autocomplete="current-password"/></div></div>' +
       '<p style="margin-bottom:12px;"><button type="button" class="acc-link" onclick="Shop.setAccountView(\'forgot\')">' + esc(a.forgot) + '</button></p>' +
-      '<button type="button" class="btn-pay" style="width:100%;" onclick="Shop.login()">' + esc(a.loginBtn) + '</button>';
+      '<button type="button" class="btn-pay" style="width:100%;" onclick="Shop.login()">' + esc(a.loginBtn) + '</button>' +
+      googleSignInBoxHtml_();
   }
 
   function termsAcceptLabelHtml() {
@@ -5188,7 +5309,8 @@
       '<div class="field"><label>' + esc(a.passConfirm) + ' *</label><input id="regPass2" type="password" autocomplete="new-password"/></div></div>' +
       '<label class="acc-check"><input type="checkbox" id="regTerms"' + (d.terms ? ' checked' : '') + '/><span>' + termsAcceptLabelHtml() + '</span></label>' +
       '<label class="acc-check"><input type="checkbox" id="regNews"' + (d.newsletter ? ' checked' : '') + '/><span>' + esc(a.newsletter) + '</span></label>' +
-      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.startRegister()">' + esc(a.registerBtn) + '</button>';
+      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.startRegister()">' + esc(a.registerBtn) + '</button>' +
+      googleSignInBoxHtml_();
   }
 
   function renderOtpForm() {
@@ -5306,7 +5428,8 @@
       stripePayBlock +
       orderTrackingHtml(o) +
       (state.clientId && state.token ? renderReturnRequestBlock(o) : '') +
-      '<div class="receipt-inline"><button type="button" class="btn-rc" style="width:100%;margin-top:8px;" onclick="Shop.printOrderInvoice(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().receiptPrint || 'Imprimer le reçu') + '</button></div>' +
+      '<div class="receipt-inline" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;"><button type="button" class="btn-rc" style="flex:1;min-width:120px;" onclick="Shop.printOrderInvoice(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().receiptPrint || 'Imprimer le reçu') + '</button>' +
+      '<button type="button" class="btn-rc btn-rc-ghost" style="flex:1;min-width:120px;" onclick="Shop.downloadOrderInvoice(\'' + esc(o.pedido_id).replace(/'/g, "\\'") + '\')">' + esc(t().receiptDownload || 'Descarregar PDF') + '</button></div>' +
       '<ul style="list-style:none;padding:12px 0 0;font-size:10px;color:var(--muted);">' + lines + '</ul>';
   }
 
@@ -5402,6 +5525,9 @@
     else if (state.accountView === 'reset') inner = renderResetForm();
     else inner = renderLoginForm();
     body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:12px;">' + esc(a.title) + '</h2>' + inner + '</div>';
+    if (state.accountView === 'login' || state.accountView === 'register' || !state.accountView) {
+      setTimeout(mountGoogleButton_, 0);
+    }
   }
 
   async function login() {
@@ -6223,6 +6349,7 @@
     loadOrderReceipt: loadOrderReceipt,
     downloadInvoice: downloadInvoice,
     printOrderInvoice: printOrderInvoice,
+    downloadOrderInvoice: downloadOrderInvoice,
     submitOrder: submitOrder,
     openStripeRetryPay: openStripeRetryPay,
     submitStripeRetryPayment: submitStripeRetryPayment,
