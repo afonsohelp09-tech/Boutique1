@@ -188,6 +188,33 @@ input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
 body.vitrine-pending .promo-bar,
 body.vitrine-pending .services-in-footer,
 body.vitrine-pending .services{display:none!important}
+/* Hero : chargement (A = marque, B = discret) avant config admin */
+.hero-loading{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(12px,3vw,20px);min-height:min(52vh,420px);padding:24px 16px;
+  animation:fadeUp .7s both;
+}
+.hero-loading-logo{
+  width:clamp(72px,18vw,120px);height:auto;object-fit:contain;
+  filter:drop-shadow(0 8px 24px rgba(0,0,0,.12));
+}
+.hero-loading-brand{
+  font-family:'Cormorant Garamond',serif;font-size:clamp(28px,7vw,42px);
+  font-weight:300;letter-spacing:.28em;text-transform:uppercase;color:var(--ink);
+  margin:0;
+}
+body.vitrine-pending.hero-loading-brand .hero-loading{display:flex}
+body.vitrine-pending.hero-loading-minimal .hero-loading{display:none}
+body.vitrine-pending .hero-admin-content{
+  visibility:hidden;opacity:0;pointer-events:none;
+  position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);
+}
+body.vitrine-pending .scroll-cue{opacity:0;pointer-events:none}
+body:not(.vitrine-pending) .hero-loading{display:none!important}
+body:not(.vitrine-pending) .hero-admin-content{
+  visibility:visible;opacity:1;pointer-events:auto;
+  position:static;width:auto;height:auto;overflow:visible;clip:auto;
+}
 
 /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
    NAVBAR
@@ -1762,7 +1789,17 @@ footer{
 .pay-opt input{accent-color:var(--gold)}
 </style>
 </head>
-<body class="vitrine-pending">
+<body class="vitrine-pending hero-loading-brand" id="bodyRoot">
+<script>
+(function () {
+  try {
+    var m = sessionStorage.getItem('azv_hero_load_mode');
+    var b = document.getElementById('bodyRoot') || document.body;
+    b.classList.remove('hero-loading-brand', 'hero-loading-minimal');
+    b.classList.add(m === 'minimal' ? 'hero-loading-minimal' : 'hero-loading-brand');
+  } catch (e) { /* ignore */ }
+})();
+</script>
 
 <div id="apiBanner" class="api-banner" style="display:none"></div>
 
@@ -1865,12 +1902,18 @@ footer{
   <div class="hero-media"><img class="hero-photo" id="heroPhoto" alt="" decoding="async" loading="eager" fetchpriority="high"/></div>
   <div class="hero-grad"></div>
   <div class="hero-content">
-    <p class="hero-eyebrow" id="hEye"></p>
-    <h1 class="hero-h1" id="hTitle"></h1>
-    <p class="hero-p" id="hSub"></p>
-    <div class="hero-btns">
-      <button class="btn-gold" onclick="Shop.scrollShop()" id="hBtn1"></button>
-      <button class="btn-ghost" onclick="Shop.scrollShop()" id="hBtn2"></button>
+    <div class="hero-loading" id="heroLoading" aria-live="polite" aria-busy="true">
+      <img class="hero-loading-logo" id="heroLoadingLogo" src="icons/logo-nav.png" alt="AZAVISION" width="120" height="40" decoding="async"/>
+      <p class="hero-loading-brand" id="heroLoadingBrand">AZAVISION</p>
+    </div>
+    <div class="hero-admin-content" id="heroAdminContent">
+      <p class="hero-eyebrow" id="hEye"></p>
+      <h1 class="hero-h1" id="hTitle"></h1>
+      <p class="hero-p" id="hSub"></p>
+      <div class="hero-btns">
+        <button class="btn-gold" onclick="Shop.scrollShop()" id="hBtn1"></button>
+        <button class="btn-ghost" onclick="Shop.scrollShop()" id="hBtn2"></button>
+      </div>
     </div>
   </div>
   <div class="scroll-cue"><span class="scroll-arr">Ã¢â€ â€œ</span><span id="scrollHint"></span></div>
@@ -2177,15 +2220,20 @@ function boot() {
       `<li><button type="button" onclick="Shop.scrollShop()">${l}</button></li>`
     ).join('');
   }
-  ['hEye', 'hTitle', 'hSub', 'hBtn1', 'hBtn2', 'secLabel', 'secTitle', 'fDesc'].forEach(function (id) {
-    var el = $(id);
-    if (el) delete el.dataset.erp;
-  });
-  if ($('hEye')) $('hEye').textContent = t.hEye;
-  if ($('hTitle')) $('hTitle').innerHTML = t.hTitle;
-  if ($('hSub')) $('hSub').textContent = t.hSub;
-  if ($('hBtn1')) $('hBtn1').textContent = t.hBtn1;
-  if ($('hBtn2')) $('hBtn2').textContent = t.hBtn2;
+  /* Hero + en-têtes vitrine : uniquement depuis la config admin (pas de texte marketing i18n par défaut). */
+  var vitrineReady = window.Shop && window.Shop.isStoreConfigReady && window.Shop.isStoreConfigReady();
+  if (!vitrineReady) {
+    ['hEye', 'hTitle', 'hSub', 'hBtn1', 'hBtn2', 'secLabel', 'secTitle', 'fDesc'].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      el.textContent = '';
+      el.innerHTML = '';
+      delete el.dataset.erp;
+    });
+    if (window.Shop && window.Shop.applyHeroLoadingState) window.Shop.applyHeroLoadingState();
+  } else if (window.Shop && window.Shop.applyVitrineContent) {
+    window.Shop.applyVitrineContent(lang);
+  }
   if ($('scrollHint')) $('scrollHint').textContent = t.scrollHint;
   if ($('svcGrid') && window.Shop && Shop.applyServicesStrip) {
     Shop.applyServicesStrip();
@@ -2200,15 +2248,19 @@ function boot() {
     IconUi.wireSocialButton($('socTik'), 'tiktok');
     IconUi.wireSocialButton($('socFb'), 'facebook');
   }
-  if ($('secLabel')) $('secLabel').textContent = t.secLabel;
-  if ($('secTitle')) $('secTitle').textContent = t.secTitle;
+  if (vitrineReady) {
+    /* secLabel / secTitle / fDesc déjà appliqués par applyVitrineContent */
+  } else {
+    if ($('secLabel')) $('secLabel').textContent = '';
+    if ($('secTitle')) $('secTitle').textContent = '';
+    if ($('fDesc')) $('fDesc').textContent = '';
+  }
   if ($('seeAll')) $('seeAll').textContent = t.seeAll;
   if ($('srchIn')) $('srchIn').placeholder = t.srchPH;
   ['sd', 'sa', 'sds', 'sr'].forEach((id, i) => {
     const el = $(id);
     if (el) el.textContent = [t.sd, t.sa, t.sds, t.sr][i];
   });
-  if ($('fDesc')) $('fDesc').textContent = t.fDesc;
   if ($('fShopT')) $('fShopT').textContent = t.fShopT;
   if ($('fSuppT')) $('fSuppT').textContent = t.fSuppT;
   if ($('fNwT')) $('fNwT').textContent = t.fNwT;
@@ -2353,6 +2405,6 @@ boot();
     </div>
   </div>
 </div>
-<script src="erp-shop.js?v=20260629promo-fix"></script>
+<script src="erp-shop.js?v=20260629hero-load"></script>
 </body>
 </html>

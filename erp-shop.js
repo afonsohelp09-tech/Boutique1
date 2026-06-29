@@ -2199,15 +2199,60 @@
     return !!state.storeConfigReady;
   }
 
+  /** Mode chargement hero avant config admin : `brand` (A, défaut) ou `minimal` (B). Config : vitrine_hero_loading_mode */
+  function heroLoadingMode_() {
+    var m = String((state.config && state.config.vitrine_hero_loading_mode) || '').toLowerCase().trim();
+    if (m === 'minimal') return 'minimal';
+    try {
+      if (sessionStorage.getItem('azv_hero_load_mode') === 'minimal') return 'minimal';
+    } catch (e) { /* ignore */ }
+    return 'brand';
+  }
+
+  function persistHeroLoadingMode_() {
+    try { sessionStorage.setItem('azv_hero_load_mode', heroLoadingMode_()); } catch (e) { /* ignore */ }
+  }
+
+  /** État A/B pendant le chargement API — pas de texte marketing i18n. */
+  function applyHeroLoadingState() {
+    if (isStoreConfigReady()) return;
+    var mode = heroLoadingMode_();
+    try {
+      document.body.classList.remove('hero-loading-brand', 'hero-loading-minimal');
+      document.body.classList.add(mode === 'minimal' ? 'hero-loading-minimal' : 'hero-loading-brand');
+    } catch (eB) { /* ignore */ }
+    var loadEl = $('heroLoading');
+    if (loadEl) loadEl.setAttribute('aria-busy', 'true');
+    var name = (state.store && state.store.storeName) ? String(state.store.storeName).trim() : 'AZAVISION';
+    var brandEl = $('heroLoadingBrand');
+    if (brandEl) brandEl.textContent = name || 'AZAVISION';
+    var logoEl = $('heroLoadingLogo');
+    if (logoEl) {
+      logoEl.alt = name || 'AZAVISION';
+      if (state.store && state.store.logoUrl) {
+        logoEl.src = optimizeImageUrl(state.store.logoUrl, 240) || state.store.logoUrl;
+      }
+    }
+    if (mode === 'brand') startHeroMotionCanvas_();
+    else stopHeroMotionCanvas_();
+  }
+
   function setVitrinePending(pending) {
     try {
-      if (pending) document.body.classList.add('vitrine-pending');
-      else document.body.classList.remove('vitrine-pending');
+      if (pending) {
+        document.body.classList.add('vitrine-pending');
+        applyHeroLoadingState();
+      } else {
+        document.body.classList.remove('vitrine-pending');
+      }
     } catch (ePend) { /* ignore */ }
   }
 
   function markStoreConfigReady() {
     state.storeConfigReady = true;
+    persistHeroLoadingMode_();
+    var loadEl = $('heroLoading');
+    if (loadEl) loadEl.setAttribute('aria-busy', 'false');
     setVitrinePending(false);
   }
 
@@ -6390,6 +6435,8 @@
     imgError: imgError,
     logoError: logoError,
     applyVitrineContent: applyVitrineContent,
+    applyHeroLoadingState: applyHeroLoadingState,
+    isStoreConfigReady: isStoreConfigReady,
     applyServicesStrip: applyServicesStrip,
     applyPromoBanner: applyPromoBanner,
     submitProductReview: submitProductReview,
