@@ -319,6 +319,45 @@ nav{
   color:var(--text);background:var(--seg-hover);
 }
 .lang-box{display:inline-flex}
+/* Controles compacts mobile (langue + theme) - Option B */
+.lang-mini,.theme-mini{display:none}
+.lang-mini{position:relative}
+.lang-mini-btn{
+  display:inline-flex;align-items:center;gap:3px;
+  background:var(--seg-bg);border:1px solid var(--seg-border);color:var(--text);
+  font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  padding:7px 9px;border-radius:999px;min-height:38px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.lang-mini-btn .lm-chev{width:12px;height:12px;flex-shrink:0;stroke-width:2;transition:transform .2s}
+.lang-mini.open .lang-mini-btn .lm-chev{transform:rotate(180deg)}
+.lang-mini-menu{
+  display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:130;
+  background:var(--bg-modal);border:1px solid var(--border-hard);
+  border-radius:10px;padding:5px;min-width:64px;box-shadow:0 12px 32px rgba(0,0,0,.28);
+}
+.lang-mini.open .lang-mini-menu{display:block}
+.lang-mini-menu button{
+  display:block;width:100%;text-align:center;background:none;border:none;
+  color:var(--text-body);font-family:'Montserrat',sans-serif;font-size:10px;
+  font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  padding:9px 12px;min-height:40px;border-radius:7px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.lang-mini-menu button:hover{background:var(--seg-hover);color:var(--text)}
+.lang-mini-menu button.on{background:var(--gold);color:var(--on-gold)}
+.theme-mini{
+  align-items:center;justify-content:center;flex-shrink:0;
+  background:var(--seg-bg);border:1px solid var(--seg-border);color:var(--text);
+  padding:0;width:38px;height:38px;border-radius:50%;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.theme-mini svg{width:17px;height:17px;stroke-width:1.75}
+.theme-mini .ti-moon{display:none}
+.theme-mini .ti-sun{display:block}
+[data-theme="light"] .theme-mini .ti-sun{display:none}
+[data-theme="light"] .theme-mini .ti-moon{display:block}
 .icon-btn{
   background:none;border:none;color:var(--text);cursor:pointer;
   padding:9px;border-radius:50%;transition:background .2s,color .2s;
@@ -1642,6 +1681,8 @@ footer{
   .nav-right .lang-box{display:none}
   .lang-switch button,.theme-switch button{min-height:36px;padding:5px 8px}
   .nav-mobile-foot .theme-switch,.nav-mobile-foot .lang-switch{display:inline-flex}
+  .lang-mini{display:flex}
+  .theme-mini{display:inline-flex}
   .icon-btn{padding:10px;min-width:44px;min-height:44px}
   .grid{grid-template-columns:repeat(2,1fr);gap:14px 12px}
   .modal-bg{padding:0;align-items:stretch}
@@ -1825,6 +1866,22 @@ footer{
     </div>
     <ul class="nav-ul" id="navUl" aria-label="Navigation"></ul>
     <div class="nav-right">
+      <div class="lang-mini" id="langMini">
+        <button type="button" class="lang-mini-btn" id="btnLangMini" aria-haspopup="true" aria-expanded="false" aria-label="Langue / Idioma" onclick="toggleLangMini(event)">
+          <span id="langMiniCur">PT</span>
+          <svg class="lm-chev" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="lang-mini-menu" id="langMiniMenu" role="menu">
+          <button type="button" role="menuitem" data-lm="fr" onclick="setLang('fr');closeLangMini()">FR</button>
+          <button type="button" role="menuitem" data-lm="pt" onclick="setLang('pt');closeLangMini()">PT</button>
+          <button type="button" role="menuitem" data-lm="en" onclick="setLang('en');closeLangMini()">EN</button>
+          <button type="button" role="menuitem" data-lm="es" onclick="setLang('es');closeLangMini()">ES</button>
+        </div>
+      </div>
+      <button type="button" class="theme-mini" id="btnThemeMini" onclick="toggleTheme()" aria-label="Clair / Sombre">
+        <svg class="ti-sun" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <svg class="ti-moon" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
       <div class="lang-switch lang-box" role="group" aria-label="Langue">
         <button id="btnFr" onclick="setLang('fr')" title="FranÃ§ais">FR</button>
         <button id="btnPt" class="on" onclick="setLang('pt')" title="PortuguÃªs (Portugal)">PT</button>
@@ -2113,7 +2170,35 @@ function updateLangButtons(l) {
     var btn = $('btn' + code.charAt(0).toUpperCase() + code.slice(1));
     if (btn) btn.classList.toggle('on', l === code);
   });
+  var cur = $('langMiniCur');
+  if (cur) cur.textContent = String(l || 'pt').toUpperCase();
+  document.querySelectorAll('#langMiniMenu [data-lm]').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-lm') === l);
+  });
 }
+
+function toggleLangMini(ev) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  var box = $('langMini');
+  if (!box) return;
+  var open = box.classList.toggle('open');
+  var btn = $('btnLangMini');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function closeLangMini() {
+  var box = $('langMini');
+  if (box) box.classList.remove('open');
+  var btn = $('btnLangMini');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+window.toggleLangMini = toggleLangMini;
+window.closeLangMini = closeLangMini;
+document.addEventListener('click', function (ev) {
+  var box = $('langMini');
+  if (box && box.classList.contains('open') && !box.contains(ev.target)) closeLangMini();
+});
 
 function getTheme() {
   return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
