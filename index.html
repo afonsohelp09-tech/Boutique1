@@ -395,7 +395,7 @@ nav{
 .nav-mobile-head span{
   font-family:'Cormorant Garamond',serif;font-size:18px;letter-spacing:4px;text-transform:uppercase;
 }
-.nav-mobile-ul{list-style:none;padding:12px 10px;overflow-y:auto;flex:1}
+.nav-mobile-ul{list-style:none;padding:12px 10px;overflow-y:auto;flex:1;order:2}
 .nav-mobile-ul button{
   display:block;width:100%;text-align:left;background:none;border:none;
   color:var(--muted);font-family:'Montserrat',sans-serif;
@@ -418,7 +418,7 @@ nav{
 }
 .nav-mobile-ul .nav-info-link{color:var(--text-body);font-size:10px}
 .nav-mobile-foot{
-  padding:12px 14px 16px;border-top:1px solid var(--divider);flex-shrink:0;
+  order:1;padding:12px 14px;border-bottom:1px solid var(--divider);flex-shrink:0;
   display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
 }
 .nav-foot-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1681,8 +1681,6 @@ footer{
   .nav-right .lang-box{display:none}
   .lang-switch button,.theme-switch button{min-height:36px;padding:5px 8px}
   .nav-mobile-foot .theme-switch,.nav-mobile-foot .lang-switch{display:inline-flex}
-  .lang-mini{display:flex}
-  .theme-mini{display:inline-flex}
   .icon-btn{padding:10px;min-width:44px;min-height:44px}
   .grid{grid-template-columns:repeat(2,1fr);gap:14px 12px}
   .modal-bg{padding:0;align-items:stretch}
