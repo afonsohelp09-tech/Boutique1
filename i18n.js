@@ -43,7 +43,13 @@
       otpInvalid: 'Code invalide ou expiré.',
       otpExpired: 'Code expiré. Demandez un nouveau code.',
       otpSmsUnavailable: 'Inscription par SMS non disponible — utilisez une adresse e-mail.',
-      processing: 'Traitement en cours…'
+      processing: 'Traitement en cours…',
+      wishlist: 'Mes favoris', wishEmptyAcc: 'Aucun favori pour le moment.',
+      nif: 'NIF (optionnel)', changePassTitle: 'Changer le mot de passe',
+      oldPass: 'Mot de passe actuel', newPass: 'Nouveau mot de passe', changePassBtn: 'Mettre à jour le mot de passe',
+      passChanged: 'Mot de passe mis à jour', wrongPass: 'Mot de passe actuel incorrect',
+      newsletterSaved: 'Préférences newsletter enregistrées', editAddr: 'Modifier', cancelEdit: 'Annuler',
+      fiscalDocLink: 'Télécharger la facture', addrUpdated: 'Adresse mise à jour'
     },
     pt: {
       title: 'A minha conta', login: 'Entrar', register: 'Registo', forgot: 'Palavra-passe esquecida',
@@ -83,7 +89,13 @@
       otpInvalid: 'Código inválido ou expirado.',
       otpExpired: 'Código expirado. Peça um novo código.',
       otpSmsUnavailable: 'Registo por SMS não disponível — utilize um e-mail.',
-      processing: 'A processar…'
+      processing: 'A processar…',
+      wishlist: 'Os meus favoritos', wishEmptyAcc: 'Ainda sem favoritos.',
+      nif: 'NIF (opcional)', changePassTitle: 'Alterar palavra-passe',
+      oldPass: 'Palavra-passe atual', newPass: 'Nova palavra-passe', changePassBtn: 'Atualizar palavra-passe',
+      passChanged: 'Palavra-passe atualizada', wrongPass: 'Palavra-passe atual incorreta',
+      newsletterSaved: 'Preferências de newsletter guardadas', editAddr: 'Editar', cancelEdit: 'Cancelar',
+      fiscalDocLink: 'Descarregar fatura', addrUpdated: 'Morada atualizada'
     },
     en: {
       title: 'My account', login: 'Sign in', register: 'Register', forgot: 'Forgot password',
@@ -123,7 +135,13 @@
       otpInvalid: 'Invalid or expired code.',
       otpExpired: 'Code expired. Request a new code.',
       otpSmsUnavailable: 'SMS registration is not available — please use an email address.',
-      processing: 'Processing…'
+      processing: 'Processing…',
+      wishlist: 'My wishlist', wishEmptyAcc: 'No favourites yet.',
+      nif: 'Tax ID (optional)', changePassTitle: 'Change password',
+      oldPass: 'Current password', newPass: 'New password', changePassBtn: 'Update password',
+      passChanged: 'Password updated', wrongPass: 'Current password is incorrect',
+      newsletterSaved: 'Newsletter preferences saved', editAddr: 'Edit', cancelEdit: 'Cancel',
+      fiscalDocLink: 'Download invoice', addrUpdated: 'Address updated'
     },
     es: {
       title: 'Mi cuenta', login: 'Iniciar sesión', register: 'Registro', forgot: 'Contraseña olvidada',
@@ -163,7 +181,13 @@
       otpInvalid: 'Código no válido o caducado.',
       otpExpired: 'Código caducado. Solicite un nuevo código.',
       otpSmsUnavailable: 'Registro por SMS no disponible — use un correo electrónico.',
-      processing: 'Procesando…'
+      processing: 'Procesando…',
+      wishlist: 'Mis favoritos', wishEmptyAcc: 'Aún no hay favoritos.',
+      nif: 'NIF (opcional)', changePassTitle: 'Cambiar contraseña',
+      oldPass: 'Contraseña actual', newPass: 'Nueva contraseña', changePassBtn: 'Actualizar contraseña',
+      passChanged: 'Contraseña actualizada', wrongPass: 'Contraseña actual incorrecta',
+      newsletterSaved: 'Preferencias del boletín guardadas', editAddr: 'Editar', cancelEdit: 'Cancelar',
+      fiscalDocLink: 'Descargar factura', addrUpdated: 'Dirección actualizada'
     }
   };
 

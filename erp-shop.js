@@ -69,6 +69,7 @@
     resetEmail: '',
     profile: null,
     addresses: [],
+    editingAddressId: '',
     selectedOrder: null,
     returnFormOrderId: '',
     promo: '',
@@ -2181,6 +2182,7 @@
     if (!state.form.name && (p.nome || state.clientName)) state.form.name = p.nome || state.clientName;
     if (!state.form.email && (p.email || state.clientEmail)) state.form.email = p.email || state.clientEmail;
     if (!state.form.phone && (p.telefone || state.clientPhone)) state.form.phone = p.telefone || state.clientPhone;
+    if (!state.form.nif && p.nif) state.form.nif = p.nif;
   }
 
   async function loadClientAddresses() {
@@ -2896,7 +2898,7 @@
     if (!c) return empty;
     var fs = Math.min(H * 0.42, W / 6.2);
     c.fillStyle = '#fff';
-    c.font = '600 ' + Math.round(fs) + 'px "Segoe UI", system-ui, sans-serif';
+    c.font = '600 ' + Math.round(fs) + 'px "Cormorant Garamond", serif';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText('AZAVISION', W / 2, H / 2);
@@ -5190,7 +5192,7 @@
     var f = state.form;
     $('coBody').innerHTML =
       '<div class="m-body co-panel">' +
-      '<h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:5px;">' + esc(t().coTitle) + '</h2>' +
+      '<h2 class="co-title">' + esc(t().coTitle) + '</h2>' +
       '<p style="font-size:10px;color:var(--muted);margin-bottom:18px;">' + esc(t().coSub) + '</p>' +
       (requireClientAccountForCheckout_()
         ? '<p class="acc-hint" style="margin-bottom:14px;color:var(--gold);">' + esc(accT().loginRequired || t().loginRequired || 'Inicie sessão para finalizar a compra.') + ' <button type="button" class="acc-link" onclick="Shop.closeCo();Shop.openAccount();">' + esc(accT().loginBtn || accT().login || 'Entrar') + '</button></p>'
@@ -5616,8 +5618,13 @@
   function setAccountView(v) {
     state.accountView = v;
     state.selectedOrder = null;
+    if (v !== 'addresses') state.editingAddressId = '';
     if (state.token && v === 'addresses') {
       loadClientAddresses().then(renderAccount);
+      return;
+    }
+    if (state.token && v === 'wishlist') {
+      loadWishlistServer().then(renderAccount);
       return;
     }
     if (state.token && v === 'profile' && !state.profile) {
@@ -5719,6 +5726,7 @@
     var a = accT();
     var items = [
       { id: 'dashboard', label: a.orders },
+      { id: 'wishlist', label: a.wishlist || t().wishT },
       { id: 'profile', label: a.profile },
       { id: 'addresses', label: a.addresses }
     ];
@@ -5737,31 +5745,75 @@
   function renderProfilePanel() {
     var a = accT();
     var p = state.profile || {};
+    var nlOn = String(p.newsletter || '').toLowerCase() === 'sim' || p.newsletter === true;
     return renderDashboardNav('profile') +
+      '<p class="form-title">' + esc(a.profile) + '</p>' +
       '<div class="fgrid one">' +
       '<div class="field"><label>' + esc(a.name) + '</label><input id="profName" value="' + esc(p.nome || state.clientName || '') + '"/></div>' +
       '<div class="field"><label>' + esc(a.email) + '</label><input id="profEmail" type="email" value="' + esc(p.email || state.clientEmail || '') + '" disabled style="opacity:.6"/></div>' +
-      '<div class="field"><label>' + esc(a.phone) + '</label><input id="profPhone" value="' + esc(p.telefone || state.clientPhone || '') + '"/></div></div>' +
-      '<button type="button" class="btn-gold" style="width:100%;" onclick="Shop.saveProfile()">' + esc(a.save) + '</button>';
+      '<div class="field"><label>' + esc(a.phone) + '</label><input id="profPhone" value="' + esc(p.telefone || state.clientPhone || '') + '"/></div>' +
+      '<div class="field"><label>' + esc(a.nif || t().fNif) + '</label><input id="profNif" value="' + esc(p.nif || state.form.nif || '') + '" placeholder="123456789" maxlength="9" inputmode="numeric"/></div></div>' +
+      '<label class="acc-check"><input type="checkbox" id="profNews"' + (nlOn ? ' checked' : '') + '/><span>' + esc(a.newsletter) + '</span></label>' +
+      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.saveProfile()">' + esc(a.save) + '</button>' +
+      '<p class="form-title" style="margin-top:20px;">' + esc(a.changePassTitle) + '</p>' +
+      '<div class="fgrid one">' +
+      '<div class="field"><label>' + esc(a.oldPass) + '</label><input id="profOldPass" type="password" autocomplete="current-password"/></div>' +
+      '<div class="field"><label>' + esc(a.newPass) + '</label><input id="profNewPass" type="password" autocomplete="new-password"/></div>' +
+      '<div class="field"><label>' + esc(a.passConfirm) + '</label><input id="profNewPass2" type="password" autocomplete="new-password"/></div></div>' +
+      '<button type="button" class="btn-pay" style="width:100%;" onclick="Shop.changeClientPassword()">' + esc(a.changePassBtn) + '</button>';
+  }
+
+  function renderWishlistPanel() {
+    var a = accT();
+    var boxId = 'accWishList';
+    setTimeout(function () { renderAccountWishlist(boxId); }, 0);
+    return renderDashboardNav('wishlist') + '<div id="' + boxId + '"><p class="acc-hint">' + esc(a.loading) + '</p></div>';
+  }
+
+  function renderAccountWishlist(containerId) {
+    var box = $(containerId || 'accWishList');
+    if (!box) return;
+    var a = accT();
+    if (!state.wish.length) {
+      box.innerHTML = '<p class="acc-hint">' + esc(a.wishEmptyAcc || t().wishEmpty) + '</p>';
+      return;
+    }
+    box.innerHTML = state.wish.map(function (it) {
+      var pid = esc(it.id).replace(/'/g, "\\'");
+      return '<div class="ci acc-wish-item">' + imgHtml(it.img, nm(it), { fallback: it.imgMd || it.img }) +
+        '<div class="ci-body"><div><p class="ci-name">' + esc(nm(it)) + '</p><p class="ci-price" style="margin-top:5px;">' + it.price.toFixed(2) + ' €</p></div>' +
+        '<div class="ci-bot"><button type="button" class="btn-gold" style="font-size:8px;padding:8px 10px;" onclick="Shop.addWishlistToCart(\'' + pid + '\')">' + esc(t().addCart) + '</button>' +
+        '<button type="button" class="btn-rm" onclick="Shop.toggleWish(\'' + pid + '\');Shop.renderAccountWishlist(\'' + esc(containerId || 'accWishList') + '\')">' + esc(t().remove) + '</button></div></div></div>';
+    }).join('');
   }
 
   function renderAddressesPanel() {
     var a = accT();
+    var editing = state.editingAddressId || '';
+    var editAd = editing ? (state.addresses || []).find(function (ad) { return ad.address_id === editing; }) : null;
     var list = (state.addresses || []).map(function (ad) {
+      var aid = esc(ad.address_id).replace(/'/g, "\\'");
       return '<div class="acc-addr"><strong>' + esc(ad.tipo || 'envio') + '</strong><br>' +
         esc(ad.morada) + '<br>' + esc(ad.codigo_postal) + ' ' + esc(ad.cidade) + ', ' + esc(ad.pais || '') +
         '<div class="acc-addr-actions">' +
-        '<button type="button" class="btn-ghost-sm" onclick="Shop.useAddress(\'' + esc(ad.address_id) + '\')">' + esc(a.useAddr) + '</button>' +
-        '<button type="button" class="btn-ghost-sm" onclick="Shop.deleteAddress(\'' + esc(ad.address_id) + '\')">' + esc(a.delete) + '</button></div></div>';
+        '<button type="button" class="btn-ghost-sm" onclick="Shop.useAddress(\'' + aid + '\')">' + esc(a.useAddr) + '</button>' +
+        '<button type="button" class="btn-ghost-sm" onclick="Shop.startEditAddress(\'' + aid + '\')">' + esc(a.editAddr) + '</button>' +
+        '<button type="button" class="btn-ghost-sm" onclick="Shop.deleteAddress(\'' + aid + '\')">' + esc(a.delete) + '</button></div></div>';
     }).join('');
+    var formTitle = editing ? (a.editAddr + ' — ' + esc(editAd && editAd.tipo || 'envio')) : a.addAddr;
+    var moradaVal = editing && editAd ? editAd.morada : '';
+    var zipVal = editing && editAd ? editAd.codigo_postal : '';
+    var cityVal = editing && editAd ? editAd.cidade : '';
+    var countryVal = editing && editAd ? (editAd.pais || 'Portugal') : 'Portugal';
     return renderDashboardNav('addresses') + list +
-      '<p class="form-title" style="margin-top:16px;">' + esc(a.addAddr) + '</p>' +
+      '<p class="form-title" style="margin-top:16px;">' + esc(formTitle) + '</p>' +
       '<div class="fgrid one">' +
-      '<div class="field"><label>' + esc(a.addrLabel) + '</label><input id="addrMorada"/></div>' +
-      '<div class="fgrid"><div class="field"><label>' + esc(a.zip) + '</label><input id="addrZip"/></div>' +
-      '<div class="field"><label>' + esc(a.city) + '</label><input id="addrCity"/></div></div>' +
-      '<div class="field"><label>' + esc(a.country) + '</label><input id="addrCountry" value="Portugal" placeholder="Portugal / France"/></div></div>' +
-      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.saveNewAddress()">' + esc(a.save) + '</button>';
+      '<div class="field"><label>' + esc(a.addrLabel) + '</label><input id="addrMorada" value="' + esc(moradaVal) + '"/></div>' +
+      '<div class="fgrid"><div class="field"><label>' + esc(a.zip) + '</label><input id="addrZip" value="' + esc(zipVal) + '"/></div>' +
+      '<div class="field"><label>' + esc(a.city) + '</label><input id="addrCity" value="' + esc(cityVal) + '"/></div></div>' +
+      '<div class="field"><label>' + esc(a.country) + '</label><input id="addrCountry" value="' + esc(countryVal) + '" placeholder="Portugal / France"/></div></div>' +
+      (editing ? '<button type="button" class="btn-ghost-sm" style="width:100%;margin-bottom:8px;" onclick="Shop.cancelEditAddress()">' + esc(a.cancelEdit) + '</button>' : '') +
+      '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.saveNewAddress()">' + esc(editing ? a.save : a.save) + '</button>';
   }
 
   function renderOrderDetail(o, details) {
@@ -5797,6 +5849,8 @@
       '<p style="font-size:10px;"><strong>' + esc(a.total) + ':</strong> ' + esc(o.total) + ' € · <strong>' + esc(a.status) + ':</strong> ' + esc(orderStateLabel_(o.estado)) + '</p>' +
       '<p style="font-size:10px;"><strong>' + esc(a.pay) + ':</strong> ' + esc(orderStateLabel_(o.estado_pagamento)) + ' · <strong>' + esc(a.ship) + ':</strong> ' + esc(orderStateLabel_(o.estado_envio)) + '</p>' +
       (o.tracking_number ? '<p style="font-size:10px;"><strong>' + esc(a.tracking) + ':</strong> ' + esc(o.tracking_number) + (o.transportadora ? ' (' + esc(o.transportadora) + ')' : '') + '</p>' : '') +
+      (o.fiscal_doc_url ? '<p style="font-size:10px;margin:8px 0;"><a href="' + esc(o.fiscal_doc_url) + '" target="_blank" rel="noopener noreferrer" class="acc-legal-link">' + esc(a.fiscalDocLink || t().receiptDownload || 'PDF') + '</a>' +
+        (o.fiscal_doc_ref ? ' <span style="color:var(--muted);">(' + esc(o.fiscal_doc_ref) + ')</span>' : '') + '</p>' : '') +
       stripePayBlock +
       orderTrackingHtml(o) +
       (state.clientId && state.token ? renderReturnRequestBlock(o) : '') +
@@ -5858,15 +5912,16 @@
     var a = accT();
     var view = state.accountView;
     if (view === 'orderDetail' && state.selectedOrder) {
-      return '<div class="acc-wrap"><h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
+      return '<div class="acc-wrap"><h2 class="acc-section-h">' + esc(a.orderDetail) + '</h2>' +
         renderOrderDetail(state.selectedOrder.order, state.selectedOrder.details) + '</div>';
     }
     var panel = '';
     if (view === 'profile') panel = renderProfilePanel();
     else if (view === 'addresses') panel = renderAddressesPanel();
+    else if (view === 'wishlist') panel = renderWishlistPanel();
     else panel = renderOrdersPanel();
     return '<div class="acc-wrap">' +
-      '<h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:4px;">' + esc(a.welcome) + ', ' + esc(state.clientName || '') + '</h2>' +
+      '<h2 class="acc-welcome">' + esc(a.welcome) + ', ' + esc(state.clientName || '') + '</h2>' +
       '<p style="font-size:10px;color:var(--muted);margin-bottom:16px;">' + esc(state.clientEmail || '') + '</p>' +
       panel +
       '<button type="button" class="btn-ghost" style="width:100%;margin-top:20px;border-color:#444;color:#aaa;" onclick="Shop.logout()">' + esc(a.logout) + '</button></div>';
@@ -5885,7 +5940,7 @@
     }
     var a = accT();
     if (state.accountView === 'orderDetail' && state.selectedOrder) {
-      body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
+      body.innerHTML = '<div class="acc-wrap"><h2 class="acc-section-h">' + esc(a.orderDetail) + '</h2>' +
         renderOrderDetail(state.selectedOrder.order, state.selectedOrder.details) + '</div>';
       return;
     }
@@ -5896,7 +5951,7 @@
     else if (state.accountView === 'forgot') inner = renderForgotForm();
     else if (state.accountView === 'reset') inner = renderResetForm();
     else inner = renderLoginForm();
-    body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">' + esc(a.title) + '</h2>' + inner + '</div>';
+    body.innerHTML = '<div class="acc-wrap"><h2 class="acc-section-h">' + esc(a.title) + '</h2>' + inner + '</div>';
     if (state.accountView === 'login' || state.accountView === 'register' || !state.accountView) {
       setTimeout(mountGoogleButton_, 0);
     }
@@ -6119,26 +6174,83 @@
     var a = accT();
     var nome = ($('profName') && $('profName').value.trim()) || '';
     var telefone = ($('profPhone') && $('profPhone').value.trim()) || '';
+    var nif = ($('profNif') && $('profNif').value.trim()) || '';
+    var newsletter = !!($('profNews') && $('profNews').checked);
     if (!nome) {
       global.toast(a.fieldsRequired, 'e');
       return;
     }
     try {
-      var res = await erpCall('updateClient', { clientId: state.clientId, nome: nome, telefone: telefone }, state.token);
+      var res = await erpCall('updateClient', {
+        clientId: state.clientId,
+        nome: nome,
+        telefone: telefone,
+        nif: nif,
+        newsletter: newsletter
+      }, state.token);
       if (!res || !res.success) {
         global.toast((res && res.error) || 'Profile', 'e');
         return;
       }
       state.clientName = nome;
       state.clientPhone = telefone;
+      state.form.nif = nif;
       if (state.profile) {
         state.profile.nome = nome;
         state.profile.telefone = telefone;
+        state.profile.nif = nif;
+        state.profile.newsletter = newsletter ? 'sim' : 'nao';
       }
       saveSession();
       prefillCheckoutFromProfile();
       global.toast(a.profileSaved, 's');
     } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  async function changeClientPassword() {
+    var a = accT();
+    var oldP = $('profOldPass') ? String($('profOldPass').value || '') : '';
+    var newP = $('profNewPass') ? String($('profNewPass').value || '') : '';
+    var newP2 = $('profNewPass2') ? String($('profNewPass2').value || '') : '';
+    if (!oldP || !newP || !newP2) {
+      global.toast(a.fieldsRequired, 'e');
+      return;
+    }
+    if (newP.length < 8) {
+      global.toast(a.passMin, 'e');
+      return;
+    }
+    if (newP !== newP2) {
+      global.toast(a.passMismatch, 'e');
+      return;
+    }
+    try {
+      var res = await erpCall('changeClientPassword', {
+        clientId: state.clientId,
+        oldPassword: oldP,
+        newPassword: newP
+      }, state.token);
+      if (!res || !res.success) {
+        var err = (res && res.error) || 'Error';
+        if (res && res.code === 'WRONG_PASSWORD') err = a.wrongPass || err;
+        global.toast(err, 'e');
+        return;
+      }
+      if ($('profOldPass')) $('profOldPass').value = '';
+      if ($('profNewPass')) $('profNewPass').value = '';
+      if ($('profNewPass2')) $('profNewPass2').value = '';
+      global.toast(a.passChanged, 's');
+    } catch (e) { global.toast(e.message, 'e'); }
+  }
+
+  function startEditAddress(addressId) {
+    state.editingAddressId = String(addressId || '');
+    renderAccount();
+  }
+
+  function cancelEditAddress() {
+    state.editingAddressId = '';
+    renderAccount();
   }
 
   async function saveNewAddress() {
@@ -6152,21 +6264,25 @@
       return;
     }
     try {
-      var res = await erpCall('saveClientAddress', {
+      var wasEdit = !!state.editingAddressId;
+      var payload = {
         clientId: state.clientId,
         tipo: 'envio',
         morada: morada,
         cidade: cidade,
         codigo_postal: zip,
         pais: pais
-      }, state.token);
+      };
+      if (state.editingAddressId) payload.address_id = state.editingAddressId;
+      var res = await erpCall('saveClientAddress', payload, state.token);
       if (!res || !res.success) {
         global.toast((res && res.error) || 'Address', 'e');
         return;
       }
+      state.editingAddressId = '';
       await loadClientAddresses();
       renderAccount();
-      global.toast(a.addrSaved, 's');
+      global.toast(wasEdit ? (a.addrUpdated || a.addrSaved) : a.addrSaved, 's');
     } catch (e) { global.toast(e.message, 'e'); }
   }
 
@@ -6322,7 +6438,7 @@
     }).join('');
     body.innerHTML =
       '<div class="acc-wrap">' +
-      '<h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:6px;">' + esc(c.title) + '</h2>' +
+      '<h2 class="co-title">' + esc(c.title) + '</h2>' +
       '<p class="acc-hint">' + esc(c.sub) + '</p>' + quick +
       '<div class="fgrid one" style="margin-top:16px;">' +
       '<div class="field"><label>' + esc(c.name) + '</label><input id="ctName" type="text" value="' + esc(state.clientName || state.form.name || '') + '"/></div>' +
@@ -6579,7 +6695,7 @@
       state.storeLoading = false;
       if (cfgOn('maintenance_mode', false)) {
         var msg = state.config.maintenance_message || t().maintenanceDefault || 'Boutique en maintenance. Revenez bientôt.';
-        document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:\'Segoe UI\',system-ui,sans-serif;text-align:center;"><div><h1 style="font-size:18px;font-weight:600;margin-bottom:12px;">AZAVISION</h1><p style="font-size:11px;line-height:1.6;color:#666;max-width:420px;">' + esc(msg) + '</p></div></div>';
+        document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:\'Montserrat\',sans-serif;text-align:center;"><div><h1 style="font-family:\'Cormorant Garamond\',serif;font-size:28px;font-weight:300;margin-bottom:12px;">AZAVISION</h1><p style="font-size:11px;line-height:1.6;color:#666;max-width:420px;">' + esc(msg) + '</p></div></div>';
         return;
       }
       if (global.boot) global.boot();
@@ -6743,7 +6859,11 @@
     confirmPasswordReset: confirmPasswordReset,
     logout: logout,
     saveProfile: saveProfile,
+    changeClientPassword: changeClientPassword,
     saveNewAddress: saveNewAddress,
+    startEditAddress: startEditAddress,
+    cancelEditAddress: cancelEditAddress,
+    renderAccountWishlist: renderAccountWishlist,
     useAddress: useAddress,
     deleteAddress: deleteAddress,
     loadMyOrders: loadMyOrders,
