@@ -2730,9 +2730,6 @@
     var pal = heroMotionPalette_();
     var W = heroMotionState_.w;
     var H = heroMotionState_.h;
-    var particles = heroMotionState_.particles;
-    var GR = pal.gold;
-    var GR2 = pal.gold2;
     ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
     var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.1, W / 2, H / 2, H * 0.75);
@@ -2740,6 +2737,20 @@
     vg.addColorStop(1, getTheme() === 'light' ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.55)');
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, W, H);
+    heroMotionState_.t = (heroMotionState_.t || 0) + 0.016;
+    var style = heroMotionState_.style || 'web';
+    if (style === 'stars') heroMotionDrawStars_(ctx, pal, W, H);
+    else if (style === 'letters') heroMotionDrawLetters_(ctx, pal, W, H);
+    else if (style === 'sunmoon') heroMotionDrawSunMoon_(ctx, pal, W, H);
+    else heroMotionDrawWeb_(ctx, pal, W, H);
+    heroMotionState_.raf = requestAnimationFrame(heroMotionDrawFrame_);
+  }
+
+  /** Style « web » — toile d'araignée : points reliés par des lignes + losanges. */
+  function heroMotionDrawWeb_(ctx, pal, W, H) {
+    var particles = heroMotionState_.particles;
+    var GR = pal.gold;
+    var GR2 = pal.gold2;
     var D = 120;
     var i;
     var j;
@@ -2803,7 +2814,209 @@
       ctx.stroke();
       ctx.restore();
     }
-    heroMotionState_.raf = requestAnimationFrame(heroMotionDrawFrame_);
+  }
+
+  /** Dessine une étoile scintillante à 4 branches. */
+  function heroMotionStarShape_(ctx, x, y, r, color) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 2.2);
+    ctx.lineTo(r * 0.45, -r * 0.45);
+    ctx.lineTo(r * 2.2, 0);
+    ctx.lineTo(r * 0.45, r * 0.45);
+    ctx.lineTo(0, r * 2.2);
+    ctx.lineTo(-r * 0.45, r * 0.45);
+    ctx.lineTo(-r * 2.2, 0);
+    ctx.lineTo(-r * 0.45, -r * 0.45);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Style « stars » — ciel d'étoiles scintillantes + étoile filante occasionnelle. */
+  function heroMotionDrawStars_(ctx, pal, W, H) {
+    var particles = heroMotionState_.particles;
+    var GR = pal.gold;
+    var i;
+    for (i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.x += p.vx * 0.35;
+      p.y += p.vy * 0.35;
+      p.a += Math.abs(p.va) * 3 + 0.01;
+      if (p.x < 0) p.x = W;
+      if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H;
+      if (p.y > H) p.y = 0;
+      var tw = 0.2 + 0.8 * Math.abs(Math.sin(p.a * 2 + i));
+      var size = p.r * (0.7 + tw * 0.9);
+      var col = p.gold ? ('rgba(' + GR + ',' + tw + ')') : ('rgba(255,255,255,' + (tw * 0.9) + ')');
+      heroMotionStarShape_(ctx, p.x, p.y, size, col);
+    }
+    var sh = heroMotionState_.shoot;
+    if (!sh || sh.done) {
+      if (Math.random() < 0.012) {
+        heroMotionState_.shoot = { x: Math.random() * W * 0.7, y: Math.random() * H * 0.4, len: 0, done: false };
+      }
+    } else {
+      sh.x += 7;
+      sh.y += 3.4;
+      sh.len = Math.min(160, sh.len + 12);
+      var tailX = sh.x - sh.len;
+      var tailY = sh.y - sh.len * 0.485;
+      var grad = ctx.createLinearGradient(tailX, tailY, sh.x, sh.y);
+      grad.addColorStop(0, 'rgba(' + GR + ',0)');
+      grad.addColorStop(1, 'rgba(255,255,255,0.9)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(sh.x, sh.y);
+      ctx.stroke();
+      if (sh.x > W || sh.y > H) sh.done = true;
+    }
+  }
+
+  /** Construit les points cibles (pixels) du mot AZAVISION pour le style « letters ». */
+  function heroMotionBuildLetterTargets_(W, H) {
+    var off = document.createElement('canvas');
+    off.width = W;
+    off.height = H;
+    var c = off.getContext('2d');
+    if (!c) return [];
+    var fs = Math.min(H * 0.42, W / 6.2);
+    c.fillStyle = '#fff';
+    c.font = '600 ' + Math.round(fs) + 'px "Cormorant Garamond", Georgia, serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('AZAVISION', W / 2, H / 2);
+    var data;
+    try { data = c.getImageData(0, 0, W, H).data; } catch (e) { return []; }
+    var pts = [];
+    var step = Math.max(4, Math.round(fs / 16));
+    for (var y = 0; y < H; y += step) {
+      for (var x = 0; x < W; x += step) {
+        if (data[(y * W + x) * 4 + 3] > 128) pts.push({ x: x, y: y });
+      }
+    }
+    if (pts.length > 520) {
+      var keep = [];
+      var k = pts.length / 520;
+      for (var m = 0; m < 520; m++) keep.push(pts[Math.floor(m * k)]);
+      pts = keep;
+    }
+    return pts;
+  }
+
+  /** Style « letters » — la poussière dorée se rassemble pour écrire AZAVISION. */
+  function heroMotionDrawLetters_(ctx, pal, W, H) {
+    var st = heroMotionState_;
+    if (!st.letterTargets || st.letterW !== W || st.letterH !== H) {
+      st.letterTargets = heroMotionBuildLetterTargets_(W, H);
+      st.letterW = W;
+      st.letterH = H;
+      st.letterParts = st.letterTargets.map(function (tg) {
+        return {
+          x: Math.random() * W, y: Math.random() * H,
+          tx: tg.x, ty: tg.y,
+          a: Math.random(), va: (Math.random() - 0.5) * 0.06,
+          gold: Math.random() > 0.45, r: Math.random() * 1.1 + 0.7
+        };
+      });
+    }
+    var GR = pal.gold;
+    var GR2 = pal.gold2;
+    var parts = st.letterParts || [];
+    if (!parts.length) { heroMotionDrawWeb_(ctx, pal, W, H); return; }
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      p.x += (p.tx - p.x) * 0.06;
+      p.y += (p.ty - p.y) * 0.06;
+      p.a += p.va;
+      var jitter = 0.6 * Math.sin(p.a * 2 + i);
+      var alpha = 0.55 + 0.4 * Math.abs(Math.sin(p.a));
+      var color = p.gold ? GR : GR2;
+      ctx.beginPath();
+      ctx.arc(p.x + jitter, p.y + jitter, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(' + color + ',' + alpha + ')';
+      ctx.fill();
+      if (p.gold) {
+        var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.5);
+        g.addColorStop(0, 'rgba(' + GR + ',' + (alpha * 0.28) + ')');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+    }
+  }
+
+  /** Style « sunmoon » — lune (croissant) et soleil rayonnant qui brillent. */
+  function heroMotionDrawSunMoon_(ctx, pal, W, H) {
+    var st = heroMotionState_;
+    var GR = pal.gold;
+    var t = st.t || 0;
+    var particles = st.particles;
+    var i;
+    for (i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.a += Math.abs(p.va) * 2 + 0.008;
+      var tw = 0.15 + 0.5 * Math.abs(Math.sin(p.a * 2 + i));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * 0.7, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,' + tw + ')';
+      ctx.fill();
+    }
+    var pulse = 1 + 0.07 * Math.sin(t * 2);
+    var R = Math.min(W, H);
+    var sunX = W * 0.72;
+    var sunY = H * 0.42;
+    var sunR = R * 0.085;
+    var sg = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR * 4.2 * pulse);
+    sg.addColorStop(0, 'rgba(' + GR + ',0.5)');
+    sg.addColorStop(0.5, 'rgba(' + GR + ',0.16)');
+    sg.addColorStop(1, 'rgba(' + GR + ',0)');
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, sunR * 4.2 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(sunX, sunY);
+    ctx.rotate(t * 0.25);
+    for (var r = 0; r < 12; r++) {
+      ctx.rotate(Math.PI / 6);
+      ctx.beginPath();
+      ctx.moveTo(sunR * 1.45, 0);
+      ctx.lineTo(sunR * (2.1 + 0.2 * Math.sin(t * 2)), 0);
+      ctx.strokeStyle = 'rgba(' + GR + ',0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(' + GR + ',0.96)';
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+    ctx.fill();
+    var mX = W * 0.28;
+    var mY = H * 0.4;
+    var mR = R * 0.072;
+    var mg = ctx.createRadialGradient(mX, mY, 0, mX, mY, mR * 3.4 * pulse);
+    mg.addColorStop(0, 'rgba(225,230,240,0.4)');
+    mg.addColorStop(1, 'rgba(225,230,240,0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    ctx.arc(mX, mY, mR * 3.4 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(236,239,246,0.96)';
+    ctx.beginPath();
+    ctx.arc(mX, mY, mR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = pal.bg;
+    ctx.beginPath();
+    ctx.arc(mX - mR * 0.55, mY - mR * 0.28, mR * 0.92, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function startHeroMotionCanvas_() {
@@ -2812,6 +3025,7 @@
     var hero = document.querySelector('.hero');
     if (!canvas || !hero) return;
     stopHeroMotionCanvas_();
+    heroMotionState_.style = heroMotionStyle_();
     hero.classList.add('hero-motion-on');
     heroMotionResize_();
     if (!heroMotionState_.bound) {
@@ -2822,7 +3036,51 @@
   }
 
   function isHeroMotionCanvasOn() {
+    if (heroMotionUrlStyle_()) return true;
     return cfgOn('vitrine_hero_motion_canvas', false);
+  }
+
+  /** Normalise un identifiant de style de motion (accepte FR/EN/synonymes). */
+  function heroMotionNormalizeStyle_(v) {
+    v = String(v || '').toLowerCase().trim();
+    if (['web', 'spider', 'toile', 'araignee', 'araignée', 'constellation', 'points', 'dots'].indexOf(v) >= 0) return 'web';
+    if (['stars', 'star', 'etoiles', 'étoiles', 'etoile', 'étoile'].indexOf(v) >= 0) return 'stars';
+    if (['letters', 'lettres', 'azavision', 'text', 'texte', 'mot'].indexOf(v) >= 0) return 'letters';
+    if (['sunmoon', 'moonsun', 'lune', 'soleil', 'sun', 'moon', 'lunesoleil'].indexOf(v) >= 0) return 'sunmoon';
+    return '';
+  }
+
+  /** Style demandé via l'URL (?motion=stars) — sert aussi à activer le canvas pour essayer. */
+  function heroMotionUrlStyle_() {
+    try {
+      var u = new URLSearchParams(global.location.search).get('motion');
+      return heroMotionNormalizeStyle_(u);
+    } catch (e) { return ''; }
+  }
+
+  /** Résout le style courant : URL → localStorage → config admin → défaut « web ». */
+  function heroMotionStyle_() {
+    var fromUrl = heroMotionUrlStyle_();
+    if (fromUrl) {
+      try { localStorage.setItem('azv_hero_motion', fromUrl); } catch (e) { /* ignore */ }
+      return fromUrl;
+    }
+    try {
+      var ls = heroMotionNormalizeStyle_(localStorage.getItem('azv_hero_motion'));
+      if (ls) return ls;
+    } catch (e2) { /* ignore */ }
+    var cfg = heroMotionNormalizeStyle_(state.config && state.config.vitrine_hero_motion_style);
+    return cfg || 'web';
+  }
+
+  /** Permet d'essayer un style à chaud : Shop.setHeroMotion('stars'|'web'|'letters'|'sunmoon'). */
+  function setHeroMotion(style) {
+    var s = heroMotionNormalizeStyle_(style) || 'web';
+    try { localStorage.setItem('azv_hero_motion', s); } catch (e) { /* ignore */ }
+    heroMotionState_.style = s;
+    heroMotionState_.letterTargets = null;
+    startHeroMotionCanvas_();
+    return s;
   }
 
   function applyBrandUi() {
@@ -2836,19 +3094,29 @@
     });
     var navLogo = document.querySelector('.brand-logo');
     var footLogo = document.querySelector('.f-logo');
-    var localNav = 'icons/logo-nav.png';
-    var localFoot = 'icons/logo.png';
+    var remoteNav = (state.store && state.store.logoUrl) ? (optimizeImageUrl(state.store.logoUrl, 400) || state.store.logoUrl) : '';
+    var remoteFoot = (state.store && state.store.logoUrl) ? (optimizeImageUrl(state.store.logoUrl, 300) || state.store.logoUrl) : '';
     if (navLogo) {
-      navLogo.setAttribute('data-fallback', localNav);
-      var remoteNav = (state.store && state.store.logoUrl) ? optimizeImageUrl(state.store.logoUrl, 400) : '';
-      navLogo.src = remoteNav || localNav;
-      navLogo.style.display = '';
+      if (remoteNav) {
+        navLogo.setAttribute('data-fallback', remoteNav);
+        navLogo.src = remoteNav;
+        navLogo.style.display = '';
+        var navWrap = navLogo.closest('.brand');
+        if (navWrap) navWrap.classList.remove('logo-missing');
+      } else {
+        logoError(navLogo);
+      }
     }
     if (footLogo) {
-      footLogo.setAttribute('data-fallback', localFoot);
-      var remoteFoot = (state.store && state.store.logoUrl) ? optimizeImageUrl(state.store.logoUrl, 300) : '';
-      footLogo.src = remoteFoot || localFoot;
-      footLogo.style.display = '';
+      if (remoteFoot) {
+        footLogo.setAttribute('data-fallback', remoteFoot);
+        footLogo.src = remoteFoot;
+        footLogo.style.display = '';
+        var footWrap = footLogo.closest('.f-brand');
+        if (footWrap) footWrap.classList.remove('logo-missing');
+      } else {
+        logoError(footLogo);
+      }
     }
     if (state.store && state.store.colors) {
       var root = document.documentElement;
@@ -6444,7 +6712,8 @@
     cancelReturnForm: cancelReturnForm,
     submitClientReturn: submitClientReturn,
     acceptAllCookies: acceptAllCookies,
-    acceptEssentialCookies: acceptEssentialCookies
+    acceptEssentialCookies: acceptEssentialCookies,
+    setHeroMotion: setHeroMotion
   };
 
   document.addEventListener('DOMContentLoaded', function () {
