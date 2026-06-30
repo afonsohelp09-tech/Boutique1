@@ -2878,13 +2878,14 @@
     }
   }
 
-  /** Construit les points cibles (pixels) du mot AZAVISION pour le style « letters ». */
+  /** Construit points cibles du mot AZAVISION + liens « toile » de proximité. */
   function heroMotionBuildLetterTargets_(W, H) {
+    var empty = { pts: [], links: [], linkDist: 22 };
     var off = document.createElement('canvas');
     off.width = W;
     off.height = H;
     var c = off.getContext('2d');
-    if (!c) return [];
+    if (!c) return empty;
     var fs = Math.min(H * 0.42, W / 6.2);
     c.fillStyle = '#fff';
     c.font = '600 ' + Math.round(fs) + 'px "Cormorant Garamond", Georgia, serif';
@@ -2892,36 +2893,50 @@
     c.textBaseline = 'middle';
     c.fillText('AZAVISION', W / 2, H / 2);
     var data;
-    try { data = c.getImageData(0, 0, W, H).data; } catch (e) { return []; }
+    try { data = c.getImageData(0, 0, W, H).data; } catch (e) { return empty; }
     var pts = [];
-    var step = Math.max(4, Math.round(fs / 16));
+    var step = Math.max(4, Math.round(fs / 18));
     for (var y = 0; y < H; y += step) {
       for (var x = 0; x < W; x += step) {
         if (data[(y * W + x) * 4 + 3] > 128) pts.push({ x: x, y: y });
       }
     }
-    if (pts.length > 520) {
+    if (pts.length > 560) {
       var keep = [];
-      var k = pts.length / 520;
-      for (var m = 0; m < 520; m++) keep.push(pts[Math.floor(m * k)]);
+      var k = pts.length / 560;
+      for (var m = 0; m < 560; m++) keep.push(pts[Math.floor(m * k)]);
       pts = keep;
     }
-    return pts;
+    var linkDist = Math.max(16, step * 2.6);
+    var ld2 = linkDist * linkDist;
+    var links = [];
+    for (var a = 0; a < pts.length; a++) {
+      for (var b = a + 1; b < pts.length; b++) {
+        var dxx = pts[a].x - pts[b].x;
+        var dyy = pts[a].y - pts[b].y;
+        if (dxx * dxx + dyy * dyy < ld2) {
+          links.push(a, b);
+          if (links.length >= 6000) break;
+        }
+      }
+      if (links.length >= 6000) break;
+    }
+    return { pts: pts, links: links, linkDist: linkDist };
   }
 
-  /** Style « letters » — la poussière dorée se rassemble pour écrire AZAVISION. */
+  /** Style « letters » — poussière dorée formant AZAVISION, reliée en toile, tout brille. */
   function heroMotionDrawLetters_(ctx, pal, W, H) {
     var st = heroMotionState_;
-    if (!st.letterTargets || st.letterW !== W || st.letterH !== H) {
-      st.letterTargets = heroMotionBuildLetterTargets_(W, H);
+    if (!st.letterData || st.letterW !== W || st.letterH !== H) {
+      st.letterData = heroMotionBuildLetterTargets_(W, H);
       st.letterW = W;
       st.letterH = H;
-      st.letterParts = st.letterTargets.map(function (tg) {
+      st.letterParts = st.letterData.pts.map(function (tg) {
         return {
           x: Math.random() * W, y: Math.random() * H,
           tx: tg.x, ty: tg.y,
-          a: Math.random(), va: (Math.random() - 0.5) * 0.06,
-          gold: Math.random() > 0.45, r: Math.random() * 1.1 + 0.7
+          a: Math.random() * 6.28, va: (Math.random() - 0.5) * 0.05,
+          gold: Math.random() > 0.4, r: Math.random() * 1.1 + 0.9
         };
       });
     }
@@ -2929,28 +2944,53 @@
     var GR2 = pal.gold2;
     var parts = st.letterParts || [];
     if (!parts.length) { heroMotionDrawWeb_(ctx, pal, W, H); return; }
-    for (var i = 0; i < parts.length; i++) {
+    var links = (st.letterData && st.letterData.links) || [];
+    var LD = (st.letterData && st.letterData.linkDist) || 22;
+    var maxLine = LD * 1.7;
+    var shimmer = 0.82 + 0.18 * Math.sin((st.t || 0) * 1.6);
+    var i;
+    for (i = 0; i < parts.length; i++) {
       var p = parts[i];
-      p.x += (p.tx - p.x) * 0.06;
-      p.y += (p.ty - p.y) * 0.06;
+      p.x += (p.tx - p.x) * 0.07;
+      p.y += (p.ty - p.y) * 0.07;
       p.a += p.va;
-      var jitter = 0.6 * Math.sin(p.a * 2 + i);
-      var alpha = 0.55 + 0.4 * Math.abs(Math.sin(p.a));
-      var color = p.gold ? GR : GR2;
-      ctx.beginPath();
-      ctx.arc(p.x + jitter, p.y + jitter, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(' + color + ',' + alpha + ')';
-      ctx.fill();
-      if (p.gold) {
-        var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.5);
-        g.addColorStop(0, 'rgba(' + GR + ',' + (alpha * 0.28) + ')');
-        g.addColorStop(1, 'rgba(0,0,0,0)');
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = 0.8;
+    for (i = 0; i < links.length; i += 2) {
+      var pa = parts[links[i]];
+      var pb = parts[links[i + 1]];
+      if (!pa || !pb) continue;
+      var lx = pa.x - pb.x;
+      var ly = pa.y - pb.y;
+      var ld = Math.sqrt(lx * lx + ly * ly);
+      if (ld < maxLine) {
+        var op = (1 - ld / maxLine) * 0.42 * shimmer;
+        ctx.strokeStyle = 'rgba(' + GR + ',' + op + ')';
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = g;
-        ctx.fill();
+        ctx.moveTo(pa.x, pa.y);
+        ctx.lineTo(pb.x, pb.y);
+        ctx.stroke();
       }
     }
+    for (i = 0; i < parts.length; i++) {
+      var q = parts[i];
+      var twinkle = 0.6 + 0.4 * Math.abs(Math.sin(q.a * 2 + i));
+      var glow = twinkle * shimmer;
+      var color = q.gold ? GR : GR2;
+      var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * 5);
+      gr.addColorStop(0, 'rgba(' + color + ',' + (glow * 0.55) + ')');
+      gr.addColorStop(1, 'rgba(' + color + ',0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, q.r * 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,245,225,' + glow + ')';
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   /** Style « sunmoon » — lune (croissant) et soleil rayonnant qui brillent. */
@@ -3078,7 +3118,7 @@
     var s = heroMotionNormalizeStyle_(style) || 'web';
     try { localStorage.setItem('azv_hero_motion', s); } catch (e) { /* ignore */ }
     heroMotionState_.style = s;
-    heroMotionState_.letterTargets = null;
+    heroMotionState_.letterData = null;
     startHeroMotionCanvas_();
     return s;
   }
