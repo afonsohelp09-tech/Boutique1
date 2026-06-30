@@ -651,7 +651,6 @@
 
   function updateMobBarLabels() {
     var tx = t();
-    if ($('mobMenuLbl') && tx.navMenu) $('mobMenuLbl').textContent = tx.navMenu;
     if ($('mobShopLbl') && tx.mobShop) $('mobShopLbl').textContent = tx.mobShop;
     if ($('mobCartLbl') && tx.mobCart) $('mobCartLbl').textContent = tx.mobCart;
     if ($('mobOrdersLbl') && tx.mobOrders) $('mobOrdersLbl').textContent = tx.mobOrders;
@@ -2230,8 +2229,16 @@
     var logoEl = $('heroLoadingLogo');
     if (logoEl) {
       logoEl.alt = name || 'AZAVISION';
-      if (state.store && state.store.logoUrl) {
-        logoEl.src = optimizeImageUrl(state.store.logoUrl, 240) || state.store.logoUrl;
+      var logoSrc = (state.store && state.store.logoUrl)
+        ? (optimizeImageUrl(state.store.logoUrl, 240) || state.store.logoUrl)
+        : '';
+      if (logoSrc) {
+        logoEl.src = logoSrc;
+        logoEl.style.display = '';
+        logoEl.onerror = function () { logoEl.style.display = 'none'; };
+      } else {
+        logoEl.removeAttribute('src');
+        logoEl.style.display = 'none';
       }
     }
     if (mode === 'brand') startHeroMotionCanvas_();
@@ -3111,7 +3118,7 @@
       if (ls) return ls;
     } catch (e2) { /* ignore */ }
     var cfg = heroMotionNormalizeStyle_(state.config && state.config.vitrine_hero_motion_style);
-    return cfg || 'web';
+    return cfg || 'letters';
   }
 
   /** Permet d'essayer un style à chaud : Shop.setHeroMotion('stars'|'web'|'letters'|'sunmoon'). */
@@ -3159,11 +3166,7 @@
         logoError(footLogo);
       }
     }
-    if (state.store && state.store.colors) {
-      var root = document.documentElement;
-      if (state.store.colors.main) root.style.setProperty('--ink', state.store.colors.main);
-      if (state.store.colors.accent) root.style.setProperty('--gold', state.store.colors.accent);
-    }
+    /* color_main / color_accent admin : ne pas écraser --gold/--ink (thème clair/foncé fixe, comme l'admin) */
     var heroBg = document.querySelector('.hero-bg');
     var heroPhoto = $('heroPhoto');
     var heroUrl = (state.store && state.store.heroBgUrl) || (state.config && state.config.vitrine_hero_bg_url) || '';
@@ -4570,8 +4573,7 @@
   }
 
   function openCo() {
-    // Compte client obligatoire pour payer (sauf si la boutique active explicitement l'achat invité).
-    if (!state.clientId && !cfgOn('guest_checkout_enabled', false)) {
+    if (requireClientAccountForCheckout_()) {
       global.toast(accT().loginRequired || t().guestCheckout || 'Inicie sessão para finalizar a compra.', 'i');
       state.accountView = 'login';
       openAccount();
@@ -5190,7 +5192,9 @@
       '<div class="m-body co-panel">' +
       '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;font-weight:300;margin-bottom:5px;">' + esc(t().coTitle) + '</h2>' +
       '<p style="font-size:10px;color:var(--muted);margin-bottom:18px;">' + esc(t().coSub) + '</p>' +
-      (!state.clientId ? '<p class="acc-hint" style="margin-bottom:14px;">' + esc(t().guestCheckout) + ' <button type="button" class="acc-link" onclick="Shop.closeCo();Shop.openAccount();">' + esc(t().guestCheckoutBtn) + '</button>' + esc(t().guestCheckoutSuffix) + '</p>' : '') +
+      (requireClientAccountForCheckout_()
+        ? '<p class="acc-hint" style="margin-bottom:14px;color:var(--gold);">' + esc(accT().loginRequired || t().loginRequired || 'Inicie sessão para finalizar a compra.') + ' <button type="button" class="acc-link" onclick="Shop.closeCo();Shop.openAccount();">' + esc(accT().loginBtn || accT().login || 'Entrar') + '</button></p>'
+        : (!state.clientId ? '<p class="acc-hint" style="margin-bottom:14px;">' + esc(t().guestCheckout) + ' <button type="button" class="acc-link" onclick="Shop.closeCo();Shop.openAccount();">' + esc(t().guestCheckoutBtn) + '</button>' + esc(t().guestCheckoutSuffix) + '</p>' : '')) +
       '<p class="form-title">' + esc(t().s1) + '</p>' +
       '<div class="fgrid">' +
       '<div class="field"><label>' + esc(t().fName) + '</label><input value="' + esc(f.name) + '" oninput="Shop.setForm(\'name\',this.value)" placeholder="Maria Silva"/></div>' +
@@ -5268,8 +5272,22 @@
     });
   }
 
+  function isGuestCheckoutAllowed_() {
+    return cfgOn('guest_checkout_enabled', false);
+  }
+
+  function requireClientAccountForCheckout_() {
+    return !state.clientId && !isGuestCheckoutAllowed_();
+  }
+
   async function submitOrder() {
     if (state.checkoutBusy) return;
+    if (requireClientAccountForCheckout_()) {
+      global.toast(accT().loginRequired || t().guestCheckout || 'Inicie sessão para finalizar a compra.', 'i');
+      state.accountView = 'login';
+      openAccount();
+      return;
+    }
     var f = state.form;
     if (!f.name || !f.email || !f.addr || !f.city || !f.zip) {
       global.toast(t().tReq, 'e');
@@ -6192,7 +6210,8 @@
           '<div class="acc-order-id">#' + esc(o.pedido_id) + '</div>' +
           '<p style="font-size:10px;color:var(--muted);margin-top:4px;">' + esc(o.data) + ' · ' + esc(o.total) + ' €</p>' +
           '<p style="font-size:9px;color:var(--gold);margin-top:4px;">' + esc(orderStateLabel_(o.estado)) + ' · ' + esc(orderStateLabel_(o.estado_pagamento)) + '</p></div>' +
-          '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.printOrderInvoice(\'' + oid + '\')">' + esc(t().receiptPrint || 'Imprimir') + '</button></div>';
+          '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.printOrderInvoice(\'' + oid + '\')">' + esc(t().receiptPrint || 'Imprimir') + '</button>' +
+          '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.downloadOrderInvoice(\'' + oid + '\')">' + esc(t().receiptDownload || 'PDF') + '</button></div>';
       }).join('');
     } catch (e) { box.textContent = e.message; }
   }

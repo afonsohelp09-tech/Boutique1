@@ -26,7 +26,7 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
-/* â”€â”€ RESET & VARS â”€â”€ */
+/* === RESET & VARS === */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root,[data-theme="dark"]{
   --gold:#c9a96e;--gold-lt:#e8d4a8;--gold-dk:#a08040;
@@ -95,14 +95,14 @@ body{
   transition:background .25s,color .25s;
   padding-bottom:env(safe-area-inset-bottom,0);
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
-  line-height:1.3;
+  line-height:1.5;
 }
 body.scroll-lock{
   overflow:hidden;touch-action:none;position:fixed;width:100%;left:0;right:0;
-  /* top: dÃ©fini en JS (restore scroll aprÃ¨s fermeture modal) */
+  /* top: defini en JS (restore scroll apres fermeture modal) */
 }
 html.scroll-lock{overflow:hidden;height:100%}
-/* LisibilitÃ© texte â€” modes clair & sombre */
+/* Lisibilite texte - modes clair et sombre */
 input,textarea,select,button{font-family:inherit}
 input,textarea,select{color:var(--text);background:var(--input-bg)}
 input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
@@ -118,7 +118,7 @@ input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
 .t-row.grand,.ci-name,.m-name{color:var(--text)}
 [data-theme="light"] .size-guide-block{background:rgba(28,25,22,.05);border-color:var(--border-hard)}
 [data-theme="dark"] .size-guide-block{background:rgba(255,255,255,.05);border-color:var(--border-hard)}
-/* LisibilitÃ© renforcÃ©e â€” clair & sombre */
+/* Lisibilite renforcee - clair et sombre */
 .sh-title,.card-name,.svc-title,.no-res h3,.tr-step h4,.nav-mobile-head span,.dh-title{color:var(--text)}
 .svc-desc,.sort-sel,.result-n,.cat-pill:not(.on),.sz-btn:not(.on),.tab-btn:not(.on),
 .field label,.opt-label,.promo-lbl,.ci-meta,.ship-msg,.acc-tab:not(.on),.acc-dash-btn:not(.on),
@@ -142,7 +142,7 @@ input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
 [data-theme="dark"] .api-banner{color:var(--gold-lt)}
 .toast.i{color:var(--gold-lt);border-color:var(--gold)}
 
-/* IcÃ´nes SVG & logos visibles (clair + sombre) */
+/* Icones SVG et logos visibles (clair + sombre) */
 .ui-ico,.icon-btn svg,.theme-switch svg,.nav-menu-btn svg,.mob-bar button svg,
 .dh-close svg,.modal-close svg,.search-wrap svg,.contact-fab svg,svg.ui-ico{
   display:block;flex-shrink:0;stroke:currentColor;fill:none;
@@ -166,14 +166,12 @@ input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
 .f-brand.logo-missing .logo-fallback-text{display:block;font-family:'Cormorant Garamond',serif;font-size:20px;letter-spacing:4px;color:var(--gold);margin-bottom:14px}
 .brand img.brand-logo,.f-logo,.login-logo{opacity:1;visibility:visible;max-width:100%}
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ SCROLLBAR Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* === SCROLLBAR === */
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--gold-dk);border-radius:2px}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   PROMO MARQUEE
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === PROMO MARQUEE === */
 .promo-bar{
   display:none;
   background:var(--gold);color:var(--on-gold);
@@ -216,9 +214,7 @@ body:not(.vitrine-pending) .hero-admin-content{
   position:static;width:auto;height:auto;overflow:visible;clip:auto;
 }
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   NAVBAR
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === NAVBAR === */
 nav{
   position:sticky;top:0;z-index:100;
   background:var(--nav-bg);backdrop-filter:blur(18px);
@@ -319,81 +315,13 @@ nav{
   color:var(--text);background:var(--seg-hover);
 }
 .lang-box{display:inline-flex}
-/* Controles compacts mobile (langue + theme) - Option B */
-.lang-mini,.theme-mini{display:inline-flex}
-.nav-right>.lang-box,.nav-right>.theme-switch{display:none}
-.lang-mini{position:relative}
-.lang-mini-btn{
-  display:inline-flex;align-items:center;gap:3px;
-  background:var(--seg-bg);border:1px solid var(--seg-border);color:var(--text);
-  font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;
-  letter-spacing:.06em;text-transform:uppercase;
-  padding:7px 9px;border-radius:999px;min-height:38px;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-.lang-mini-btn .lm-chev{width:12px;height:12px;flex-shrink:0;stroke-width:2;transition:transform .2s}
-.lang-mini.open .lang-mini-btn .lm-chev{transform:rotate(180deg)}
-.lang-mini-menu{
-  display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:130;
-  background:var(--bg-modal);border:1px solid var(--border-hard);
-  border-radius:10px;padding:5px;min-width:64px;box-shadow:0 12px 32px rgba(0,0,0,.28);
-}
-.lang-mini.open .lang-mini-menu{display:block}
-.lang-mini-menu button{
-  display:block;width:100%;text-align:center;background:none;border:none;
-  color:var(--text-body);font-family:'Montserrat',sans-serif;font-size:10px;
-  font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  padding:9px 12px;min-height:40px;border-radius:7px;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-.lang-mini-menu button:hover{background:var(--seg-hover);color:var(--text)}
-.lang-mini-menu button.on{background:var(--gold);color:var(--on-gold)}
-.theme-mini{
-  align-items:center;justify-content:center;flex-shrink:0;
-  background:var(--seg-bg);border:1px solid var(--seg-border);color:var(--text);
-  padding:0;width:38px;height:38px;border-radius:50%;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-.theme-mini svg{width:17px;height:17px;stroke-width:1.75}
-.theme-mini .ti-moon{display:none}
-.theme-mini .ti-sun{display:block}
-[data-theme="light"] .theme-mini .ti-sun{display:none}
-[data-theme="light"] .theme-mini .ti-moon{display:block}
-/* Mode foncé : contrôles compacts en-tête (langue PT▾ + lune/soleil) plus visibles */
-[data-theme="dark"] .lang-mini-btn,
-[data-theme="dark"] .theme-mini{
-  background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.4);color:var(--text);
-}
-[data-theme="dark"] .lang-mini-btn:hover,
-[data-theme="dark"] .theme-mini:hover{
-  background:rgba(255,255,255,.2);border-color:var(--gold);
-}
-/* PC (≥769px) — en-tête droite visible en mode foncé (langue, thème, icônes) */
-@media(min-width:769px){
-  [data-theme="dark"] .nav-right .lang-mini-btn,
-  [data-theme="dark"] .nav-right .theme-mini{
-    background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45);color:var(--text);
-  }
-  [data-theme="dark"] .nav-right .lang-mini-btn .lm-chev,
-  [data-theme="dark"] .nav-right .theme-mini svg{color:var(--text);opacity:1}
-  [data-theme="dark"] .nav-right .lang-mini-menu{
-    background:var(--bg-modal);border-color:var(--border-hard);
-    box-shadow:0 12px 32px rgba(0,0,0,.55);
-  }
-  [data-theme="dark"] .nav-right .lang-mini-menu button{color:var(--text-body)}
-  [data-theme="dark"] .nav-right .lang-mini-menu button.on{color:var(--on-gold)}
-  [data-theme="dark"] .nav-right .icon-btn{color:var(--text)}
-  [data-theme="dark"] .nav-right .icon-btn svg{color:inherit;opacity:1;stroke:currentColor}
-  [data-theme="dark"] .nav-right .icon-btn:hover{background:rgba(255,255,255,.1);color:var(--gold-lt)}
-  [data-theme="dark"] .nav-right .pill{background:var(--gold-lt);color:var(--on-gold)}
-}
 .icon-btn{
   background:none;border:none;color:var(--text);cursor:pointer;
   padding:9px;border-radius:50%;transition:background .2s,color .2s;
   position:relative;display:flex;align-items:center;justify-content:center;
 }
 .icon-btn:hover{background:var(--icon-hover)}
-.icon-btn svg{width:19px;height:19px;stroke-width:1.5}
+.icon-btn svg{width:19px;height:19px;stroke-width:1.75}
 .icon-btn,.nav-menu-btn,.mob-bar button svg{color:inherit}
 .nav-menu-btn{
   display:none;background:none;border:none;color:var(--text);cursor:pointer;
@@ -445,7 +373,7 @@ nav{
   list-style:none;padding:10px 18px 4px;font-size:9px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--gold);font-weight:600;
 }
-.nav-mobile-ul .nav-info-link{color:var(--text-body);font-size:11px}
+.nav-mobile-ul .nav-info-link{color:var(--text-body);font-size:10px}
 .nav-mobile-foot{
   order:1;padding:12px 14px;border-bottom:1px solid var(--divider);flex-shrink:0;
   display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
@@ -487,9 +415,7 @@ nav{
 .pill.red{background:#ef4444;color:#fff;animation:pulse 1.8s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   HERO
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === HERO === */
 @media (prefers-reduced-motion: reduce){
   .hero-motion-canvas{display:none!important}
   .hero.hero-motion-on .hero-bg.hero-bg-hidden{opacity:.9;visibility:visible}
@@ -605,9 +531,7 @@ nav{
 }
 @keyframes bob{from{transform:translateY(0)}to{transform:translateY(5px)}}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   SERVICES STRIP
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === SERVICES STRIP === */
 .services{
   border-top:1px solid var(--section-border);
   border-bottom:1px solid var(--section-border);
@@ -630,9 +554,7 @@ nav{
 .svc-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:6px;color:var(--text)}
 .svc-desc{font-size:10px;color:var(--text-body);font-weight:400;line-height:1.7;max-width:240px}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   SHOP MAIN
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === SHOP MAIN === */
 #shop{max-width:1320px;margin:0 auto;padding:64px 40px}
 
 .shop-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px}
@@ -736,9 +658,7 @@ nav{
   padding:8px 12px;border-radius:2px;cursor:pointer;outline:none;
 }
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   PRODUCT GRID
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === PRODUCT GRID === */
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 18px}
 
 .card{display:flex;flex-direction:column;cursor:pointer;border-radius:2px;overflow:hidden;content-visibility:auto;contain-intrinsic-size:300px 420px}
@@ -806,13 +726,13 @@ nav{
 .card-info{padding:0 2px}
 .card-name{
   font-family:'Cormorant Garamond',serif;
-  font-size:13px;font-weight:700;letter-spacing:.3px;
-  margin-bottom:5px;line-height:1.4;color:var(--text);
+  font-size:14px;font-weight:300;letter-spacing:1px;
+  margin-bottom:4px;line-height:1.3;color:var(--text);
 }
 .card-stars{font-size:10px;color:#f59e0b;margin-bottom:7px}
 .card-stars span{color:var(--muted);font-size:9px}
 .card-price{display:flex;align-items:baseline;gap:7px;margin-bottom:7px}
-.price-c{font-size:14px;font-weight:700;color:var(--gold)}
+.price-c{font-size:13px;font-weight:600;color:var(--gold)}
 .price-o{font-size:10px;color:var(--muted);text-decoration:line-through}
 .swatches{display:flex;gap:4px}
 .sw{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,.14)}
@@ -827,9 +747,7 @@ nav{
 }
 .no-res p{font-size:11px;color:var(--muted);margin-bottom:20px}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   DRAWERS
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === DRAWERS === */
 .drawer-bg{
   position:fixed;inset:0;z-index:200;
   background:var(--overlay);backdrop-filter:blur(5px);
@@ -954,9 +872,7 @@ nav{
 }
 .btn-checkout:hover{background:var(--gold-lt)}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   QUICK VIEW MODAL
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === QUICK VIEW MODAL === */
 .modal-bg{
   position:fixed;inset:0;z-index:300;
   background:var(--overlay-modal);backdrop-filter:blur(12px);
@@ -1351,9 +1267,7 @@ a.info-nav-btn{display:block;text-decoration:none}
   .info-hub-body .legal-doc h1{font-size:17px}
 }
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   CHECKOUT MODAL
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === CHECKOUT MODAL === */
 .checkout-modal:not(.info-hub-modal){max-width:640px}
 .checkout-modal .m-body{width:100%}
 .co-panel{width:100%;padding:28px 32px;box-sizing:border-box}
@@ -1477,7 +1391,7 @@ a.info-nav-btn{display:block;text-decoration:none}
 }
 .btn-pay:hover{background:var(--gold-lt)}
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Order Confirm Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* === Order Confirm === */
 .order-ok{
   padding:44px 36px;width:100%;
   display:flex;flex-direction:column;align-items:center;
@@ -1571,9 +1485,7 @@ a.info-nav-btn{display:block;text-decoration:none}
 .tr-track-ref{font-size:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-hard);color:var(--muted);line-height:1.5}
 .tr-track-ref strong{color:var(--text);font-weight:600}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   SEARCH OVERLAY
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === SEARCH OVERLAY === */
 .search-ov{
   position:fixed;inset:0;z-index:400;
   background:var(--overlay-search);
@@ -1603,9 +1515,7 @@ a.info-nav-btn{display:block;text-decoration:none}
 .so-input::placeholder{color:var(--placeholder)}
 .so-hint{font-size:9px;color:var(--hint);letter-spacing:2px;margin-top:12px}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   TOAST
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === TOAST === */
 .toast{
   position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
   z-index:999;padding:12px 22px;border-radius:2px;
@@ -1619,9 +1529,7 @@ a.info-nav-btn{display:block;text-decoration:none}
 .toast.i{background:#1c1407;color:var(--gold-lt);border-color:var(--gold)}
 .toast.e{background:#2a0a0a;color:#fca5a5;border-color:#991b1b}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   FOOTER
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === FOOTER === */
 footer{
   border-top:none;
   background:var(--footer-bg);padding:0 40px 28px;
@@ -1637,7 +1545,7 @@ footer{
   margin-bottom:14px;display:block;
 }
 .f-brand span{color:var(--gold);font-weight:600}
-.f-desc{font-size:11px;color:var(--text-body);line-height:1.4;font-weight:400;margin-bottom:18px}
+.f-desc{font-size:10px;color:var(--text-body);line-height:1.85;font-weight:300;margin-bottom:18px}
 .social-row{display:flex;gap:7px}
 .soc{
   width:28px;height:28px;border-radius:50%;
@@ -1646,15 +1554,15 @@ footer{
   display:flex;align-items:center;justify-content:center;transition:all .2s;
 }
 .soc:hover{border-color:var(--gold);color:var(--gold)}
-.f-col-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:18px}
-.f-links{list-style:none;display:flex;flex-direction:column;gap:14px}
-.f-links a{font-size:11px;letter-spacing:.3px;color:var(--text-body);text-decoration:none;font-weight:400;padding:4px 0;display:inline-block;transition:color .2s}
+.f-col-title{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:18px}
+.f-links{list-style:none;display:flex;flex-direction:column;gap:9px}
+.f-links a{font-size:10px;color:var(--text-body);text-decoration:none;font-weight:400;transition:color .2s}
 .f-links a:hover{color:var(--text)}
-.nw-desc{font-size:11px;color:var(--text-body);font-weight:400;margin-bottom:13px}
+.nw-desc{font-size:10px;color:var(--text-body);line-height:1.75;font-weight:300;margin-bottom:13px}
 .nw-row{display:flex}
 .nw-row input{
   flex:1;background:var(--bg-card);border:1px solid var(--border-hard);border-right:none;
-  color:var(--text);font-family:'Montserrat',sans-serif;font-size:16px;
+  color:var(--text);font-family:'Montserrat',sans-serif;font-size:10px;
   padding:9px 11px;border-radius:2px 0 0 2px;outline:none;transition:border .2s;
 }
 .nw-row input:focus{border-color:var(--gold)}
@@ -1669,9 +1577,9 @@ footer{
   border-top:1px solid rgba(255,255,255,.04);padding-top:22px;
   display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
 }
-.f-copy{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
-.f-legal{display:flex;flex-wrap:wrap;gap:14px}
-.f-legal a{font-size:10px;color:var(--muted);text-decoration:none;letter-spacing:1px;text-transform:uppercase}
+.f-copy{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+.f-legal{display:flex;flex-wrap:wrap;gap:18px}
+.f-legal a{font-size:8px;color:var(--muted);text-decoration:none;letter-spacing:1px;text-transform:uppercase}
 .f-legal a:hover{text-decoration:underline}
 .cookie-banner{position:fixed;bottom:0;left:0;right:0;z-index:10050;background:var(--bg-card,#fff);border-top:1px solid var(--border,#e8e4df);box-shadow:0 -8px 32px rgba(0,0,0,.08);padding:16px 20px}
 .cookie-banner-inner{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
@@ -1684,9 +1592,7 @@ footer{
 .cookie-policy-link{font-size:9px;color:var(--muted);text-decoration:underline;margin-left:4px}
 .co-terms{margin:12px 0 8px}
 
-/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-   RESPONSIVE
-Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+/* === RESPONSIVE === */
 @media(max-width:1024px){
   .grid{grid-template-columns:repeat(3,1fr)}
   .services-grid{grid-template-columns:repeat(2,1fr)}
@@ -1822,11 +1728,8 @@ footer{
   .card-overlay{opacity:1;background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 50%)}
   .card:hover .card-img img{transform:none}
 }
-@media(max-width:768px){
-  .footer-grid{gap:32px}
-}
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ ERP / API Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* === ERP / API === */
 .api-banner{
   background:var(--api-banner-bg);border-bottom:1px solid var(--gold-dk);
   color:var(--api-banner-text);font-size:10px;padding:10px 20px;text-align:center;line-height:1.6;
@@ -1896,27 +1799,11 @@ footer{
     </div>
     <ul class="nav-ul" id="navUl" aria-label="Navigation"></ul>
     <div class="nav-right">
-      <div class="lang-mini" id="langMini">
-        <button type="button" class="lang-mini-btn" id="btnLangMini" aria-haspopup="true" aria-expanded="false" aria-label="Langue / Idioma" onclick="toggleLangMini(event)">
-          <span id="langMiniCur">PT</span>
-          <svg class="lm-chev" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <div class="lang-mini-menu" id="langMiniMenu" role="menu">
-          <button type="button" role="menuitem" data-lm="fr" onclick="setLang('fr');closeLangMini()">FR</button>
-          <button type="button" role="menuitem" data-lm="pt" onclick="setLang('pt');closeLangMini()">PT</button>
-          <button type="button" role="menuitem" data-lm="en" onclick="setLang('en');closeLangMini()">EN</button>
-          <button type="button" role="menuitem" data-lm="es" onclick="setLang('es');closeLangMini()">ES</button>
-        </div>
-      </div>
-      <button type="button" class="theme-mini" id="btnThemeMini" onclick="toggleTheme()" aria-label="Clair / Sombre">
-        <svg class="ti-sun" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-        <svg class="ti-moon" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-      </button>
       <div class="lang-switch lang-box" role="group" aria-label="Langue">
-        <button id="btnFr" onclick="setLang('fr')" title="FranÃ§ais">FR</button>
-        <button id="btnPt" class="on" onclick="setLang('pt')" title="PortuguÃªs (Portugal)">PT</button>
+        <button id="btnFr" onclick="setLang('fr')" title="Français">FR</button>
+        <button id="btnPt" class="on" onclick="setLang('pt')" title="Português (Portugal)">PT</button>
         <button id="btnEn" onclick="setLang('en')" title="English">EN</button>
-        <button id="btnEs" onclick="setLang('es')" title="EspaÃ±ol">ES</button>
+        <button id="btnEs" onclick="setLang('es')" title="Español">ES</button>
       </div>
       <div class="theme-switch" role="group" id="themeBox" aria-label="Apparence">
         <button type="button" id="btnThemeDark" class="on" onclick="setTheme('dark')" aria-pressed="true" title="Mode sombre">
@@ -1963,10 +1850,6 @@ footer{
 
 <!-- MOBILE BOTTOM BAR -->
 <nav class="mob-bar" id="mobBar" aria-label="Navigation rapide">
-  <button type="button" id="mobMenu" onclick="Shop.toggleMobileNav()" aria-label="Menu">
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
-    <span id="mobMenuLbl">Menu</span>
-  </button>
   <button type="button" id="mobShop" onclick="Shop.scrollShop()">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8h18M5 8v12h14V8M10 20v-6h4v6"/></svg>
     <span id="mobShopLbl">Shop</span>
@@ -1994,6 +1877,7 @@ footer{
   <div class="hero-grad"></div>
   <div class="hero-content">
     <div class="hero-loading" id="heroLoading" aria-live="polite" aria-busy="true">
+      <img class="hero-loading-logo" id="heroLoadingLogo" src="" alt="AZAVISION" width="120" height="40" decoding="async" style="display:none"/>
       <p class="hero-loading-brand" id="heroLoadingBrand">AZAVISION</p>
     </div>
     <div class="hero-admin-content" id="heroAdminContent">
@@ -2030,7 +1914,7 @@ footer{
     <div class="sort-tools">
       <div class="search-wrap">
         <input type="search" id="srchIn" autocomplete="off" enterkeyhint="search" oninput="Shop.syncSearchFromOverlay()" onkeydown="if(event.key==='Enter')Shop.applySearch()"/>
-        <button type="button" class="search-clear" id="srchClear" onclick="Shop.clearSearch()" aria-label="Clear">Ã—</button>
+        <button type="button" class="search-clear" id="srchClear" onclick="Shop.clearSearch()" aria-label="Clear">&times;</button>
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       </div>
       <select class="sort-sel" id="sortSel" onchange="Shop.refreshProducts()">
@@ -2088,7 +1972,7 @@ footer{
   <div class="click-close" onclick="Shop.closeCart()"></div>
   <div class="drawer">
     <div class="dh">
-      <span class="dh-title" id="cartDTitle">Ã¢â‚¬â€ <span class="dh-n" id="cDN">0</span></span>
+      <span class="dh-title" id="cartDTitle">&mdash; <span class="dh-n" id="cDN">0</span></span>
       <button class="dh-close" onclick="Shop.closeCart()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
     <div class="db" id="cartDb"></div>
@@ -2101,7 +1985,7 @@ footer{
   <div class="click-close" onclick="Shop.closeWish()"></div>
   <div class="drawer">
     <div class="dh">
-      <span class="dh-title" id="wishDTitle">Ã¢â‚¬â€ <span class="dh-n" id="wDN">0</span></span>
+      <span class="dh-title" id="wishDTitle">&mdash; <span class="dh-n" id="wDN">0</span></span>
       <button class="dh-close" onclick="Shop.closeWish()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
     <div class="db" id="wishDb"></div>
@@ -2117,9 +2001,9 @@ footer{
 <!-- IMAGE ZOOM LIGHTBOX -->
 <div class="img-zoom-bg" id="imgZoomBg" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Zoom image">
   <div class="img-zoom-backdrop"></div>
-  <button type="button" class="img-zoom-close" onclick="Shop.closeImageZoom()" aria-label="Fermer">âœ•</button>
+  <button type="button" class="img-zoom-close" onclick="Shop.closeImageZoom()" aria-label="Fermer">&times;</button>
   <div class="img-zoom-toolbar">
-    <button type="button" class="img-zoom-btn" onclick="Shop.zoomImageStep(-0.25)" aria-label="Zoom out">âˆ’</button>
+    <button type="button" class="img-zoom-btn" onclick="Shop.zoomImageStep(-0.25)" aria-label="Zoom out">-</button>
     <button type="button" class="img-zoom-btn" onclick="Shop.resetImageZoom()" aria-label="Reset">1:1</button>
     <button type="button" class="img-zoom-btn" onclick="Shop.zoomImageStep(0.25)" aria-label="Zoom in">+</button>
   </div>
@@ -2140,7 +2024,7 @@ footer{
 
 <!-- SEARCH OVERLAY -->
 <div class="search-ov" id="soEl" aria-hidden="true">
-  <button class="so-close" onclick="Shop.closeSearchOverlay()" aria-label="Close">Ã—</button>
+  <button class="so-close" onclick="Shop.closeSearchOverlay()" aria-label="Close">&times;</button>
   <p class="so-lbl" id="soLbl"></p>
   <input class="so-input" id="soIn" type="search" autocomplete="off" enterkeyhint="search" placeholder="" onkeydown="Shop.handleSearchOverlayKey(event)" oninput="Shop.syncSearchFromOverlay()"/>
   <p class="so-hint" id="soHint"></p>
@@ -2161,13 +2045,13 @@ footer{
   </div>
 </div>
 
-<!-- INFO HUB (Trocas Â· Guia Â· Privacidade Â· CGV Â· etc.) -->
+<!-- INFO HUB (Trocas, Guia, Privacidade, CGV, etc.) -->
 <div class="modal-bg" id="infoBg" aria-hidden="true">
   <div class="click-close" onclick="Shop.closeInfo()"></div>
   <div class="modal checkout-modal info-hub-modal">
     <button class="modal-close" onclick="Shop.closeInfo()" aria-label="Close"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
     <div class="info-hub-head">
-      <h2 id="infoHubTitle">InformaÃ§Ãµes</h2>
+      <h2 id="infoHubTitle">Informações</h2>
     </div>
     <div class="info-hub-layout">
       <nav class="info-hub-nav" id="infoNav" aria-label="Informations"></nav>
@@ -2203,35 +2087,7 @@ function updateLangButtons(l) {
     var btn = $('btn' + code.charAt(0).toUpperCase() + code.slice(1));
     if (btn) btn.classList.toggle('on', l === code);
   });
-  var cur = $('langMiniCur');
-  if (cur) cur.textContent = String(l || 'pt').toUpperCase();
-  document.querySelectorAll('#langMiniMenu [data-lm]').forEach(function (b) {
-    b.classList.toggle('on', b.getAttribute('data-lm') === l);
-  });
 }
-
-function toggleLangMini(ev) {
-  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
-  var box = $('langMini');
-  if (!box) return;
-  var open = box.classList.toggle('open');
-  var btn = $('btnLangMini');
-  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
-function closeLangMini() {
-  var box = $('langMini');
-  if (box) box.classList.remove('open');
-  var btn = $('btnLangMini');
-  if (btn) btn.setAttribute('aria-expanded', 'false');
-}
-
-window.toggleLangMini = toggleLangMini;
-window.closeLangMini = closeLangMini;
-document.addEventListener('click', function (ev) {
-  var box = $('langMini');
-  if (box && box.classList.contains('open') && !box.contains(ev.target)) closeLangMini();
-});
 
 function getTheme() {
   return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
@@ -2451,52 +2307,47 @@ updateLangButtons(lang);
 boot();
 </script>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     GUIDE DES CLÃ‰S API â€” VITRINE CLIENT (01-vitrine-client/index.html)
-     TOUJOURS EN FIN DE FICHIER Â· Ctrl+End pour arriver ici
-     RÃ©fÃ©rence complÃ¨te backend : 03-google-apps-script/api_apps_script.gs (fin)
-     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- =============================================================================
+     GUIDE DES CLES API - VITRINE CLIENT (01-vitrine-client/index.html)
+     TOUJOURS EN FIN DE FICHIER - Ctrl+End pour arriver ici
+     Reference backend : 03-google-apps-script/api_apps_script.gs (fin)
+     =============================================================================
 
-     â”Œâ”€ #1 GOOGLE APPS SCRIPT â€” URL Web App (OBLIGATOIRE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-     â”‚ OÃ¹ coller : ligne ERP_API_URL_DEFAULT ci-dessous (script erp-api-config) â”‚
-     â”‚ Exemple   : 'https://script.google.com/macros/s/AKfycbzâ€¦/exec'         â”‚
-     â”‚ Aussi     : mÃªme URL dans 02-admin-erp/index.html                      â”‚
-     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+     #1 GOOGLE APPS SCRIPT - URL Web App (OBLIGATOIRE)
+        Ou coller : ligne ERP_API_URL_DEFAULT ci-dessous (script erp-api-config)
+        Exemple   : https://script.google.com/macros/s/AKfycbz.../exec
+        Aussi     : meme URL dans 02-admin-erp/index.html
 
-     â”Œâ”€ #3 STRIPE â€” ClÃ© PUBLIQUE pk_live_ (mode production) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-     â”‚ OÃ¹ coller : STRIPE_PUBLISHABLE_KEY ci-dessous                            â”‚
-     â”‚ Dashboard : https://dashboard.stripe.com/apikeys                         â”‚
-     â”‚ Activer   : Admin â†’ Boutique â†’ Stripe actif + Afficher Stripe          â”‚
-     â”‚ âš  sk_live_ : GAS â†’ PropriÃ©tÃ©s script â†’ STRIPE_SECRET_KEY (pas ici)     â”‚
-     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+     #3 STRIPE - Cle PUBLIQUE pk_live_ (mode production)
+        Ou coller : STRIPE_PUBLISHABLE_KEY ci-dessous
+        Dashboard : https://dashboard.stripe.com/apikeys
+        Activer   : Admin -> Boutique -> Stripe actif + Afficher Stripe
+        ATTENTION : sk_live_ va dans GAS -> Proprietes script -> STRIPE_SECRET_KEY (pas ici)
 
-     â”Œâ”€ #4 FACTURALUSA â€” ClÃ© API (PAS dans ce fichier) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-     â”‚ OÃ¹ coller : Admin ERP â†’ Boutique â†’ FacturaÃ§Ã£o â†’ ClÃ© API Facturalusa    â”‚
-     â”‚           ou feuille Sheets CONFIG â†’ fiscal_api_key                    â”‚
-     â”‚ Exemple   : 26830|PEKDtgsOzbPjo0ymkXvrNqZtgCmmOrvAaSBlzIxS347b0431   â”‚
-     â”‚ Obtenir   : https://facturalusa.pt/u/subscription/api                  â”‚
-     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+     #4 FACTURALUSA - Cle API (PAS dans ce fichier)
+        Ou coller : Admin ERP -> Boutique -> Facturacao -> Cle API Facturalusa
+                  ou feuille Sheets CONFIG -> fiscal_api_key
+        Obtenir   : https://facturalusa.pt/u/subscription/api
 
-     â”Œâ”€ #5 CONTACT â€” TÃ©lÃ©phone rÃ©clamations (PAS dans ce fichier) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-     â”‚ OÃ¹ coller : Admin â†’ Boutique â†’ Contact                                 â”‚
-     â”‚           contact_phone = +351 937 831 268                             â”‚
-     â”‚           contact_whatsapp = 351937831268                              â”‚
-     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+     #5 CONTACT - Telephone reclamations (PAS dans ce fichier)
+        Ou coller : Admin -> Boutique -> Contact
+                  contact_phone = +351 937 831 268
+                  contact_whatsapp = 351937831268
 -->
 <script id="erp-api-config">
-  // â•â•â• CONFIGURATION API VITRINE â€” coller vos valeurs ici â•â•â•
+  // === CONFIGURATION API VITRINE - coller vos valeurs ici ===
   //
   // #1 URL Web App Google Apps Script (obligatoire)
-  //    Apps Script â†’ DÃ©ployer â†’ Application Web â†’ copier URL /exec
+  //    Apps Script -> Deployer -> Application Web -> copier URL /exec
   var ERP_API_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbwsqF6yzLPEFV1_VZW8PIh5FSKJvV_mjfytAuwj19pD1YlzcXxCxgZT43g60D686gxOfQ/exec';
   var API_URL = ERP_API_URL_DEFAULT;
   //
-  // #3 Stripe â€” clÃ© PUBLIQUE LIVE (pk_live_â€¦)
-  //    La clÃ© SECRÃˆTE sk_live_â€¦ va dans GAS â†’ ParamÃ¨tres â†’ PropriÃ©tÃ©s du script
-  //    Nom propriÃ©tÃ© : STRIPE_SECRET_KEY  (sk_live_â€¦ â€” jamais dans ce fichier)
+  // #3 Stripe - cle PUBLIQUE LIVE (pk_live_...)
+  //    La cle SECRETE sk_live_... va dans GAS -> Parametres -> Proprietes du script
+  //    Nom propriete : STRIPE_SECRET_KEY (sk_live_... - jamais dans ce fichier)
   var STRIPE_PUBLISHABLE_KEY = 'pk_live_51TiHOLFLQurzJpsorS0U3siutmAVpBq9aOmzUkvGj1JymQVEdyGw1qxA7UmrAdKNfhuwH70z3gxaVO5uFp1Vq8Dn00kVwf4gUh';
   //
-  // #4 Facturalusa, #5 Contact â†’ voir Admin ERP â†’ Boutique (pas ici)
+  // #4 Facturalusa, #5 Contact -> voir Admin ERP -> Boutique (pas ici)
   // Guide complet : fin de 03-google-apps-script/api_apps_script.gs
 </script>
 <script src="https://js.stripe.com/v3/"></script>
