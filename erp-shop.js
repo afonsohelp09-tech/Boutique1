@@ -651,6 +651,7 @@
 
   function updateMobBarLabels() {
     var tx = t();
+    if ($('mobMenuLbl') && tx.navMenu) $('mobMenuLbl').textContent = tx.navMenu;
     if ($('mobShopLbl') && tx.mobShop) $('mobShopLbl').textContent = tx.mobShop;
     if ($('mobCartLbl') && tx.mobCart) $('mobCartLbl').textContent = tx.mobCart;
     if ($('mobOrdersLbl') && tx.mobOrders) $('mobOrdersLbl').textContent = tx.mobOrders;
