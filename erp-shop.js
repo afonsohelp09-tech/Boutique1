@@ -2896,7 +2896,7 @@
     if (!c) return empty;
     var fs = Math.min(H * 0.42, W / 6.2);
     c.fillStyle = '#fff';
-    c.font = '600 ' + Math.round(fs) + 'px "Cormorant Garamond", Georgia, serif';
+    c.font = '600 ' + Math.round(fs) + 'px "Segoe UI", system-ui, sans-serif';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText('AZAVISION', W / 2, H / 2);
@@ -5190,7 +5190,7 @@
     var f = state.form;
     $('coBody').innerHTML =
       '<div class="m-body co-panel">' +
-      '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;font-weight:300;margin-bottom:5px;">' + esc(t().coTitle) + '</h2>' +
+      '<h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:5px;">' + esc(t().coTitle) + '</h2>' +
       '<p style="font-size:10px;color:var(--muted);margin-bottom:18px;">' + esc(t().coSub) + '</p>' +
       (requireClientAccountForCheckout_()
         ? '<p class="acc-hint" style="margin-bottom:14px;color:var(--gold);">' + esc(accT().loginRequired || t().loginRequired || 'Inicie sessão para finalizar a compra.') + ' <button type="button" class="acc-link" onclick="Shop.closeCo();Shop.openAccount();">' + esc(accT().loginBtn || accT().login || 'Entrar') + '</button></p>'
@@ -5858,7 +5858,7 @@
     var a = accT();
     var view = state.accountView;
     if (view === 'orderDetail' && state.selectedOrder) {
-      return '<div class="acc-wrap"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
+      return '<div class="acc-wrap"><h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
         renderOrderDetail(state.selectedOrder.order, state.selectedOrder.details) + '</div>';
     }
     var panel = '';
@@ -5866,7 +5866,7 @@
     else if (view === 'addresses') panel = renderAddressesPanel();
     else panel = renderOrdersPanel();
     return '<div class="acc-wrap">' +
-      '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:4px;">' + esc(a.welcome) + ', ' + esc(state.clientName || '') + '</h2>' +
+      '<h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:4px;">' + esc(a.welcome) + ', ' + esc(state.clientName || '') + '</h2>' +
       '<p style="font-size:10px;color:var(--muted);margin-bottom:16px;">' + esc(state.clientEmail || '') + '</p>' +
       panel +
       '<button type="button" class="btn-ghost" style="width:100%;margin-top:20px;border-color:#444;color:#aaa;" onclick="Shop.logout()">' + esc(a.logout) + '</button></div>';
@@ -5885,7 +5885,7 @@
     }
     var a = accT();
     if (state.accountView === 'orderDetail' && state.selectedOrder) {
-      body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
+      body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:8px;">' + esc(a.orderDetail) + '</h2>' +
         renderOrderDetail(state.selectedOrder.order, state.selectedOrder.details) + '</div>';
       return;
     }
@@ -5896,7 +5896,7 @@
     else if (state.accountView === 'forgot') inner = renderForgotForm();
     else if (state.accountView === 'reset') inner = renderResetForm();
     else inner = renderLoginForm();
-    body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:12px;">' + esc(a.title) + '</h2>' + inner + '</div>';
+    body.innerHTML = '<div class="acc-wrap"><h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;">' + esc(a.title) + '</h2>' + inner + '</div>';
     if (state.accountView === 'login' || state.accountView === 'register' || !state.accountView) {
       setTimeout(mountGoogleButton_, 0);
     }
@@ -6322,7 +6322,7 @@
     }).join('');
     body.innerHTML =
       '<div class="acc-wrap">' +
-      '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:22px;margin-bottom:6px;">' + esc(c.title) + '</h2>' +
+      '<h2 style="font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:600;margin-bottom:6px;">' + esc(c.title) + '</h2>' +
       '<p class="acc-hint">' + esc(c.sub) + '</p>' + quick +
       '<div class="fgrid one" style="margin-top:16px;">' +
       '<div class="field"><label>' + esc(c.name) + '</label><input id="ctName" type="text" value="' + esc(state.clientName || state.form.name || '') + '"/></div>' +
@@ -6579,7 +6579,7 @@
       state.storeLoading = false;
       if (cfgOn('maintenance_mode', false)) {
         var msg = state.config.maintenance_message || t().maintenanceDefault || 'Boutique en maintenance. Revenez bientôt.';
-        document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Montserrat,sans-serif;text-align:center;"><div><h1 style="font-weight:300;margin-bottom:12px;">AZAVISION</h1><p style="color:#666;max-width:420px;">' + esc(msg) + '</p></div></div>';
+        document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:\'Segoe UI\',system-ui,sans-serif;text-align:center;"><div><h1 style="font-size:18px;font-weight:600;margin-bottom:12px;">AZAVISION</h1><p style="font-size:11px;line-height:1.6;color:#666;max-width:420px;">' + esc(msg) + '</p></div></div>';
         return;
       }
       if (global.boot) global.boot();
