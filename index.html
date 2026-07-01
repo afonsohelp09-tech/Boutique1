@@ -1821,17 +1821,31 @@ footer{
     --hero-photo-max-height:min(30vh,220px);
     --hero-photo-scale:0.95;
   }
+  .hero.hero-motion-on{
+    min-height:min(78vh,620px);align-items:center;padding-top:0;
+  }
   body.vitrine-pending .hero{
-    min-height:min(50vh,400px);height:auto;max-height:none;
+    min-height:100dvh;height:100dvh;max-height:100dvh;
+    align-items:center;justify-content:center;padding-top:0;
   }
   body.vitrine-pending .hero-loading{
-    min-height:min(36vh,280px);
+    min-height:auto;flex:1;
     padding-left:max(16px,env(safe-area-inset-left,0));
     padding-right:max(16px,env(safe-area-inset-right,0));
   }
+  body.vitrine-pending .hero.hero-motion-on .hero-loading-brand{
+    position:absolute;width:1px;height:1px;overflow:hidden;
+    clip:rect(0,0,0,0);white-space:nowrap;opacity:0;
+  }
+  .hero.hero-motion-on .hero-grad{
+    background:linear-gradient(180deg,rgba(0,0,0,.22) 0%,rgba(0,0,0,.06) 42%,rgba(0,0,0,.28) 100%);
+  }
+  body.vitrine-pending .hero.hero-motion-on .hero-grad{
+    background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.03) 48%,rgba(0,0,0,.18) 100%);
+  }
   .hero-motion-canvas{
     width:100%!important;height:100%!important;
-    min-height:100%;inset:0;
+    min-height:100%;inset:0;z-index:1;opacity:1;
   }
   .hero-content{
     max-width:100%;padding:8px max(20px,env(safe-area-inset-right,0)) 32px max(20px,env(safe-area-inset-left,0));

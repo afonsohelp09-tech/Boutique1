@@ -77,6 +77,8 @@
     discPct: 0,
     couponTipo: '',
     couponCode: '',
+    couponCategoria: '',
+    couponValor: 0,
     qvProd: null,
     qvSize: '',
     qvColor: '',
@@ -155,6 +157,8 @@
       'Commande déjà payée': { pt: 'Encomenda já paga.', fr: 'Commande déjà payée.', en: 'Order already paid.', es: 'Pedido ya pagado.' },
       'Méthode de paiement non autorisée': { pt: 'Método de pagamento não autorizado.', fr: 'Méthode de paiement non autorisée.', en: 'Payment method not allowed.', es: 'Método de pago no autorizado.' },
       'Pedido não encontrado': { pt: 'Encomenda não encontrada.', fr: 'Commande introuvable.', en: 'Order not found.', es: 'Pedido no encontrado.' },
+      'Cupão inválido ou expirado': { pt: t().promoErr, fr: t().promoErr, en: t().promoErr, es: t().promoErr },
+      'Code non applicable aux articles du panier': { pt: t().promoCatErr, fr: t().promoCatErr, en: t().promoCatErr, es: t().promoCatErr },
       'Acesso não autorizado / Accès non autorisé': { pt: 'Acesso não autorizado.', fr: 'Accès non autorisé.', en: 'Unauthorized access.', es: 'Acceso no autorizado.' },
       'STRIPE_SECRET_KEY manquante — Projet Apps Script → Paramètres → Propriétés du script': {
         pt: 'STRIPE_SECRET_KEY em falta — Google Apps Script → Propriedades do script.',
@@ -2715,6 +2719,10 @@
     var dpr = Math.min(global.devicePixelRatio || 1, 2);
     var w = Math.max(1, Math.round(rect.width));
     var h = Math.max(1, Math.round(rect.height));
+    if (w < 50 || h < 50) {
+      heroMotionScheduleLayoutFixes_();
+      return;
+    }
     if (w === heroMotionState_.cssW && h === heroMotionState_.cssH && dpr === heroMotionState_.dpr) return;
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
@@ -2934,33 +2942,117 @@
     }
   }
 
+  /** Police canvas — Cormorant si chargée, sinon serif système (mobile). */
+  function heroMotionLetterFontFamily_() {
+    return '"Cormorant Garamond", Georgia, "Times New Roman", serif';
+  }
+
+  /** Dessine le masque texte AZAVISION (1 ou 2 lignes sur mobile étroit). Retourne taille police. */
+  function heroMotionDrawLetterMask_(c, W, H) {
+    var narrow = W < 520;
+    var fs;
+    var font = heroMotionLetterFontFamily_();
+    c.fillStyle = '#fff';
+    c.strokeStyle = '#fff';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    if (narrow) {
+      fs = Math.min(W / 5.6, H * 0.15);
+      fs = Math.max(20, Math.round(fs));
+      c.font = '600 ' + fs + 'px ' + font;
+      c.lineWidth = Math.max(1.5, fs * 0.07);
+      c.fillText('AZA', W / 2, H * 0.41);
+      c.fillText('VISION', W / 2, H * 0.59);
+      c.strokeText('AZA', W / 2, H * 0.41);
+      c.strokeText('VISION', W / 2, H * 0.59);
+    } else {
+      fs = Math.min(H * 0.38, W / 6.8);
+      fs = Math.max(24, Math.round(fs));
+      c.font = '600 ' + fs + 'px ' + font;
+      c.lineWidth = Math.max(1.5, fs * 0.06);
+      c.fillText('AZAVISION', W / 2, H / 2);
+      c.strokeText('AZAVISION', W / 2, H / 2);
+    }
+    return fs;
+  }
+
+  /** Attend le chargement des polices puis recalcule le masque AZAVISION. */
+  function heroMotionWaitFontsThenRebuild_() {
+    var done = false;
+    function rebuild() {
+      if (done) return;
+      done = true;
+      heroMotionState_.letterData = null;
+      heroMotionState_.letterW = 0;
+      heroMotionState_.letterH = 0;
+      heroMotionState_.letterParts = null;
+    }
+    try {
+      if (document.fonts && document.fonts.load) {
+        document.fonts.load('600 48px ' + heroMotionLetterFontFamily_()).then(rebuild).catch(rebuild);
+      }
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(rebuild).catch(rebuild);
+      }
+    } catch (eF) { /* ignore */ }
+    setTimeout(rebuild, 800);
+  }
+
+  /** Recalcul canvas après layout mobile (hero parfois 0px au 1er frame). */
+  function heroMotionScheduleLayoutFixes_() {
+    [0, 80, 200, 500].forEach(function (ms) {
+      setTimeout(function () {
+        if (!document.querySelector('.hero.hero-motion-on')) return;
+        heroMotionOnViewportChange_();
+      }, ms);
+    });
+  }
   /** Construit points cibles du mot AZAVISION + liens « toile » de proximité. */
   function heroMotionBuildLetterTargets_(W, H) {
     var empty = { pts: [], links: [], linkDist: 22 };
+    if (W < 8 || H < 8) return empty;
     var off = document.createElement('canvas');
     off.width = W;
     off.height = H;
     var c = off.getContext('2d');
     if (!c) return empty;
-    var fs = Math.min(H * (W < 420 ? 0.3 : W < 768 ? 0.36 : 0.42), W / (W < 420 ? 8.2 : W < 768 ? 7 : 6.2));
-    c.fillStyle = '#fff';
-    c.font = '600 ' + Math.round(fs) + 'px "Cormorant Garamond", serif';
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText('AZAVISION', W / 2, H / 2);
+    var fs = heroMotionDrawLetterMask_(c, W, H);
     var data;
     try { data = c.getImageData(0, 0, W, H).data; } catch (e) { return empty; }
     var pts = [];
-    var step = Math.max(4, Math.round(fs / 18));
-    for (var y = 0; y < H; y += step) {
-      for (var x = 0; x < W; x += step) {
-        if (data[(y * W + x) * 4 + 3] > 128) pts.push({ x: x, y: y });
+    var mobile = heroMotionIsMobileViewport_(W);
+    var step = Math.max(mobile ? 3 : 4, Math.round(fs / (mobile ? 20 : 18)));
+    var y;
+    var x;
+    for (y = 0; y < H; y += step) {
+      for (x = 0; x < W; x += step) {
+        if (data[(y * W + x) * 4 + 3] > 100) pts.push({ x: x, y: y });
       }
     }
-    if (pts.length > 560) {
+    if (pts.length < 40) {
+      c.clearRect(0, 0, W, H);
+      fs = heroMotionDrawLetterMask_(c, W, H);
+      c.lineWidth = Math.max(2, fs * 0.12);
+      if (W < 520) {
+        c.strokeText('AZA', W / 2, H * 0.41);
+        c.strokeText('VISION', W / 2, H * 0.59);
+      } else {
+        c.strokeText('AZAVISION', W / 2, H / 2);
+      }
+      try { data = c.getImageData(0, 0, W, H).data; } catch (e2) { return empty; }
+      pts = [];
+      step = Math.max(2, Math.round(fs / 24));
+      for (y = 0; y < H; y += step) {
+        for (x = 0; x < W; x += step) {
+          if (data[(y * W + x) * 4 + 3] > 80) pts.push({ x: x, y: y });
+        }
+      }
+    }
+    var maxPts = mobile ? 420 : 560;
+    if (pts.length > maxPts) {
       var keep = [];
-      var k = pts.length / 560;
-      for (var m = 0; m < 560; m++) keep.push(pts[Math.floor(m * k)]);
+      var k = pts.length / maxPts;
+      for (var m = 0; m < maxPts; m++) keep.push(pts[Math.floor(m * k)]);
       pts = keep;
     }
     var linkDist = Math.max(16, step * 2.6);
@@ -3021,11 +3113,13 @@
       st.letterW = W;
       st.letterH = H;
       st.letterParts = st.letterData.pts.map(function (tg, idx) {
+        var mob = heroMotionIsMobileViewport_(W);
         return {
           x: Math.random() * W, y: Math.random() * H,
           tx: tg.x, ty: tg.y,
           a: Math.random() * 6.28, va: (Math.random() - 0.5) * 0.05,
-          gold: Math.random() > 0.4, r: Math.random() * 1.1 + 0.9,
+          gold: Math.random() > 0.4,
+          r: (mob ? 1.4 : 1.1) + Math.random() * (mob ? 1.2 : 0.9),
           orbitR: 0.9 + Math.random() * 2.4,
           orbitSp: 0.22 + Math.random() * 0.38,
           orbitPh: Math.random() * 6.28
@@ -3083,12 +3177,13 @@
       var twinkle = 0.6 + 0.4 * Math.abs(Math.sin(q.a * 2 + i));
       var glow = twinkle * shimmer;
       var color = q.gold ? GR : GR2;
-      var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * 5);
+      var glowMul = heroMotionIsMobileViewport_(W) ? 7 : 5;
+      var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * glowMul);
       gr.addColorStop(0, 'rgba(' + color + ',' + (glow * 0.55) + ')');
       gr.addColorStop(1, 'rgba(' + color + ',0)');
       ctx.fillStyle = gr;
       ctx.beginPath();
-      ctx.arc(q.x, q.y, q.r * 5, 0, Math.PI * 2);
+      ctx.arc(q.x, q.y, q.r * glowMul, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = 'rgba(255,245,225,' + glow + ')';
       ctx.beginPath();
@@ -3245,6 +3340,8 @@
     heroMotionState_.style = heroMotionStyle_();
     hero.classList.add('hero-motion-on');
     heroMotionResize_();
+    heroMotionWaitFontsThenRebuild_();
+    heroMotionScheduleLayoutFixes_();
     if (!heroMotionState_.bound) {
       global.addEventListener('resize', heroMotionOnViewportChange_);
       heroMotionState_.bound = true;
