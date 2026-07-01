@@ -6479,6 +6479,15 @@
     } catch (e) { global.toast(e.message, 'e'); }
   }
 
+  function formatAccOrderDate_(raw) {
+    var s = String(raw || '').trim();
+    if (!s) return '';
+    if (s.length >= 10 && s.charAt(4) === '-' && s.charAt(7) === '-') {
+      return s.slice(0, 10).split('-').reverse().join('/');
+    }
+    return s.length > 16 ? s.slice(0, 16) : s;
+  }
+
   async function loadMyOrders(containerId) {
     var box = $(containerId || 'accOrdersList');
     if (!box || !state.clientId) return;
@@ -6492,13 +6501,16 @@
       }
       box.innerHTML = orders.slice(0, 20).map(function (o) {
         var oid = esc(o.pedido_id).replace(/'/g, "\\'");
+        var meta = esc(formatAccOrderDate_(o.data)) + ' · ' + esc(o.total) + ' €';
+        var status = esc(orderStateLabel_(o.estado)) + ' · ' + esc(orderStateLabel_(o.estado_pagamento));
         return '<div class="acc-order">' +
           '<div class="acc-order-main" onclick="Shop.openOrderDetail(\'' + oid + '\')">' +
           '<div class="acc-order-id">#' + esc(o.pedido_id) + '</div>' +
-          '<p style="font-size:10px;color:var(--muted);margin-top:4px;">' + esc(o.data) + ' · ' + esc(o.total) + ' €</p>' +
-          '<p style="font-size:9px;color:var(--gold);margin-top:4px;">' + esc(orderStateLabel_(o.estado)) + ' · ' + esc(orderStateLabel_(o.estado_pagamento)) + '</p></div>' +
+          '<p class="acc-order-meta">' + meta + '</p>' +
+          '<p class="acc-order-status">' + status + '</p></div>' +
+          '<div class="acc-order-actions">' +
           '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.printOrderInvoice(\'' + oid + '\')">' + esc(t().receiptPrint || 'Imprimir') + '</button>' +
-          '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.downloadOrderInvoice(\'' + oid + '\')">' + esc(t().receiptDownload || 'PDF') + '</button></div>';
+          '<button type="button" class="btn-rc btn-rc-mini" onclick="event.stopPropagation();Shop.downloadOrderInvoice(\'' + oid + '\')">' + esc(t().receiptDownload || 'PDF') + '</button></div></div>';
       }).join('');
     } catch (e) { box.textContent = e.message; }
   }
