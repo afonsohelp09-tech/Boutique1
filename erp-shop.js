@@ -2645,7 +2645,15 @@
     applyHeroTuningFallback(heroBg, token);
   }
 
-  var heroMotionState_ = { raf: 0, particles: [], w: 0, h: 0, bound: false };
+  var heroMotionState_ = { raf: 0, particles: [], w: 0, h: 0, cssW: 0, cssH: 0, dpr: 1, bound: false, orientBound: false };
+
+  var AZV_HERO_MOTION_POOL_ = ['letters', 'letters_web', 'letters_stars', 'letters_pulse', 'letters_orbit'];
+
+  function heroMotionIsMobileViewport_(w) {
+    w = w || heroMotionState_.w || 0;
+    if (w > 0 && w < 768) return true;
+    try { return global.matchMedia && global.matchMedia('(max-width:768px)').matches; } catch (e) { return false; }
+  }
 
   function heroMotionHexToRgb_(hex) {
     var h = String(hex || '').trim();
@@ -2684,7 +2692,8 @@
 
   function heroMotionInitParticles_(w, h) {
     heroMotionState_.particles = [];
-    var n = Math.max(24, Math.floor((w * h) / 9000));
+    var mobile = heroMotionIsMobileViewport_(w);
+    var n = Math.max(mobile ? 16 : 24, Math.floor((w * h) / (mobile ? 13000 : 9000)));
     for (var i = 0; i < n; i++) {
       heroMotionState_.particles.push({
         x: Math.random() * w,
@@ -2703,14 +2712,32 @@
     var canvas = $('heroMotionCanvas');
     if (!canvas) return;
     var rect = canvas.getBoundingClientRect();
+    var dpr = Math.min(global.devicePixelRatio || 1, 2);
     var w = Math.max(1, Math.round(rect.width));
     var h = Math.max(1, Math.round(rect.height));
-    if (w === heroMotionState_.w && h === heroMotionState_.h) return;
-    canvas.width = w;
-    canvas.height = h;
+    if (w === heroMotionState_.cssW && h === heroMotionState_.cssH && dpr === heroMotionState_.dpr) return;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    var ctx = canvas.getContext('2d');
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    heroMotionState_.cssW = w;
+    heroMotionState_.cssH = h;
+    heroMotionState_.dpr = dpr;
     heroMotionState_.w = w;
     heroMotionState_.h = h;
+    heroMotionState_.letterData = null;
+    heroMotionState_.letterW = 0;
+    heroMotionState_.letterH = 0;
     heroMotionInitParticles_(w, h);
+  }
+
+  function heroMotionOnViewportChange_() {
+    heroMotionState_.letterData = null;
+    heroMotionState_.letterW = 0;
+    heroMotionState_.letterH = 0;
+    heroMotionResize_();
   }
 
   function stopHeroMotionCanvas_() {
@@ -2719,8 +2746,12 @@
       heroMotionState_.raf = 0;
     }
     if (heroMotionState_.bound) {
-      global.removeEventListener('resize', heroMotionResize_);
+      global.removeEventListener('resize', heroMotionOnViewportChange_);
       heroMotionState_.bound = false;
+    }
+    if (heroMotionState_.orientBound) {
+      global.removeEventListener('orientationchange', heroMotionOnViewportChange_);
+      heroMotionState_.orientBound = false;
     }
     var hero = document.querySelector('.hero');
     if (hero) hero.classList.remove('hero-motion-on');
@@ -2752,6 +2783,10 @@
     var style = heroMotionState_.style || 'web';
     if (style === 'stars') heroMotionDrawStars_(ctx, pal, W, H);
     else if (style === 'letters') heroMotionDrawLetters_(ctx, pal, W, H);
+    else if (style === 'letters_web') heroMotionDrawLettersWeb_(ctx, pal, W, H);
+    else if (style === 'letters_stars') heroMotionDrawLettersStars_(ctx, pal, W, H);
+    else if (style === 'letters_pulse') heroMotionDrawLettersPulse_(ctx, pal, W, H);
+    else if (style === 'letters_orbit') heroMotionDrawLettersOrbit_(ctx, pal, W, H);
     else if (style === 'sunmoon') heroMotionDrawSunMoon_(ctx, pal, W, H);
     else heroMotionDrawWeb_(ctx, pal, W, H);
     heroMotionState_.raf = requestAnimationFrame(heroMotionDrawFrame_);
@@ -2897,7 +2932,7 @@
     off.height = H;
     var c = off.getContext('2d');
     if (!c) return empty;
-    var fs = Math.min(H * 0.42, W / 6.2);
+    var fs = Math.min(H * (W < 420 ? 0.3 : W < 768 ? 0.36 : 0.42), W / (W < 420 ? 8.2 : W < 768 ? 7 : 6.2));
     c.fillStyle = '#fff';
     c.font = '600 ' + Math.round(fs) + 'px "Cormorant Garamond", serif';
     c.textAlign = 'center';
@@ -3004,6 +3039,70 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
+  /** Combinaison AZAVISION + toile d'araignée (fond discret). */
+  function heroMotionDrawLettersWeb_(ctx, pal, W, H) {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    heroMotionDrawWeb_(ctx, pal, W, H);
+    ctx.restore();
+    heroMotionDrawLetters_(ctx, pal, W, H);
+  }
+
+  /** Combinaison AZAVISION + ciel d'étoiles. */
+  function heroMotionDrawLettersStars_(ctx, pal, W, H) {
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    heroMotionDrawStars_(ctx, pal, W, H);
+    ctx.restore();
+    heroMotionDrawLetters_(ctx, pal, W, H);
+  }
+
+  /** Combinaison AZAVISION + halo pulsant. */
+  function heroMotionDrawLettersPulse_(ctx, pal, W, H) {
+    var st = heroMotionState_;
+    var GR = pal.gold;
+    var pulse = 0.12 + 0.14 * Math.sin((st.t || 0) * 1.25);
+    var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.04, W / 2, H / 2, H * 0.58);
+    vg.addColorStop(0, 'rgba(' + GR + ',' + pulse + ')');
+    vg.addColorStop(1, 'rgba(' + GR + ',0)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+    heroMotionDrawLetters_(ctx, pal, W, H);
+  }
+
+  /** Combinaison AZAVISION + particules en orbite. */
+  function heroMotionDrawLettersOrbit_(ctx, pal, W, H) {
+    var st = heroMotionState_;
+    var t = st.t || 0;
+    var GR = pal.gold;
+    var cx = W / 2;
+    var cy = H / 2;
+    var baseR = Math.min(W, H) * (heroMotionIsMobileViewport_(W) ? 0.34 : 0.38);
+    var ring;
+    var k;
+    var ang;
+    var r;
+    var a;
+    var x;
+    var y;
+    var tw;
+    for (ring = 0; ring < 3; ring++) {
+      ang = t * (0.35 + ring * 0.12) + ring * 2.1;
+      r = baseR * (0.82 + ring * 0.14);
+      for (k = 0; k < 8; k++) {
+        a = ang + k * Math.PI / 4;
+        x = cx + Math.cos(a) * r;
+        y = cy + Math.sin(a) * r * 0.38;
+        tw = 0.35 + 0.55 * Math.abs(Math.sin(t * 2 + k + ring));
+        ctx.beginPath();
+        ctx.arc(x, y, 1.1 + ring * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(' + GR + ',' + tw + ')';
+        ctx.fill();
+      }
+    }
+    heroMotionDrawLetters_(ctx, pal, W, H);
+  }
+
   /** Style « sunmoon » — lune (croissant) et soleil rayonnant qui brillent. */
   function heroMotionDrawSunMoon_(ctx, pal, W, H) {
     var st = heroMotionState_;
@@ -3080,8 +3179,12 @@
     hero.classList.add('hero-motion-on');
     heroMotionResize_();
     if (!heroMotionState_.bound) {
-      global.addEventListener('resize', heroMotionResize_);
+      global.addEventListener('resize', heroMotionOnViewportChange_);
       heroMotionState_.bound = true;
+    }
+    if (!heroMotionState_.orientBound) {
+      global.addEventListener('orientationchange', heroMotionOnViewportChange_);
+      heroMotionState_.orientBound = true;
     }
     heroMotionState_.raf = requestAnimationFrame(heroMotionDrawFrame_);
   }
@@ -3097,8 +3200,24 @@
     if (['web', 'spider', 'toile', 'araignee', 'araignée', 'constellation', 'points', 'dots'].indexOf(v) >= 0) return 'web';
     if (['stars', 'star', 'etoiles', 'étoiles', 'etoile', 'étoile'].indexOf(v) >= 0) return 'stars';
     if (['letters', 'lettres', 'azavision', 'text', 'texte', 'mot'].indexOf(v) >= 0) return 'letters';
+    if (['letters_web', 'letterweb', 'azavision_web', 'toile_azavision', 'web_azavision'].indexOf(v) >= 0) return 'letters_web';
+    if (['letters_stars', 'letterstars', 'azavision_stars', 'etoiles_azavision', 'stars_azavision'].indexOf(v) >= 0) return 'letters_stars';
+    if (['letters_pulse', 'letterpulse', 'azavision_pulse', 'pulse_azavision', 'halo_azavision'].indexOf(v) >= 0) return 'letters_pulse';
+    if (['letters_orbit', 'letterorbit', 'azavision_orbit', 'orbite_azavision', 'orbit_azavision'].indexOf(v) >= 0) return 'letters_orbit';
     if (['sunmoon', 'moonsun', 'lune', 'soleil', 'sun', 'moon', 'lunesoleil'].indexOf(v) >= 0) return 'sunmoon';
     return '';
+  }
+
+  /** Style aléatoire par session (1re entrée) — toujours une variante AZAVISION animée. */
+  function heroMotionSessionStyle_() {
+    try {
+      var key = 'azv_hero_motion_session';
+      var cur = heroMotionNormalizeStyle_(sessionStorage.getItem(key));
+      if (cur) return cur;
+      var pick = AZV_HERO_MOTION_POOL_[Math.floor(Math.random() * AZV_HERO_MOTION_POOL_.length)];
+      sessionStorage.setItem(key, pick);
+      return pick;
+    } catch (eS) { return 'letters'; }
   }
 
   /** Style demandé via l'URL (?motion=stars) — sert aussi à activer le canvas pour essayer. */
@@ -3109,25 +3228,22 @@
     } catch (e) { return ''; }
   }
 
-  /** Résout le style courant : URL → localStorage → config admin → défaut « web ». */
+  /** Résout le style courant : URL → config admin → variante session (1re entrée) → défaut « letters ». */
   function heroMotionStyle_() {
     var fromUrl = heroMotionUrlStyle_();
     if (fromUrl) {
-      try { localStorage.setItem('azv_hero_motion', fromUrl); } catch (e) { /* ignore */ }
+      try { sessionStorage.setItem('azv_hero_motion_session', fromUrl); } catch (e) { /* ignore */ }
       return fromUrl;
     }
-    try {
-      var ls = heroMotionNormalizeStyle_(localStorage.getItem('azv_hero_motion'));
-      if (ls) return ls;
-    } catch (e2) { /* ignore */ }
     var cfg = heroMotionNormalizeStyle_(state.config && state.config.vitrine_hero_motion_style);
-    return cfg || 'letters';
+    if (cfg) return cfg;
+    return heroMotionSessionStyle_();
   }
 
-  /** Permet d'essayer un style à chaud : Shop.setHeroMotion('stars'|'web'|'letters'|'sunmoon'). */
+  /** Permet d'essayer un style à chaud : Shop.setHeroMotion('letters'|'letters_web'|'letters_stars'|…). */
   function setHeroMotion(style) {
-    var s = heroMotionNormalizeStyle_(style) || 'web';
-    try { localStorage.setItem('azv_hero_motion', s); } catch (e) { /* ignore */ }
+    var s = heroMotionNormalizeStyle_(style) || 'letters';
+    try { sessionStorage.setItem('azv_hero_motion_session', s); } catch (e) { /* ignore */ }
     heroMotionState_.style = s;
     heroMotionState_.letterData = null;
     startHeroMotionCanvas_();
