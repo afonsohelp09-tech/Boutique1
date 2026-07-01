@@ -142,7 +142,9 @@
         OTP_SMS_UNAVAILABLE: a.otpSmsUnavailable,
         REG_PASS_SHORT: a.passMin,
         REG_EMAIL_INVALID: a.emailInvalid,
-        coupon_invalid: t().promoErr,
+        USE_OTP: a.registerIntro,
+        coupon_invalid: t().promoErr
+      };
       if (codeMap[code]) return codeMap[code];
     }
     if (!m) return t().errGeneric || 'Erro';
@@ -5655,21 +5657,14 @@
       return;
     }
 
-    await refreshActivePromo({ silent: true });
     if ((state.promo || '').trim() && !state.couponCode) {
       await applyPromo();
-      if (!state.couponCode) {
-        state.checkoutBusy = false;
-        renderCo();
-        return;
-      }
+      if (!state.couponCode) return;
     } else if (state.couponCode) {
       var couponBefore = state.couponCode;
       await refreshActivePromo({ silent: true });
       if (!state.couponCode && couponBefore) {
         global.toast(t().promoErr, 'e');
-        state.checkoutBusy = false;
-        renderCo();
         return;
       }
     }
