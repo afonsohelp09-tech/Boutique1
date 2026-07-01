@@ -142,8 +142,7 @@
         OTP_SMS_UNAVAILABLE: a.otpSmsUnavailable,
         REG_PASS_SHORT: a.passMin,
         REG_EMAIL_INVALID: a.emailInvalid,
-        USE_OTP: a.registerIntro
-      };
+        coupon_invalid: t().promoErr,
       if (codeMap[code]) return codeMap[code];
     }
     if (!m) return t().errGeneric || 'Erro';
@@ -3943,8 +3942,50 @@
 
   function cartCount() { return state.cart.reduce(function (s, i) { return s + i.qty; }, 0); }
   function cartSub() { return state.cart.reduce(function (s, i) { return s + i.price * i.qty; }, 0); }
+  function cartLineCategory_(it) {
+    if (it.cat) return String(it.cat).trim();
+    var p = state.products.find(function (x) { return x.id === it.id || x.produto_id === it.produto_id; });
+    return p ? String(p.cat || '').trim() : '';
+  }
+  function couponValidationItems_() {
+    return state.cart.map(function (it) {
+      return { categoria: cartLineCategory_(it), preco: it.price, quantidade: it.qty };
+    });
+  }
+  function couponEligibleSubtotal_() {
+    var cat = String(state.couponCategoria || '').trim();
+    if (!cat) return cartSub();
+    return state.cart.reduce(function (sum, it) {
+      if (cartLineCategory_(it) === cat) return sum + it.price * it.qty;
+      return sum;
+    }, 0);
+  }
+  function promoSuccessText_(res) {
+    if (!res) return t().promoErr;
+    if (res.tipo === 'free_shipping') return t().promoOkShip;
+    if (res.tipo === 'fixed') return (t().promoOkFixed || '').replace('{n}', res.discount);
+    if (res.tipo === 'percent') {
+      var pct = res.valor != null && res.valor !== '' ? String(res.valor) : res.discount;
+      return t().promoOk.replace('{n}', pct);
+    }
+    return t().promoOk.replace('{n}', res.discount);
+  }
+  function applyCouponResult_(res, code) {
+    if (!res || !res.valid) return false;
+    var discountValue = parseFloat(res.discount) || 0;
+    state.promo = res.codigo || code || state.promo;
+    state.couponCode = res.codigo || code || '';
+    state.couponTipo = res.tipo || '';
+    state.couponCategoria = res.categoria || '';
+    state.couponValor = parseFloat(res.valor) || 0;
+    var basis = couponEligibleSubtotal_();
+    state.discAmount = discountValue;
+    state.discPct = res.tipo === 'percent' && basis > 0 ? (discountValue / basis) * 100 : 0;
+    return true;
+  }
   function currentDiscount(sub) {
-    var base = sub == null ? cartSub() : sub;
+    if (state.couponTipo === 'free_shipping') return 0;
+    var base = state.couponCategoria ? couponEligibleSubtotal_() : (sub == null ? cartSub() : sub);
     if (state.couponTipo === 'percent' && state.discPct > 0) {
       return Math.min(base, (base * state.discPct) / 100);
     }
@@ -3955,6 +3996,8 @@
     state.discPct = 0;
     state.couponTipo = '';
     state.couponCode = '';
+    state.couponCategoria = '';
+    state.couponValor = 0;
     if (!opts || !opts.keepInput) state.promo = '';
   }
   async function refreshActivePromo(opts) {
@@ -3965,15 +4008,8 @@
       return false;
     }
     try {
-      var res = await erpCall('validateCoupon', { code: state.couponCode, total: sub });
-      if (res && res.valid) {
-        var discountValue = parseFloat(res.discount) || 0;
-        state.couponCode = res.codigo || state.couponCode;
-        state.couponTipo = res.tipo || '';
-        state.discAmount = discountValue;
-        state.discPct = res.tipo === 'percent' && sub > 0 ? (discountValue / sub) * 100 : 0;
-        return true;
-      }
+      var res = await erpCall('validateCoupon', { code: state.couponCode, total: sub, items: couponValidationItems_() });
+      if (applyCouponResult_(res, state.couponCode)) return true;
       clearPromoState({ keepInput: true });
       if (!(opts && opts.silent)) global.toast((res && res.error) || t().promoErr, 'i');
       return false;
@@ -4211,7 +4247,8 @@
       '<button class="btn-validate" onclick="Shop.applyPromo()">' + esc(t().promoBtn) + '</button></div><p id="promoMsg"></p></div>' +
       '<div class="totals">' +
       '<div class="t-row"><span>' + esc(t().subT) + '</span><span>' + sub.toFixed(2) + ' €</span></div>' +
-      (disc > 0 ? '<div class="t-row disc"><span>' + esc(t().discT) + '</span><span>- ' + disc.toFixed(2) + ' €</span></div>' : '') +
+      (disc > 0 ? '<div class="t-row disc"><span>' + esc(t().discT) + (state.couponTipo === 'percent' && state.couponValor ? ' (-' + esc(String(state.couponValor)) + '%)' : '') + '</span><span>- ' + disc.toFixed(2) + ' €</span></div>' : '') +
+      (state.couponTipo === 'free_shipping' ? '<div class="t-row disc"><span>' + esc(t().discT) + '</span><span>' + esc(t().promoOkShip) + '</span></div>' : '') +
       '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + (ship === 0 ? esc(t().shipFree) : ship.toFixed(2) + ' €') + '</span></div>' +
       '<div class="t-row grand"><span>' + esc(t().totalT) + '</span><span>' + (afterDisc + ship).toFixed(2) + ' €</span></div></div>' +
       '<button class="btn-checkout" onclick="Shop.openCo()">' + esc(t().checkoutBtn) + '</button>';
@@ -4225,11 +4262,14 @@
     if (!code) return;
     if (!apiUrlConfigured()) {
       if (code === 'BIENVENUE10') {
+        state.promo = code;
         state.couponCode = code;
         state.couponTipo = 'percent';
+        state.couponValor = 10;
         state.discPct = 10;
         state.discAmount = 0;
-        if (el) { el.className = 'promo-ok'; el.textContent = t().promoOk.replace('{n}', '10'); }
+        state.couponCategoria = '';
+        if (el) { el.className = 'promo-ok'; el.textContent = promoSuccessText_({ tipo: 'percent', valor: 10, discount: '10' }); }
       } else {
         clearPromoState({ keepInput: true });
         if (el) { el.className = 'promo-err'; el.textContent = t().promoErr; }
@@ -4238,15 +4278,11 @@
       return;
     }
     try {
-      var res = await erpCall('validateCoupon', { code: code, total: cartSub() });
-      if (res && res.valid) {
-        var discountValue = parseFloat(res.discount) || 0;
-        state.couponCode = res.codigo || code;
-        state.couponTipo = res.tipo || 'percent';
-        state.discAmount = discountValue;
-        state.discPct = res.tipo === 'percent' && cartSub() > 0 ? (discountValue / cartSub()) * 100 : 0;
-        if (el) { el.className = 'promo-ok'; el.textContent = t().promoOk.replace('{n}', res.discount); }
-        global.toast(t().promoOk.replace('{n}', res.discount), 's');
+      var res = await erpCall('validateCoupon', { code: code, total: cartSub(), items: couponValidationItems_() });
+      if (applyCouponResult_(res, code)) {
+        var okMsg = promoSuccessText_(res);
+        if (el) { el.className = 'promo-ok'; el.textContent = okMsg; }
+        global.toast(okMsg, 's');
       } else {
         clearPromoState({ keepInput: true });
         if (el) { el.className = 'promo-err'; el.textContent = (res && res.error) || t().promoErr; }
@@ -4621,6 +4657,7 @@
         variante_id: it.variante_id || '',
         tamanho: it.size,
         cor: it.color,
+        categoria: cartLineCategory_(it),
         preco: it.price,
         quantidade: it.qty,
         nome: nm(it)
@@ -4640,7 +4677,11 @@
     var rows = '<div class="totals" style="margin:12px 0;">' +
       '<div class="t-row"><span>' + esc(t().subT) + '</span><span>' + totals.sub.toFixed(2) + ' €</span></div>';
     if (totals.disc > 0) {
-      rows += '<div class="t-row disc"><span>' + esc(t().discT) + '</span><span>- ' + totals.disc.toFixed(2) + ' €</span></div>';
+      var discLbl = esc(t().discT);
+      if (state.couponTipo === 'percent' && state.couponValor) discLbl += ' (-' + esc(String(state.couponValor)) + '%)';
+      rows += '<div class="t-row disc"><span>' + discLbl + '</span><span>- ' + totals.disc.toFixed(2) + ' €</span></div>';
+    } else if (state.couponTipo === 'free_shipping') {
+      rows += '<div class="t-row disc"><span>' + esc(t().discT) + '</span><span>' + esc(t().promoOkShip) + '</span></div>';
     }
     if (shippingEnabled() && totals.ship > 0) {
       rows += '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + totals.ship.toFixed(2) + ' €</span></div>';
@@ -5615,6 +5656,23 @@
     }
 
     await refreshActivePromo({ silent: true });
+    if ((state.promo || '').trim() && !state.couponCode) {
+      await applyPromo();
+      if (!state.couponCode) {
+        state.checkoutBusy = false;
+        renderCo();
+        return;
+      }
+    } else if (state.couponCode) {
+      var couponBefore = state.couponCode;
+      await refreshActivePromo({ silent: true });
+      if (!state.couponCode && couponBefore) {
+        global.toast(t().promoErr, 'e');
+        state.checkoutBusy = false;
+        renderCo();
+        return;
+      }
+    }
     var totals = orderTotals();
     var endereco = [f.addr, f.zip, f.city].filter(Boolean).join(', ');
     var awaitStripe = isStripePayMethod_(state.payMethod) && isStripeOn();
@@ -5651,7 +5709,7 @@
         shipping_total: totals.ship.toFixed(2),
         grand_total: totals.total.toFixed(2),
         total: totals.total.toFixed(2),
-        coupon_code: state.couponCode || (state.promo || ''),
+        coupon_code: state.couponCode || '',
         cartId: state.cartId || '',
         items: buildOrderItems(),
         lang: state.lang || 'pt',
