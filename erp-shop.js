@@ -2647,7 +2647,7 @@
 
   var heroMotionState_ = { raf: 0, particles: [], w: 0, h: 0, cssW: 0, cssH: 0, dpr: 1, bound: false, orientBound: false, visBound: false };
 
-  var AZV_HERO_MOTION_POOL_ = ['letters', 'letters_web', 'letters_stars', 'letters_pulse', 'letters_orbit', 'web', 'stars', 'sunmoon'];
+  var AZV_HERO_MOTION_POOL_ = ['letters_web', 'letters', 'letters_stars', 'letters_pulse', 'letters_orbit', 'web', 'stars', 'sunmoon'];
 
   function heroMotionIsMobileViewport_(w) {
     w = w || heroMotionState_.w || 0;
@@ -2762,6 +2762,14 @@
       var ctx = canvas.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+  }
+
+  /** Phase intro AZAVISION (~5,2 s) puis toile d'araignée classique (points reliés). */
+  function heroMotionIntroPhase_() {
+    var elapsed = heroMotionState_.t || 0;
+    var INTRO = 5.2;
+    if (elapsed < INTRO) return { phase: 'intro', progress: Math.min(1, elapsed / INTRO) };
+    return { phase: 'web', progress: 1 };
   }
 
   function heroMotionDrawFrame_() {
@@ -3003,7 +3011,10 @@
   }
 
   /** Style « letters » — poussière dorée formant AZAVISION, reliée en toile animée, tout brille. */
-  function heroMotionDrawLetters_(ctx, pal, W, H) {
+  function heroMotionDrawLetters_(ctx, pal, W, H, opts) {
+    opts = opts || {};
+    var introPh = opts.introOnly ? heroMotionIntroPhase_() : null;
+    var introBoost = !!opts.introOnly && introPh && introPh.phase === 'intro';
     var st = heroMotionState_;
     if (!st.letterData || st.letterW !== W || st.letterH !== H) {
       st.letterData = heroMotionBuildLetterTargets_(W, H);
@@ -3039,12 +3050,14 @@
         p.orbitPh = Math.random() * 6.28;
       }
       p.a += p.va;
-      var ox = Math.sin(t * p.orbitSp + p.orbitPh + i * 0.17) * p.orbitR;
-      var oy = Math.cos(t * (p.orbitSp * 0.86) + p.orbitPh + i * 0.13) * p.orbitR;
+      var orbitScale = introBoost ? Math.max(0.15, 1 - introPh.progress * 0.85) : 1;
+      var ox = Math.sin(t * p.orbitSp + p.orbitPh + i * 0.17) * p.orbitR * orbitScale;
+      var oy = Math.cos(t * (p.orbitSp * 0.86) + p.orbitPh + i * 0.13) * p.orbitR * orbitScale;
       var gx = p.tx + ox;
       var gy = p.ty + oy;
-      p.x += (gx - p.x) * 0.13;
-      p.y += (gy - p.y) * 0.13;
+      var lerp = introBoost ? (0.1 + introPh.progress * 0.12) : 0.13;
+      p.x += (gx - p.x) * lerp;
+      p.y += (gy - p.y) * lerp;
     }
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineWidth = 0.8;
@@ -3085,13 +3098,20 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  /** Combinaison AZAVISION + toile d'araignée animée (fond + connexions en mouvement continu). */
+  /** Présentation AZAVISION (~5 s) puis toile d'araignée classique (points flottants reliés entre eux). */
   function heroMotionDrawLettersWeb_(ctx, pal, W, H) {
-    ctx.save();
-    ctx.globalAlpha = 0.72;
+    var ph = heroMotionIntroPhase_();
+    if (ph.phase === 'intro') {
+      if (ph.progress > 0.78) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.55, (ph.progress - 0.78) / 0.22 * 0.55);
+        heroMotionDrawWeb_(ctx, pal, W, H);
+        ctx.restore();
+      }
+      heroMotionDrawLetters_(ctx, pal, W, H, { introOnly: true });
+      return;
+    }
     heroMotionDrawWeb_(ctx, pal, W, H);
-    ctx.restore();
-    heroMotionDrawLetters_(ctx, pal, W, H);
   }
 
   /** Combinaison AZAVISION + ciel d'étoiles. */
@@ -3221,6 +3241,7 @@
     var hero = document.querySelector('.hero');
     if (!canvas || !hero) return;
     stopHeroMotionCanvas_();
+    heroMotionState_.t = 0;
     heroMotionState_.style = heroMotionStyle_();
     hero.classList.add('hero-motion-on');
     heroMotionResize_();
@@ -3271,7 +3292,7 @@
       var pick = AZV_HERO_MOTION_POOL_[Math.floor(Math.random() * AZV_HERO_MOTION_POOL_.length)];
       sessionStorage.setItem(key, pick);
       return pick;
-    } catch (eS) { return 'letters'; }
+    } catch (eS) { return 'letters_web'; }
   }
 
   /** Style demandé via l'URL (?motion=stars) — sert aussi à activer le canvas pour essayer. */
@@ -3299,6 +3320,7 @@
     var s = heroMotionNormalizeStyle_(style) || 'letters';
     try { sessionStorage.setItem('azv_hero_motion_session', s); } catch (e) { /* ignore */ }
     heroMotionState_.style = s;
+    heroMotionState_.t = 0;
     heroMotionState_.letterData = null;
     startHeroMotionCanvas_();
     return s;

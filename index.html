@@ -1812,18 +1812,20 @@ footer{
   .f-copy,.f-legal a{font-size:8px;letter-spacing:1px}
   .f-legal{gap:10px}
   .hero{
-    height:auto;min-height:72vh;max-height:none;
+    height:auto;min-height:min(46vh,380px);max-height:none;
+    align-items:flex-start;padding-top:max(8px,env(safe-area-inset-top,0));
     --hero-bg-blur:6px;
-    --hero-media-shift-x:6px;
-    --hero-media-shift-y:-5px;
-    --hero-photo-width:min(100vw,900px);
-    --hero-photo-max-height:68vh;
+    --hero-media-shift-x:4px;
+    --hero-media-shift-y:-3px;
+    --hero-photo-width:min(72vw,360px);
+    --hero-photo-max-height:min(30vh,220px);
+    --hero-photo-scale:0.95;
   }
   body.vitrine-pending .hero{
-    min-height:100dvh;height:100dvh;max-height:100dvh;
+    min-height:min(50vh,400px);height:auto;max-height:none;
   }
   body.vitrine-pending .hero-loading{
-    min-height:calc(100dvh - 76px - env(safe-area-inset-top,0));
+    min-height:min(36vh,280px);
     padding-left:max(16px,env(safe-area-inset-left,0));
     padding-right:max(16px,env(safe-area-inset-right,0));
   }
@@ -1832,12 +1834,15 @@ footer{
     min-height:100%;inset:0;
   }
   .hero-content{
-    max-width:100%;padding-left:max(20px,env(safe-area-inset-left,0));
-    padding-right:max(20px,env(safe-area-inset-right,0));
+    max-width:100%;padding:8px max(20px,env(safe-area-inset-right,0)) 32px max(20px,env(safe-area-inset-left,0));
   }
   .hero-bg{will-change:auto}
-  .hero-media{padding:20px 14px 28px}
-  .hero-btns{flex-direction:column;width:100%;max-width:280px}
+  .hero-media{padding:6px 10px 10px}
+  .hero-eyebrow{margin-bottom:8px;font-size:9px;letter-spacing:3px}
+  .hero-h1{margin-bottom:10px}
+  .hero-p{margin-bottom:14px;font-size:11px;line-height:1.5}
+  .scroll-cue{bottom:10px;font-size:9px;letter-spacing:1px}
+  .hero-btns{flex-direction:column;width:100%;max-width:280px;gap:8px}
   .hero-btns .btn-gold,.hero-btns .btn-ghost{width:100%;min-height:48px}
   .order-ok{padding:28px 16px}
   .tracking{padding:16px}
@@ -2673,6 +2678,6 @@ boot();
     </div>
   </div>
 </div>
-<script src="erp-shop.js?v=20260630hero-toile-motion"></script>
+<script src="erp-shop.js?v=20260630hero-intro-web"></script>
 </body>
 </html>
