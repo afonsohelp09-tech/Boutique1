@@ -1344,17 +1344,17 @@ a.info-nav-btn{display:block;text-decoration:none}
 }
 .field input:focus{border-color:var(--gold)}
 .field input.acc-otp{text-align:center;letter-spacing:8px;font-size:16px}
-.acc-wrap{padding:28px 32px;max-height:85vh;overflow-y:auto;font-family:'Segoe UI',system-ui,sans-serif}
+.acc-wrap{padding:28px 32px;max-height:85vh;overflow-y:auto;font-family:'Montserrat',sans-serif}
 .acc-welcome,.acc-section-h{
-  font-family:'Segoe UI',system-ui,sans-serif;font-size:18px;font-weight:600;
-  letter-spacing:0;line-height:1.3;margin-bottom:4px;color:var(--text);
+  font-family:'Cormorant Garamond',serif;font-size:clamp(18px,3vw,24px);font-weight:300;
+  letter-spacing:1px;line-height:1.35;margin-bottom:4px;color:var(--text);
 }
 .acc-section-h{margin-bottom:8px}
 .acc-tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--border-hard)}
 .acc-tab{
   flex:1;padding:10px 8px;background:none;border:none;border-bottom:2px solid transparent;
-  color:var(--muted);font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;letter-spacing:0;
-  text-transform:none;cursor:pointer;transition:all .25s;line-height:1.3;
+  color:var(--muted);font-family:'Montserrat',sans-serif;font-size:11px;letter-spacing:0;
+  text-transform:none;cursor:pointer;transition:all .25s;line-height:1.35;
 }
 .acc-tab:hover{color:var(--text)}
 .acc-tab.on{color:var(--gold);border-bottom-color:var(--gold)}
@@ -1368,9 +1368,9 @@ a.info-nav-btn{display:block;text-decoration:none}
 .g-signin-box iframe{margin:0 auto !important}
 .acc-dash-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
 .acc-dash-btn{
-  padding:10px 12px;font-size:11px;letter-spacing:0;text-transform:none;line-height:1.3;
+  padding:10px 12px;font-size:11px;letter-spacing:0;text-transform:none;line-height:1.35;
   background:var(--bg-card);border:1px solid var(--border-hard);color:var(--text-body);
-  cursor:pointer;border-radius:3px;transition:all .2s;font-family:'Segoe UI',system-ui,sans-serif;
+  cursor:pointer;border-radius:3px;transition:all .2s;font-family:'Montserrat',sans-serif;
   font-weight:500;min-height:40px;
 }
 .acc-dash-btn.on{color:var(--gold);border-color:var(--gold);font-weight:600}
@@ -1383,8 +1383,8 @@ a.info-nav-btn{display:block;text-decoration:none}
 .acc-order-main{flex:1;cursor:pointer;min-width:0}
 .acc-order:hover{border-color:var(--gold)}
 .acc-order-id{
-  font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;font-weight:600;
-  letter-spacing:0;line-height:1.3;color:var(--gold);word-break:break-word;
+  font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:400;
+  letter-spacing:0;line-height:1.35;color:var(--gold);word-break:break-word;
 }
 .acc-order-meta{
   font-size:12px;line-height:1.4;color:var(--text-body);margin-top:6px;
@@ -1396,8 +1396,8 @@ a.info-nav-btn{display:block;text-decoration:none}
 }
 .acc-order-actions{display:flex;flex-wrap:wrap;gap:8px;flex-shrink:0;align-items:flex-start}
 .acc-order .btn-rc,.acc-order .btn-rc-mini{
-  font-family:'Segoe UI',system-ui,sans-serif;font-size:10px;font-weight:600;
-  letter-spacing:0;text-transform:none;line-height:1.3;white-space:normal;
+  font-family:'Montserrat',sans-serif;font-size:10px;font-weight:600;
+  letter-spacing:0;text-transform:none;line-height:1.35;white-space:normal;
   padding:10px 12px;border-radius:3px;
 }
 .acc-addr{padding:12px;border:1px solid var(--border-hard);margin-bottom:8px;border-radius:2px;font-size:11px;line-height:1.55;color:var(--text-body)}
@@ -1876,112 +1876,131 @@ footer{
   .img-zoom-close{top:max(12px,env(safe-area-inset-top,12px));right:12px}
   .img-zoom-toolbar{top:max(12px,env(safe-area-inset-top,12px))}
   .img-zoom-hint{bottom:max(16px,env(safe-area-inset-bottom,16px))}
-  /* Typo mobile — alignée admin (02-admin-erp/index.html) */
-  body{font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}
+  /* Typo mobile — charte AZAVISION (Cormorant + Montserrat, tailles adaptées écran) */
+  body{font-family:'Montserrat',sans-serif;line-height:1.5}
   .brand,.brand-fallback,.brand.logo-missing .brand-fallback{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:11px;font-weight:600;letter-spacing:3px;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;
+    font-size:clamp(18px,4.5vw,20px);font-weight:300;letter-spacing:4px;line-height:1.3;
+    text-transform:uppercase;
   }
   .hero-h1{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:18px;font-weight:600;letter-spacing:1px;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;
+    font-size:clamp(28px,8vw,40px);font-weight:200;letter-spacing:2px;line-height:1.07;
+    text-transform:uppercase;
   }
-  .hero-h1 em{font-style:normal;font-weight:600}
-  .hero-p{font-size:11px;font-weight:400;line-height:1.6}
-  .sh-left .sh-label{font-size:9px;letter-spacing:1px;line-height:1.3}
+  .hero-h1 em{font-style:italic;font-weight:300}
+  .hero-p{font-size:13px;font-weight:400;line-height:1.65}
+  .sh-left .sh-label{font-size:10px;letter-spacing:3px;line-height:1.3;text-transform:uppercase}
   .sh-left .sh-title{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:16px;font-weight:600;letter-spacing:1px;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;
+    font-size:clamp(20px,5vw,22px);font-weight:300;letter-spacing:2px;line-height:1.3;
+    text-transform:uppercase;
   }
   .card-name{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:12px;font-weight:600;letter-spacing:0;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;
+    font-size:15px;font-weight:300;letter-spacing:1px;line-height:1.35;text-transform:none;
   }
   .card-stars{font-size:10px}
-  .card-stars span{font-size:9px}
-  .price-c{font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;font-weight:600;line-height:1.3}
-  .price-o{font-size:10px;line-height:1.3}
+  .card-stars span{font-size:10px}
+  .price-c{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;line-height:1.3}
+  .price-o{font-size:11px;line-height:1.3}
   .no-res h3{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:16px;font-weight:600;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;
+    font-size:20px;font-weight:300;line-height:1.3;
   }
-  .no-res p{font-size:11px;line-height:1.6}
+  .no-res p{font-size:13px;line-height:1.65}
   .dh-title{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:16px;font-weight:600;letter-spacing:1px;line-height:1.3;text-transform:none;
+    font-family:'Cormorant Garamond',serif;
+    font-size:18px;font-weight:300;letter-spacing:3px;line-height:1.3;text-transform:uppercase;
   }
-  .dh-n{font-family:'Segoe UI',system-ui,sans-serif;font-size:9px;font-weight:800}
+  .dh-n{font-family:'Montserrat',sans-serif;font-size:9px;font-weight:800}
   .ci-name{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:12px;font-weight:600;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;
+    font-size:14px;font-weight:300;line-height:1.35;
   }
-  .ci-meta{font-size:9px;line-height:1.3}
-  .ci-price{font-size:12px;font-weight:600;line-height:1.3}
-  .m-cat{font-size:9px;letter-spacing:1px;line-height:1.3}
+  .ci-meta{font-size:10px;line-height:1.35;letter-spacing:1.5px;text-transform:uppercase}
+  .ci-price{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;line-height:1.3}
+  .m-cat{font-size:9px;letter-spacing:3px;line-height:1.3;text-transform:uppercase}
   .m-name{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:18px;font-weight:600;line-height:1.3;letter-spacing:0;
+    font-family:'Cormorant Garamond',serif;
+    font-size:22px;font-weight:300;line-height:1.25;letter-spacing:1px;text-transform:none;
   }
-  .m-price .c{font-size:20px;font-weight:600;line-height:1.3}
-  .m-price .o{font-size:11px;line-height:1.3}
-  .tab-btn,.opt-label,.sz-btn,.btn-madd,.btn-mfav{font-family:'Segoe UI',system-ui,sans-serif}
-  .tab-btn{font-size:11px;font-weight:600;letter-spacing:0;text-transform:none}
-  .tab-panel{font-size:11px;line-height:1.6}
-  .opt-label{font-size:9px;letter-spacing:1px;line-height:1.3}
-  .sz-btn{font-size:11px;font-weight:600;line-height:1.3}
-  .btn-madd{font-size:11px;font-weight:600;letter-spacing:1px}
+  .m-price .c{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700;line-height:1.3}
+  .m-price .o{font-size:12px;line-height:1.3}
+  .tab-btn,.btn-madd,.btn-mfav,.sz-btn{font-family:'Montserrat',sans-serif}
+  .opt-label,.qv-size-guide,.qv-options-head{font-family:'Montserrat',sans-serif}
+  .tab-btn{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase}
+  .tab-panel,.qv-desc,.qv-desc p{
+    font-size:13px;line-height:1.7;text-transform:none;letter-spacing:0;
+  }
+  .opt-label{font-size:10px;letter-spacing:1.5px;line-height:1.3;text-transform:uppercase;font-weight:700}
+  .sz-btn{font-size:12px;font-weight:600;line-height:1.3;min-height:44px}
+  .btn-madd{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+  .btn-mfav{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
   .co-title{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:18px;font-weight:600;line-height:1.3;letter-spacing:1px;
+    font-family:'Cormorant Garamond',serif;
+    font-size:22px;font-weight:300;line-height:1.25;letter-spacing:1px;
   }
-  .form-title{font-size:12px;letter-spacing:1px;line-height:1.3;font-weight:600}
-  .field label{font-size:9px;line-height:1.3}
+  .form-title{font-size:10px;letter-spacing:3px;line-height:1.3;font-weight:600;text-transform:uppercase}
+  .field label{font-size:10px;line-height:1.3;letter-spacing:2px;text-transform:uppercase}
   .field input,.field textarea,.field select{
-    font-family:'Segoe UI',system-ui,sans-serif;font-size:16px;line-height:1.3;
+    font-family:'Montserrat',sans-serif;font-size:16px;line-height:1.4;
   }
+  .acc-wrap{font-family:'Montserrat',sans-serif}
   .acc-welcome,.acc-section-h{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:16px;font-weight:600;letter-spacing:1px;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;
+    font-size:clamp(16px,4.5vw,18px);font-weight:300;letter-spacing:1px;line-height:1.35;
   }
-  .acc-order-id{font-family:'Segoe UI',system-ui,sans-serif;font-size:16px;font-weight:600;line-height:1.3}
-  .acc-tab,.acc-dash-btn{font-size:11px;font-weight:600;letter-spacing:0;line-height:1.3}
-  .acc-hint,.acc-check{font-size:11px;line-height:1.6}
-  .acc-link{font-size:11px;line-height:1.3}
-  .acc-addr{font-size:12px;line-height:1.5}
+  .acc-order-id{
+    font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;line-height:1.35;
+  }
+  .acc-tab,.acc-dash-btn{
+    font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;letter-spacing:0;line-height:1.35;
+  }
+  .acc-hint,.acc-check{font-size:12px;line-height:1.6}
+  .acc-link{font-size:12px;line-height:1.4}
+  .acc-addr{font-size:13px;line-height:1.55}
+  .acc-order .btn-rc,.acc-order .btn-rc-mini{font-family:'Montserrat',sans-serif}
   .nav-mobile-head span{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:11px;letter-spacing:2px;font-weight:600;line-height:1.3;
+    font-family:'Montserrat',sans-serif;
+    font-size:12px;letter-spacing:2px;font-weight:600;line-height:1.3;text-transform:uppercase;
   }
   .nav-mobile-ul button,.nav-mobile-ul a.nav-info-link{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:12px;font-weight:500;letter-spacing:0;line-height:1.3;text-transform:none;
+    font-family:'Montserrat',sans-serif;
+    font-size:13px;font-weight:500;letter-spacing:0;line-height:1.45;text-transform:none;
   }
   .nav-mobile-section{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:9px;letter-spacing:1px;line-height:1.3;font-weight:600;
+    font-family:'Montserrat',sans-serif;
+    font-size:10px;letter-spacing:1.5px;line-height:1.3;font-weight:600;text-transform:uppercase;
   }
   .mob-bar button{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:9px;font-weight:600;letter-spacing:.06em;line-height:1.3;text-transform:uppercase;
+    font-family:'Montserrat',sans-serif;
+    font-size:10px;font-weight:600;letter-spacing:.08em;line-height:1.3;text-transform:uppercase;
   }
   .info-hub-head h2{
-    font-family:'Segoe UI',system-ui,sans-serif;font-weight:600;letter-spacing:1px;line-height:1.3;
+    font-family:'Cormorant Garamond',serif;font-weight:300;letter-spacing:2px;line-height:1.3;
+    font-size:clamp(18px,5vw,20px);text-transform:uppercase;
   }
-  .info-nav-btn{font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;line-height:1.3}
+  .info-nav-btn{font-family:'Montserrat',sans-serif;font-size:12px;line-height:1.45}
   .f-col-title{
-    font-family:'Segoe UI',system-ui,sans-serif;
-    font-size:12px;letter-spacing:1px;line-height:1.3;font-weight:600;
+    font-family:'Montserrat',sans-serif;
+    font-size:12px;letter-spacing:1px;line-height:1.3;font-weight:600;text-transform:uppercase;
   }
   .f-links a,.nw-desc,.f-desc{
-    font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;line-height:1.6;
+    font-family:'Montserrat',sans-serif;font-size:12px;line-height:1.5;
   }
+  .f-copy,.f-legal a{font-size:10px;letter-spacing:1px}
   .btn-gold,.btn-pay,.btn-checkout,.btn-ghost-sm{
-    font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;font-weight:600;letter-spacing:0;
+    font-family:'Montserrat',sans-serif;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
   }
-  .promo-bar{font-family:'Segoe UI',system-ui,sans-serif;font-size:10px;line-height:1.3}
-  .cat-pill,.sort-sel,.search-wrap input{font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;line-height:1.3}
-  .svc-title{font-size:10px;line-height:1.3}
-  .svc-desc{font-size:11px;line-height:1.6}
+  .promo-bar{font-family:'Montserrat',sans-serif;font-size:10px;line-height:1.4;letter-spacing:1px}
+  .cat-pill,.sort-sel{font-family:'Montserrat',sans-serif;font-size:11px;line-height:1.3}
+  .search-wrap input,.promo-row input{font-family:'Montserrat',sans-serif;font-size:16px;line-height:1.3}
+  .svc-title{font-size:10px;line-height:1.3;letter-spacing:2px;text-transform:uppercase}
+  .svc-desc{font-size:12px;line-height:1.6}
+  .qv-opt-value{font-size:12px}
+  .qv-selection-note,.qv-added-hint{font-size:12px;line-height:1.55}
+  .qv-added-title{font-size:12px;line-height:1.5}
 }
 @media(max-width:480px){
   .grid{grid-template-columns:repeat(2,1fr);gap:12px 8px}
