@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="200x200" href="icons/icon-200.png"/>
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png"/>
 <link rel="manifest" href="site.webmanifest"/>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preconnect" href="https://drive.google.com" crossorigin/>
@@ -58,6 +58,10 @@
   --tr-line:#1e1e1e;--tr-dot:#2a2a2a;
   --section-border:rgba(255,255,255,.05);
   --on-gold:#000;
+  --font-serif:'Cambria',Georgia,'Times New Roman',serif;
+  --font-sans:'Montserrat',sans-serif;
+  --track-body:0.01em;
+  --track-label:0.06em;
   color-scheme:dark;
 }
 [data-theme="light"]{
@@ -92,12 +96,13 @@
 }
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{
-  font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);
+  font-family:var(--font-serif);background:var(--bg);color:var(--text);
   min-height:100vh;min-height:100dvh;overflow-x:hidden;
   transition:background .25s,color .25s;
   padding-bottom:env(safe-area-inset-bottom,0);
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
-  line-height:1.5;
+  line-height:1.5;letter-spacing:var(--track-body);
+  font-variant-numeric:lining-nums tabular-nums;
 }
 body.scroll-lock{
   overflow:hidden;touch-action:none;position:fixed;width:100%;left:0;right:0;
@@ -108,6 +113,27 @@ html.scroll-lock{overflow:hidden;height:100%}
 input,textarea,select,button{font-family:inherit}
 input,textarea,select{color:var(--text);background:var(--input-bg)}
 input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
+/* Charte Cambria — texte lisible, casse phrase, espacement compact (ref. interface_vitrine_client.html) */
+.tab-panel,.tab-panel p,.qv-desc,.qv-desc p,.acc-hint,.acc-check,.f-desc,.svc-desc,.no-res p,.nw-desc,
+.legal-doc p,.size-guide-block p,.size-guide-note,.size-guide-tip,.qv-added-hint,.qv-selection-note{
+  letter-spacing:var(--track-body);text-transform:lowercase;line-height:1.65;
+}
+.tab-panel::first-letter,.tab-panel p::first-letter,.qv-desc::first-letter,.qv-desc p::first-letter,
+.acc-hint::first-letter,.acc-check::first-letter,.f-desc::first-letter,.svc-desc::first-letter,
+.no-res p::first-letter,.nw-desc::first-letter,.legal-doc p::first-letter,
+.size-guide-block p::first-letter,.qv-added-hint::first-letter,.qv-selection-note::first-letter{
+  text-transform:uppercase;
+}
+.card-name,.m-name,.ci-name{
+  text-transform:capitalize;letter-spacing:var(--track-body);font-weight:400;
+}
+.price-c,.price-o,.m-price .c,.m-price .o,.ci-price,.t-row,.t-row span,.dh-n,.card-stars,.m-stars,
+.acc-order-meta,.acc-order-id,.order-ref-row strong,.m-price,.card-price{
+  font-family:var(--font-serif);font-variant-numeric:lining-nums tabular-nums;
+}
+.field input,.field textarea,.field select{
+  font-family:var(--font-serif);font-variant-numeric:lining-nums tabular-nums;
+}
 .tab-panel,.f-desc,.svc-desc,.order-lines,.acc-muted,.acc-hint,.acc-check{color:var(--text-body)}
 .muted,.empty-txt,.no-res p,.hint{color:var(--text-body)}
 .nav-ul button{color:var(--text-body)}
@@ -159,13 +185,13 @@ input::placeholder,textarea::placeholder{color:var(--placeholder);opacity:1}
 .soc{display:flex;align-items:center;justify-content:center;padding:0}
 .soc svg{width:16px;height:16px;color:var(--soc-color);stroke-width:1.75}
 .soc:hover svg{color:var(--gold)}
-.brand-fallback,.logo-fallback-text{display:none;font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--text);font-weight:600}
+.brand-fallback,.logo-fallback-text{display:none;font-family:var(--font-serif);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--text);font-weight:600}
 .brand.logo-missing .brand-logo,.logo-missing .login-logo,.logo-missing .f-logo{display:none!important}
 .brand.logo-missing .brand-fallback,.logo-missing .logo-fallback-text,.sidebar-head.logo-missing .logo-fallback-text{display:inline!important}
 .brand.logo-missing{max-width:min(210px,32vw)}
 .brand.logo-missing .brand-fallback{font-size:11px;letter-spacing:3px;white-space:nowrap;font-weight:600}
 .f-brand.logo-missing .f-logo{display:none}
-.f-brand.logo-missing .logo-fallback-text{display:block;font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:600;margin-bottom:14px}
+.f-brand.logo-missing .logo-fallback-text{display:block;font-family:var(--font-serif);font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:600;margin-bottom:14px}
 .brand img.brand-logo,.f-logo,.login-logo{opacity:1;visibility:visible;max-width:100%}
 
 /* === SCROLLBAR === */
@@ -199,7 +225,7 @@ body.vitrine-pending .services{display:none!important}
   filter:drop-shadow(0 8px 24px rgba(0,0,0,.12));
 }
 .hero-loading-brand{
-  font-family:'Cormorant Garamond',serif;font-size:clamp(28px,5vw,44px);
+  font-family:var(--font-serif);font-size:clamp(28px,5vw,44px);
   font-weight:300;letter-spacing:6px;text-transform:uppercase;color:var(--ink);
   margin:0;
 }
@@ -238,7 +264,7 @@ nav{
   position:relative;z-index:2;
 }
 .brand{
-  font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:300;
+  font-family:var(--font-serif);font-size:24px;font-weight:300;
   letter-spacing:6px;text-transform:uppercase;
   background:none;border:none;color:var(--text);cursor:pointer;
   display:flex;align-items:baseline;gap:1px;
@@ -543,7 +569,7 @@ nav{
   animation:fadeUp .8s .1s both;
 }
 .hero-h1{
-  font-family:'Cormorant Garamond',serif;
+  font-family:var(--font-serif);
   font-size:clamp(44px,7.5vw,100px);font-weight:200;
   line-height:1.07;letter-spacing:2px;text-transform:uppercase;
   margin-bottom:22px;animation:fadeUp .8s .2s both;
@@ -613,7 +639,7 @@ nav{
 .shop-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px}
 .sh-left .sh-label{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold)}
 .sh-left .sh-title{
-  font-family:'Cormorant Garamond',serif;
+  font-family:var(--font-serif);
   font-size:22px;font-weight:300;letter-spacing:2px;text-transform:uppercase;margin-top:4px;
   color:var(--text);
 }
@@ -778,9 +804,9 @@ nav{
 /* Info */
 .card-info{padding:0 2px}
 .card-name{
-  font-family:'Cormorant Garamond',serif;
-  font-size:14px;font-weight:300;letter-spacing:1px;
-  margin-bottom:4px;line-height:1.3;color:var(--text);
+  font-family:var(--font-serif);
+  font-size:14px;font-weight:400;letter-spacing:var(--track-body);
+  margin-bottom:4px;line-height:1.35;color:var(--text);
 }
 .card-stars{font-size:10px;color:#f59e0b;margin-bottom:7px}
 .card-stars span{color:var(--muted);font-size:9px}
@@ -795,7 +821,7 @@ nav{
   grid-column:1/-1;text-align:center;padding:80px 0;
 }
 .no-res h3{
-  font-family:'Cormorant Garamond',serif;
+  font-family:var(--font-serif);
   font-size:24px;font-weight:300;margin-bottom:10px;
 }
 .no-res p{font-size:11px;color:var(--muted);margin-bottom:20px}
@@ -825,7 +851,7 @@ nav{
   flex-shrink:0;
 }
 .dh-title{
-  font-family:'Cormorant Garamond',serif;
+  font-family:var(--font-serif);
   font-size:18px;letter-spacing:4px;text-transform:uppercase;font-weight:300;
   display:flex;align-items:center;gap:10px;
 }
@@ -864,7 +890,7 @@ nav{
 .ci .shop-img.loaded,.ci .shop-img.img-fallback{opacity:1}
 .ci-body{flex:1;display:flex;flex-direction:column;justify-content:space-between}
 .ci-name{
-  font-family:'Cormorant Garamond',serif;
+  font-family:var(--font-serif);
   font-size:13px;font-weight:300;line-height:1.35;
 }
 .ci-meta{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px}
@@ -1034,8 +1060,8 @@ nav{
 .m-body{width:55%;padding:36px 36px 28px;display:flex;flex-direction:column}
 .m-cat{font-size:8px;color:var(--gold);letter-spacing:4px;text-transform:uppercase;font-weight:600;margin-bottom:9px}
 .m-name{
-  font-family:'Cormorant Garamond',serif;
-  font-size:26px;font-weight:300;line-height:1.2;margin-bottom:9px;
+  font-family:var(--font-serif);
+  font-size:26px;font-weight:400;line-height:1.2;margin-bottom:9px;letter-spacing:var(--track-body);
 }
 .m-stars{font-size:13px;color:#f59e0b;margin-bottom:14px}
 .m-stars span{font-size:9px;color:var(--muted)}
@@ -1125,7 +1151,7 @@ nav{
 .size-guide-block--compact .size-guide-table{font-size:8px}
 .size-guide-block--compact .size-guide-tip,.size-guide-block--compact .size-guide-note{font-size:8px}
 .size-guide-title{
-  font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;
+  font-family:var(--font-serif);font-size:22px;font-weight:300;
   color:var(--text);margin:0 0 4px;line-height:1.2;
 }
 .size-guide-sub{font-size:9px;color:var(--gold);margin:0 0 12px;line-height:1.5}
@@ -1168,7 +1194,7 @@ nav{
   padding:22px 56px 14px 28px;border-bottom:1px solid var(--border-hard);flex-shrink:0;
 }
 .info-hub-head h2{
-  font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;
+  font-family:var(--font-serif);font-size:26px;font-weight:300;
   color:var(--text);margin:0;letter-spacing:2px;line-height:1.25;
 }
 .info-hub-layout{display:flex;flex:1;min-height:0;overflow:hidden;width:100%}
@@ -1325,7 +1351,7 @@ a.info-nav-btn{display:block;text-decoration:none}
 .checkout-modal .m-body{width:100%}
 .co-panel{width:100%;padding:28px 32px;box-sizing:border-box}
 .co-title{
-  font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;
+  font-family:var(--font-serif);font-size:26px;font-weight:300;
   margin-bottom:5px;line-height:1.2;color:var(--text);
 }
 .form-title{
@@ -1336,24 +1362,25 @@ a.info-nav-btn{display:block;text-decoration:none}
 .fgrid.one{grid-template-columns:1fr}
 .fgrid.three{grid-template-columns:1fr 1fr 1fr}
 .field{display:flex;flex-direction:column;gap:4px}
-.field label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.field label{font-size:8px;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--muted);font-family:var(--font-sans)}
 .field input{
   background:var(--bg-card);border:1px solid var(--border-hard);
-  color:var(--text);font-family:'Montserrat',sans-serif;
+  color:var(--text);font-family:var(--font-serif);
   font-size:10px;padding:10px 11px;border-radius:2px;outline:none;transition:border .2s;
+  font-variant-numeric:lining-nums tabular-nums;
 }
 .field input:focus{border-color:var(--gold)}
 .field input.acc-otp{text-align:center;letter-spacing:8px;font-size:16px}
-.acc-wrap{padding:28px 32px;max-height:85vh;overflow-y:auto;font-family:'Montserrat',sans-serif}
+.acc-wrap{padding:28px 32px;max-height:85vh;overflow-y:auto;font-family:var(--font-serif)}
 .acc-welcome,.acc-section-h{
-  font-family:'Cormorant Garamond',serif;font-size:clamp(18px,3vw,24px);font-weight:300;
+  font-family:var(--font-serif);font-size:clamp(18px,3vw,24px);font-weight:300;
   letter-spacing:1px;line-height:1.35;margin-bottom:4px;color:var(--text);
 }
 .acc-section-h{margin-bottom:8px}
 .acc-tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--border-hard)}
 .acc-tab{
   flex:1;padding:10px 8px;background:none;border:none;border-bottom:2px solid transparent;
-  color:var(--muted);font-family:'Montserrat',sans-serif;font-size:11px;letter-spacing:0;
+  color:var(--muted);font-family:var(--font-sans);font-size:11px;letter-spacing:0;
   text-transform:none;cursor:pointer;transition:all .25s;line-height:1.35;
 }
 .acc-tab:hover{color:var(--text)}
@@ -1370,7 +1397,7 @@ a.info-nav-btn{display:block;text-decoration:none}
 .acc-dash-btn{
   padding:10px 12px;font-size:11px;letter-spacing:0;text-transform:none;line-height:1.35;
   background:var(--bg-card);border:1px solid var(--border-hard);color:var(--text-body);
-  cursor:pointer;border-radius:3px;transition:all .2s;font-family:'Montserrat',sans-serif;
+  cursor:pointer;border-radius:3px;transition:all .2s;font-family:var(--font-sans);
   font-weight:500;min-height:40px;
 }
 .acc-dash-btn.on{color:var(--gold);border-color:var(--gold);font-weight:600}
@@ -1383,7 +1410,7 @@ a.info-nav-btn{display:block;text-decoration:none}
 .acc-order-main{flex:1;cursor:pointer;min-width:0}
 .acc-order:hover{border-color:var(--gold)}
 .acc-order-id{
-  font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:400;
+  font-family:var(--font-serif);font-size:14px;font-weight:400;
   letter-spacing:0;line-height:1.35;color:var(--gold);word-break:break-word;
 }
 .acc-order-meta{
@@ -1410,15 +1437,17 @@ a.info-nav-btn{display:block;text-decoration:none}
 .acc-loading{opacity:.6;pointer-events:none}
 .field textarea{
   background:var(--bg-card);border:1px solid var(--border-hard);
-  color:var(--text);font-family:'Montserrat',sans-serif;
+  color:var(--text);font-family:var(--font-serif);
   font-size:10px;padding:10px 11px;border-radius:2px;outline:none;
   min-height:100px;resize:vertical;width:100%;box-sizing:border-box;transition:border .2s;
+  font-variant-numeric:lining-nums tabular-nums;
 }
 .field textarea:focus{border-color:var(--gold)}
 .field select{
   background:var(--bg-card);border:1px solid var(--border-hard);
-  color:var(--text);font-family:'Montserrat',sans-serif;
+  color:var(--text);font-family:var(--font-serif);
   font-size:10px;padding:10px 11px;border-radius:2px;width:100%;outline:none;cursor:pointer;
+  font-variant-numeric:lining-nums tabular-nums;
 }
 .field select:focus{border-color:var(--gold)}
 .contact-fab{
@@ -1476,7 +1505,7 @@ a.info-nav-btn{display:block;text-decoration:none}
   text-align:center;gap:18px;animation:fadeUp .4s both;
 }
 .ok-emoji{font-size:52px}
-.ok-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--gold)}
+.ok-title{font-family:var(--font-serif);font-size:28px;font-weight:300;color:var(--gold)}
 .ok-sub{font-size:11px;color:var(--muted);max-width:400px;line-height:1.75}
 .order-ref-card{
   width:100%;max-width:480px;background:var(--bg-card);border:1px solid var(--border-hard);
@@ -1632,11 +1661,11 @@ footer{
   display:flex;align-items:center;justify-content:center;transition:all .2s;
 }
 .soc:hover{border-color:var(--gold);color:var(--gold)}
-.f-col-title{font-size:12px;letter-spacing:1px;line-height:1.3;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:10px}
+.f-col-title{font-size:12px;letter-spacing:var(--track-label);line-height:1.3;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:10px;font-family:var(--font-sans)}
 .f-links{list-style:none;display:flex;flex-direction:column;gap:4px}
 .f-links a{
   font-size:11px;line-height:1.3;color:var(--text-body);text-decoration:none;font-weight:400;
-  display:block;padding:2px 0;transition:color .2s;
+  display:block;padding:2px 0;transition:color .2s;font-family:var(--font-serif);letter-spacing:var(--track-body);
 }
 .f-links a:hover{color:var(--text)}
 .nw-desc{font-size:11px;color:var(--text-body);line-height:1.3;font-weight:400;margin-bottom:10px}
@@ -1876,15 +1905,15 @@ footer{
   .img-zoom-close{top:max(12px,env(safe-area-inset-top,12px));right:12px}
   .img-zoom-toolbar{top:max(12px,env(safe-area-inset-top,12px))}
   .img-zoom-hint{bottom:max(16px,env(safe-area-inset-bottom,16px))}
-  /* Typo mobile — charte AZAVISION (Cormorant + Montserrat, tailles adaptées écran) */
-  body{font-family:'Montserrat',sans-serif;line-height:1.5}
+  /* Typo mobile — charte Cambria (interface_vitrine_client.html), tailles adaptées écran */
+  body{font-family:var(--font-serif);line-height:1.5;letter-spacing:var(--track-body)}
   .brand,.brand-fallback,.brand.logo-missing .brand-fallback{
-    font-family:'Cormorant Garamond',serif;
+    font-family:var(--font-serif);
     font-size:clamp(18px,4.5vw,20px);font-weight:300;letter-spacing:4px;line-height:1.3;
     text-transform:uppercase;
   }
   .hero-h1{
-    font-family:'Cormorant Garamond',serif;
+    font-family:var(--font-serif);
     font-size:clamp(28px,8vw,40px);font-weight:200;letter-spacing:2px;line-height:1.07;
     text-transform:uppercase;
   }
@@ -1892,70 +1921,70 @@ footer{
   .hero-p{font-size:13px;font-weight:400;line-height:1.65}
   .sh-left .sh-label{font-size:10px;letter-spacing:3px;line-height:1.3;text-transform:uppercase}
   .sh-left .sh-title{
-    font-family:'Cormorant Garamond',serif;
+    font-family:var(--font-serif);
     font-size:clamp(20px,5vw,22px);font-weight:300;letter-spacing:2px;line-height:1.3;
     text-transform:uppercase;
   }
   .card-name{
-    font-family:'Cormorant Garamond',serif;
-    font-size:15px;font-weight:300;letter-spacing:1px;line-height:1.35;text-transform:none;
+    font-family:var(--font-serif);
+    font-size:15px;font-weight:400;letter-spacing:var(--track-body);line-height:1.35;
   }
   .card-stars{font-size:10px}
   .card-stars span{font-size:10px}
-  .price-c{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;line-height:1.3}
+  .price-c{font-family:var(--font-serif);font-size:13px;font-weight:700;line-height:1.3}
   .price-o{font-size:11px;line-height:1.3}
   .no-res h3{
-    font-family:'Cormorant Garamond',serif;
+    font-family:var(--font-serif);
     font-size:20px;font-weight:300;line-height:1.3;
   }
   .no-res p{font-size:13px;line-height:1.65}
   .dh-title{
-    font-family:'Cormorant Garamond',serif;
+    font-family:var(--font-serif);
     font-size:18px;font-weight:300;letter-spacing:3px;line-height:1.3;text-transform:uppercase;
   }
-  .dh-n{font-family:'Montserrat',sans-serif;font-size:9px;font-weight:800}
+  .dh-n{font-family:var(--font-serif);font-size:9px;font-weight:800}
   .ci-name{
-    font-family:'Cormorant Garamond',serif;
-    font-size:14px;font-weight:300;line-height:1.35;
+    font-family:var(--font-serif);
+    font-size:14px;font-weight:400;line-height:1.35;
   }
-  .ci-meta{font-size:10px;line-height:1.35;letter-spacing:1.5px;text-transform:uppercase}
-  .ci-price{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;line-height:1.3}
-  .m-cat{font-size:9px;letter-spacing:3px;line-height:1.3;text-transform:uppercase}
+  .ci-meta{font-size:10px;line-height:1.35;letter-spacing:var(--track-label);text-transform:uppercase;font-family:var(--font-sans)}
+  .ci-price{font-family:var(--font-serif);font-size:13px;font-weight:700;line-height:1.3}
+  .m-cat{font-size:9px;letter-spacing:var(--track-label);line-height:1.3;text-transform:uppercase;font-family:var(--font-sans)}
   .m-name{
-    font-family:'Cormorant Garamond',serif;
-    font-size:22px;font-weight:300;line-height:1.25;letter-spacing:1px;text-transform:none;
+    font-family:var(--font-serif);
+    font-size:22px;font-weight:400;line-height:1.25;letter-spacing:var(--track-body);
   }
-  .m-price .c{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700;line-height:1.3}
+  .m-price .c{font-family:var(--font-serif);font-size:20px;font-weight:700;line-height:1.3}
   .m-price .o{font-size:12px;line-height:1.3}
-  .tab-btn,.btn-madd,.btn-mfav,.sz-btn{font-family:'Montserrat',sans-serif}
-  .opt-label,.qv-size-guide,.qv-options-head{font-family:'Montserrat',sans-serif}
-  .tab-btn{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase}
+  .tab-btn,.btn-madd,.btn-mfav,.sz-btn{font-family:var(--font-sans)}
+  .opt-label,.qv-size-guide,.qv-options-head{font-family:var(--font-sans)}
+  .tab-btn{font-size:10px;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase}
   .tab-panel,.qv-desc,.qv-desc p{
-    font-size:13px;line-height:1.7;text-transform:none;letter-spacing:0;
+    font-size:13px;line-height:1.65;letter-spacing:var(--track-body);
   }
   .opt-label{font-size:10px;letter-spacing:1.5px;line-height:1.3;text-transform:uppercase;font-weight:700}
   .sz-btn{font-size:12px;font-weight:600;line-height:1.3;min-height:44px}
   .btn-madd{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
   .btn-mfav{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
   .co-title{
-    font-family:'Cormorant Garamond',serif;
+    font-family:var(--font-serif);
     font-size:22px;font-weight:300;line-height:1.25;letter-spacing:1px;
   }
   .form-title{font-size:10px;letter-spacing:3px;line-height:1.3;font-weight:600;text-transform:uppercase}
   .field label{font-size:10px;line-height:1.3;letter-spacing:2px;text-transform:uppercase}
   .field input,.field textarea,.field select{
-    font-family:'Montserrat',sans-serif;font-size:16px;line-height:1.4;
+    font-family:var(--font-serif);font-size:16px;line-height:1.4;
   }
-  .acc-wrap{font-family:'Montserrat',sans-serif}
+  .acc-wrap{font-family:var(--font-serif)}
   .acc-welcome,.acc-section-h{
-    font-family:'Cormorant Garamond',serif;
+    font-family:var(--font-serif);
     font-size:clamp(16px,4.5vw,18px);font-weight:300;letter-spacing:1px;line-height:1.35;
   }
   .acc-order-id{
-    font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;line-height:1.35;
+    font-family:var(--font-serif);font-size:16px;font-weight:400;line-height:1.35;
   }
   .acc-tab,.acc-dash-btn{
-    font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;letter-spacing:0;line-height:1.35;
+    font-family:var(--font-sans);font-size:12px;font-weight:600;letter-spacing:0;line-height:1.35;
   }
   .acc-hint,.acc-check{font-size:12px;line-height:1.6}
   .acc-link{font-size:12px;line-height:1.4}
@@ -1966,8 +1995,8 @@ footer{
     font-size:12px;letter-spacing:2px;font-weight:600;line-height:1.3;text-transform:uppercase;
   }
   .nav-mobile-ul button,.nav-mobile-ul a.nav-info-link{
-    font-family:'Montserrat',sans-serif;
-    font-size:13px;font-weight:500;letter-spacing:0;line-height:1.45;text-transform:none;
+    font-family:var(--font-serif);
+    font-size:13px;font-weight:400;letter-spacing:var(--track-body);line-height:1.45;text-transform:none;
   }
   .nav-mobile-section{
     font-family:'Montserrat',sans-serif;
@@ -1978,7 +2007,7 @@ footer{
     font-size:10px;font-weight:600;letter-spacing:.08em;line-height:1.3;text-transform:uppercase;
   }
   .info-hub-head h2{
-    font-family:'Cormorant Garamond',serif;font-weight:300;letter-spacing:2px;line-height:1.3;
+    font-family:var(--font-serif);font-weight:300;letter-spacing:2px;line-height:1.3;
     font-size:clamp(18px,5vw,20px);text-transform:uppercase;
   }
   .info-nav-btn{font-family:'Montserrat',sans-serif;font-size:12px;line-height:1.45}
@@ -1987,7 +2016,7 @@ footer{
     font-size:12px;letter-spacing:1px;line-height:1.3;font-weight:600;text-transform:uppercase;
   }
   .f-links a,.nw-desc,.f-desc{
-    font-family:'Montserrat',sans-serif;font-size:12px;line-height:1.5;
+    font-family:var(--font-serif);font-size:12px;line-height:1.5;letter-spacing:var(--track-body);
   }
   .f-copy,.f-legal a{font-size:10px;letter-spacing:1px}
   .btn-gold,.btn-pay,.btn-checkout,.btn-ghost-sm{
