@@ -205,7 +205,8 @@
       (rows.length ? rows.map(function (cup) {
         var id = esc(cup.cupon_id || cup.cupom_id || cup.codigo).replace(/'/g, "\\'");
         var tipoLbl = cup.tipo === 'percent' ? c.percent : cup.tipo === 'fixed' ? c.fixed : c.freeShip;
-        var uso = esc(cup.uso_atual || 0) + (cup.uso_max ? ' / ' + esc(cup.uso_max) : '');
+        var maxU = parseInt(cup.uso_max, 10) || 0;
+        var uso = esc(cup.uso_atual || 0) + ' / ' + (maxU > 0 ? esc(maxU) : esc(c.unlimited || '∞'));
         var minO = cup.pedido_minimo ? esc(cup.pedido_minimo) + ' €' : '—';
         var noteRaw = String(cup.nota_interna || '').trim();
         var noteCell = noteRaw
@@ -229,6 +230,20 @@
     if (tipo === 'fixed') return c.valueHintFixed || '';
     if (tipo === 'free_shipping') return c.valueHintShip || '';
     return c.valueHintPercent || '';
+  }
+
+  function couponDateInputVal(raw) {
+    if (raw == null || raw === '') return '';
+    var s = String(raw).trim();
+    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return iso[1] + '-' + iso[2] + '-' + iso[3];
+    var dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dmy) {
+      var dd = ('0' + dmy[1]).slice(-2);
+      var mm = ('0' + dmy[2]).slice(-2);
+      return dmy[3] + '-' + mm + '-' + dd;
+    }
+    return s.slice(0, 10);
   }
 
   function couponModalHtml(cup) {
@@ -259,10 +274,10 @@
       '<div class="field"><label>' + esc(c.value) + '</label><input id="cup_val" type="number" step="0.01" min="0" value="' + esc(cup ? cup.valor : '') + '"/>' +
       '<span class="hint-block" id="cup_val_hint" style="margin-top:4px">' + esc(cupValueHint(tipo)) + '</span></div>' +
       '<div class="fgrid"><div class="field"><label>' + esc(c.minOrder) + '</label><input id="cup_min" type="number" step="0.01" min="0" value="' + esc(cup && cup.pedido_minimo ? cup.pedido_minimo : '') + '" placeholder="0"/></div>' +
-      '<div class="field"><label>' + esc(c.maxUsage) + '</label><input id="cup_max" type="number" min="0" value="' + esc(cup ? (cup.uso_max || 0) : '0') + '"/><span class="hint-block">' + (isEdit ? esc(c.currentUsage) + ': ' + esc(cup.uso_atual || 0) : '') + '</span></div></div></section>' +
+      '<div class="field"><label>' + esc(c.maxUsage) + '</label><input id="cup_max" type="number" min="0" step="1" value="' + esc(cup ? (cup.uso_max || 0) : '0') + '"/><span class="hint-block">' + esc(c.maxUsageHint || '') + (isEdit ? ' · ' + esc(c.currentUsage) + ': ' + esc(cup.uso_atual || 0) : '') + '</span></div></div></section>' +
       '<section class="panel" style="margin-bottom:12px"><h2 style="font-size:11px;margin-bottom:10px">' + esc(c.startDate) + '</h2>' +
-      '<div class="fgrid"><div class="field"><label>' + esc(c.startDate) + '</label><input id="cup_start" type="date" value="' + esc(cup && cup.data_inicio ? String(cup.data_inicio).slice(0, 10) : '') + '"/></div>' +
-      '<div class="field"><label>' + esc(c.endDate) + '</label><input id="cup_end" type="date" value="' + esc(cup && cup.data_fim ? String(cup.data_fim).slice(0, 10) : '') + '"/></div></div>' +
+      '<div class="fgrid"><div class="field"><label>' + esc(c.startDate) + '</label><input id="cup_start" type="date" value="' + esc(couponDateInputVal(cup && cup.data_inicio)) + '"/></div>' +
+      '<div class="field"><label>' + esc(c.endDate) + '</label><input id="cup_end" type="date" value="' + esc(couponDateInputVal(cup && cup.data_fim)) + '"/></div></div>' +
       '<div class="field"><label>' + esc(c.category) + '</label><select id="cup_cat"><option value="">' + esc(c.categoryHint || '—') + '</option>' + cats + '</select></div></section>' +
       '<div class="modal-actions"><button type="button" class="btn-ghost" onclick="Admin.closeModal()">' + esc(t().cancel) + '</button>' +
       '<button type="button" class="btn-primary" onclick="Admin.saveCoupon(\'' + esc(isEdit ? (cup.cupon_id || cup.cupom_id || '') : '').replace(/'/g, "\\'") + '\')">' + esc(t().save) + '</button></div></div>';

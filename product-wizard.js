@@ -131,6 +131,7 @@
     wiz.catalogo_status = 'publicado';
     wiz.publicar_em = '';
     wiz.prazo = '3';
+    wiz.envio_gratis_desde = '';
     wiz.stockDefault = 10;
     wiz.imageUrl = '';
     wiz.imagePreview = '';
@@ -155,6 +156,7 @@
     wiz.catalogo_status = pr.catalogo_status || 'publicado';
     wiz.publicar_em = pr.publicar_em || '';
     wiz.prazo = pr.prazo_entrega_dias != null ? String(pr.prazo_entrega_dias) : '3';
+    wiz.envio_gratis_desde = pr.envio_gratis_desde != null && String(pr.envio_gratis_desde).trim() !== '' ? String(pr.envio_gratis_desde) : '';
     wiz.imageUrl = pr.imagem || '';
     wiz.imagePreview = pr.imagem || '';
     wiz.galleryImages = (pr.imagens || []).map(function (img) {
@@ -870,6 +872,9 @@
       '<div class="field"><label>' + esc(p.qty) + ' (' + esc(ww.perVariant || 'par variante') + ')</label><input id="pw_stock" type="number" value="' + esc(wiz.stockDefault) + '"/></div>' +
       '<div class="field"><label>' + esc(p.deliveryDays) + '</label><input id="pw_prazo" type="number" value="' + esc(wiz.prazo) + '"/></div>' +
       '</div>' +
+      '<div class="field"><label>' + esc(p.shippingFreeFrom || 'Livraison gratuite dès (€)') + '</label>' +
+      '<input id="pw_envio_gratis" type="number" step="0.01" min="0" value="' + esc(wiz.envio_gratis_desde) + '" placeholder="—"/>' +
+      '<p class="field-help">' + esc(p.shippingFreeFromHint || 'Vide = rien afficher · 0 = envoi toujours offert · ex. 150 = offert dès 150 €') + '</p></div>' +
       '<div class="field"><label>' + esc(p.catalogStatus) + '</label><select id="pw_catstat">' +
       '<option value="publicado"' + (wiz.catalogo_status === 'publicado' ? ' selected' : '') + '>' + esc(p.statusPublished) + '</option>' +
       '<option value="rascunho"' + (wiz.catalogo_status === 'rascunho' ? ' selected' : '') + '>' + esc(p.statusDraft) + '</option>' +
@@ -977,6 +982,11 @@
         publicar_em: wiz.catalogo_status === 'agendado' ? wiz.publicar_em : '',
         gerir_stock: '1',
         prazo_entrega_dias: parseInt(wiz.prazo, 10) || 3,
+        envio_gratis_desde: (function () {
+          var el = document.getElementById('pw_envio_gratis');
+          var v = el ? String(el.value || '').trim() : String(wiz.envio_gratis_desde || '').trim();
+          return v === '' ? '' : v;
+        })(),
         variantes: buildVariants(initialUrl),
         replace_variants: true
       };
