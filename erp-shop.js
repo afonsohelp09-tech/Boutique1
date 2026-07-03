@@ -86,6 +86,7 @@
     qvGalleryIndex: 0,
     qvForceVariant: false,
     qvViewMode: 'shop',
+    qvInfoTab: 'desc',
     qvAddedFlash: null,
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '', acceptCheckoutTerms: false },
     payMethod: 'stripe_card',
@@ -143,7 +144,8 @@
         REG_PASS_SHORT: a.passMin,
         REG_EMAIL_INVALID: a.emailInvalid,
         USE_OTP: a.registerIntro,
-        coupon_invalid: t().promoErr
+        coupon_invalid: t().promoErr,
+        coupon_usage_limit: t().promoUsageLimit
       };
       if (codeMap[code]) return codeMap[code];
     }
@@ -159,6 +161,7 @@
       'Méthode de paiement non autorisée': { pt: 'Método de pagamento não autorizado.', fr: 'Méthode de paiement non autorisée.', en: 'Payment method not allowed.', es: 'Método de pago no autorizado.' },
       'Pedido não encontrado': { pt: 'Encomenda não encontrada.', fr: 'Commande introuvable.', en: 'Order not found.', es: 'Pedido no encontrado.' },
       'Cupão inválido ou expirado': { pt: t().promoErr, fr: t().promoErr, en: t().promoErr, es: t().promoErr },
+      'Cupão já atingiu o limite de utilizações': { pt: t().promoUsageLimit, fr: t().promoUsageLimit, en: t().promoUsageLimit, es: t().promoUsageLimit },
       'Code non applicable aux articles du panier': { pt: t().promoCatErr, fr: t().promoCatErr, en: t().promoCatErr, es: t().promoCatErr },
       'Acesso não autorizado / Accès non autorisé': { pt: 'Acesso não autorizado.', fr: 'Accès non autorisé.', en: 'Unauthorized access.', es: 'Acceso no autorizado.' },
       'STRIPE_SECRET_KEY manquante — Projet Apps Script → Paramètres → Propriétés du script': {
@@ -282,6 +285,88 @@
     if (!shippingEnabled()) return 0;
     var r = cfgNum('shipping_flat_rate', 0);
     return r > 0 ? r : 0;
+  }
+
+  function getProductEnvioGratisDesde(p) {
+    if (!p) return null;
+    var raw = p.envio_gratis_desde != null ? p.envio_gratis_desde : (p._raw && p._raw.envio_gratis_desde);
+    if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+    var n = parseFloat(String(raw).replace(',', '.'));
+    return isNaN(n) ? null : Math.max(0, n);
+  }
+
+  function productById(id) {
+    return state.products.find(function (x) { return x.id === id || x.produto_id === id; });
+  }
+
+  function productShippingHintHtml(p, unitPrice) {
+    var th = getProductEnvioGratisDesde(p);
+    if (th === null) return '';
+    var price = unitPrice != null ? unitPrice : (p.price || 0);
+    if (th === 0 || price >= th) {
+      return '<p class="qv-ship ok">' + esc(t().prodShipFree) + '</p>';
+    }
+    return '<p class="qv-ship">' + esc(t().prodShipFrom.replace('{n}', th.toFixed(2))) + '</p>';
+  }
+
+  function cartHasProductShippingInfo() {
+    return state.cart.some(function (it) { return getProductEnvioGratisDesde(productById(it.id)) !== null; });
+  }
+
+  function cartShowsShippingUi() {
+    if (state.couponTipo === 'free_shipping') return shippingEnabled() || cartHasProductShippingInfo();
+    return shippingEnabled() || cartHasProductShippingInfo();
+  }
+
+  function computeCartShipping(afterDiscSubtotal) {
+    if (state.couponTipo === 'free_shipping') return 0;
+    if (!state.cart.length) return 0;
+    var sub = cartSub();
+    var after = afterDiscSubtotal != null ? afterDiscSubtotal : Math.max(0, sub - currentDiscount(sub));
+    var discountRatio = sub > 0 ? (after / sub) : 1;
+    var needsPaidShip = false;
+    var globalBucket = 0;
+    var hasGlobalLines = false;
+    state.cart.forEach(function (it) {
+      var p = productById(it.id);
+      var th = getProductEnvioGratisDesde(p);
+      var lineTotal = it.price * it.qty;
+      var lineAfter = lineTotal * discountRatio;
+      if (th === null) {
+        if (shippingEnabled()) {
+          hasGlobalLines = true;
+          globalBucket += lineAfter;
+        }
+        return;
+      }
+      if (th === 0) return;
+      if (lineAfter < th) needsPaidShip = true;
+    });
+    if (needsPaidShip && shippingEnabled()) return shippingFlat();
+    if (hasGlobalLines && shippingEnabled()) {
+      if (globalBucket >= shippingThreshold()) return 0;
+      return shippingFlat();
+    }
+    return 0;
+  }
+
+  function cartShipBarHtml(afterDisc) {
+    if (!cartShowsShippingUi() || state.couponTipo === 'free_shipping') return '';
+    var hasGlobalLines = state.cart.some(function (it) { return getProductEnvioGratisDesde(productById(it.id)) === null; });
+    if (shippingEnabled() && hasGlobalLines) {
+      var th = shippingThreshold();
+      var ok = afterDisc >= th;
+      var pct = th > 0 && th < 999999 ? Math.min(100, (afterDisc / th) * 100) : 0;
+      return '<div class="ship-bar"><p class="ship-msg ' + (ok ? 'ok' : '') + '">' +
+        esc(ok ? t().shipOk : t().shipNeed.replace('{n}', Math.max(0, th - afterDisc).toFixed(2))) +
+        '</p><div class="progress"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>';
+    }
+    if (cartHasProductShippingInfo()) {
+      var ship = computeCartShipping(afterDisc);
+      return '<div class="ship-bar"><p class="ship-msg ' + (ship === 0 ? 'ok' : '') + '">' +
+        esc(ship === 0 ? t().shipOk : t().prodShipCartHint) + '</p></div>';
+    }
+    return '';
   }
 
   function normalizeCat(s) { return String(s || '').trim().toLowerCase(); }
@@ -1924,6 +2009,7 @@
       sizes: productSizeOptions({ sizes: p.tamanhos || [], tamanhos: p.tamanhos || [] }),
       rate: isNaN(rate) ? 0 : rate,
       rev: isNaN(rev) ? 0 : rev,
+      envio_gratis_desde: p.envio_gratis_desde != null ? p.envio_gratis_desde : '',
       dFr: descr,
       dPt: descr,
       dEn: descr,
@@ -2652,7 +2738,7 @@
 
   var heroMotionState_ = { raf: 0, particles: [], w: 0, h: 0, cssW: 0, cssH: 0, dpr: 1, bound: false, orientBound: false, visBound: false };
 
-  var AZV_HERO_MOTION_POOL_ = ['letters_web', 'letters', 'letters_stars', 'letters_pulse', 'letters_orbit', 'web', 'stars', 'sunmoon'];
+  var AZV_HERO_MOTION_POOL_ = ['letters', 'letters_web', 'letters_stars', 'letters_pulse', 'letters_orbit'];
 
   function heroMotionIsMobileViewport_(w) {
     w = w || heroMotionState_.w || 0;
@@ -2687,11 +2773,14 @@
     var main = String(colors.main || state.config.color_main || '#0d0d0d').trim();
     if (main.charAt(0) !== '#') main = '#' + main;
     var theme = getTheme();
-    var bg = theme === 'light' ? '#f3efe8' : (main || '#0d0d0d');
+    var isLight = theme === 'light';
+    var bg = isLight ? '#e6dfd4' : (main || '#0d0d0d');
+    var goldHex = isLight ? heroMotionDarkenHex_(accent, 0.32) : accent;
     return {
       bg: bg,
-      gold: heroMotionHexToRgb_(accent),
-      gold2: heroMotionHexToRgb_(heroMotionDarkenHex_(accent, 0.22))
+      gold: heroMotionHexToRgb_(goldHex),
+      gold2: heroMotionHexToRgb_(heroMotionDarkenHex_(goldHex, isLight ? 0.18 : 0.22)),
+      light: isLight
     };
   }
 
@@ -2792,8 +2881,13 @@
     ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
     var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.1, W / 2, H / 2, H * 0.75);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, getTheme() === 'light' ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.55)');
+    if (pal.light) {
+      vg.addColorStop(0, 'rgba(255,255,255,0)');
+      vg.addColorStop(1, 'rgba(72,58,36,0.14)');
+    } else {
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    }
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, W, H);
     heroMotionState_.t = (heroMotionState_.t || 0) + 0.016;
@@ -2948,24 +3042,33 @@
     return '"Cormorant Garamond", Georgia, "Times New Roman", serif';
   }
 
+  /** Zone mobile proche du carré (chargement hero). */
+  function heroMotionIsSquareMobile_(W, H) {
+    if (!heroMotionIsMobileViewport_(W)) return false;
+    if (!W || !H) return true;
+    var ratio = W / H;
+    return ratio > 0.82 && ratio < 1.22;
+  }
+
   /** Dessine le masque texte AZAVISION (1 ou 2 lignes sur mobile étroit). Retourne taille police. */
   function heroMotionDrawLetterMask_(c, W, H) {
     var narrow = W < 520;
+    var squareMob = heroMotionIsSquareMobile_(W, H);
     var fs;
     var font = heroMotionLetterFontFamily_();
     c.fillStyle = '#fff';
     c.strokeStyle = '#fff';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    if (narrow) {
-      fs = Math.min(W / 5.6, H * 0.15);
-      fs = Math.max(20, Math.round(fs));
-      c.font = '600 ' + fs + 'px ' + font;
-      c.lineWidth = Math.max(1.5, fs * 0.07);
-      c.fillText('AZA', W / 2, H * 0.41);
-      c.fillText('VISION', W / 2, H * 0.59);
-      c.strokeText('AZA', W / 2, H * 0.41);
-      c.strokeText('VISION', W / 2, H * 0.59);
+    if (narrow || squareMob) {
+      fs = Math.min(W / (squareMob ? 5.2 : 5.6), H / (squareMob ? 4.6 : 5.8));
+      fs = Math.max(22, Math.round(fs));
+      c.font = '700 ' + fs + 'px ' + font;
+      c.lineWidth = Math.max(2, fs * 0.09);
+      c.fillText('AZA', W / 2, H * 0.44);
+      c.fillText('VISION', W / 2, H * 0.56);
+      c.strokeText('AZA', W / 2, H * 0.44);
+      c.strokeText('VISION', W / 2, H * 0.56);
     } else {
       fs = Math.min(H * 0.38, W / 6.8);
       fs = Math.max(24, Math.round(fs));
@@ -3034,9 +3137,9 @@
       c.clearRect(0, 0, W, H);
       fs = heroMotionDrawLetterMask_(c, W, H);
       c.lineWidth = Math.max(2, fs * 0.12);
-      if (W < 520) {
-        c.strokeText('AZA', W / 2, H * 0.41);
-        c.strokeText('VISION', W / 2, H * 0.59);
+      if (W < 520 || heroMotionIsSquareMobile_(W, H)) {
+        c.strokeText('AZA', W / 2, H * 0.44);
+        c.strokeText('VISION', W / 2, H * 0.56);
       } else {
         c.strokeText('AZAVISION', W / 2, H / 2);
       }
@@ -3109,20 +3212,23 @@
     var introPh = opts.introOnly ? heroMotionIntroPhase_() : null;
     var introBoost = !!opts.introOnly && introPh && introPh.phase === 'intro';
     var st = heroMotionState_;
+    var mob = heroMotionIsMobileViewport_(W);
+    var isLight = !!(pal && pal.light);
+    var lineMul = isLight ? 0.78 : 0.44;
+    var composite = isLight ? 'source-over' : 'lighter';
     if (!st.letterData || st.letterW !== W || st.letterH !== H) {
       st.letterData = heroMotionBuildLetterTargets_(W, H);
       st.letterW = W;
       st.letterH = H;
-      st.letterParts = st.letterData.pts.map(function (tg, idx) {
-        var mob = heroMotionIsMobileViewport_(W);
+      st.letterParts = st.letterData.pts.map(function (tg) {
         return {
           x: Math.random() * W, y: Math.random() * H,
           tx: tg.x, ty: tg.y,
           a: Math.random() * 6.28, va: (Math.random() - 0.5) * 0.05,
-          gold: Math.random() > 0.4,
-          r: (mob ? 1.4 : 1.1) + Math.random() * (mob ? 1.2 : 0.9),
-          orbitR: 0.9 + Math.random() * 2.4,
-          orbitSp: 0.22 + Math.random() * 0.38,
+          gold: Math.random() > 0.35,
+          r: (mob ? 1.8 : 1.1) + Math.random() * (mob ? 1.0 : 0.9),
+          orbitR: mob ? (0.25 + Math.random() * 0.55) : (0.9 + Math.random() * 2.4),
+          orbitSp: mob ? (0.12 + Math.random() * 0.18) : (0.22 + Math.random() * 0.38),
           orbitPh: Math.random() * 6.28
         };
       });
@@ -3150,12 +3256,16 @@
       var oy = Math.cos(t * (p.orbitSp * 0.86) + p.orbitPh + i * 0.13) * p.orbitR * orbitScale;
       var gx = p.tx + ox;
       var gy = p.ty + oy;
-      var lerp = introBoost ? (0.1 + introPh.progress * 0.12) : 0.13;
+      var lerp = introBoost ? (0.1 + introPh.progress * 0.12) : (mob ? 0.22 : 0.13);
       p.x += (gx - p.x) * lerp;
       p.y += (gy - p.y) * lerp;
     }
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineWidth = 0.8;
+    if (isLight && mob) {
+      ctx.fillStyle = 'rgba(255,255,255,0.42)';
+      ctx.fillRect(W * 0.06, H * 0.28, W * 0.88, H * 0.44);
+    }
+    ctx.globalCompositeOperation = composite;
+    ctx.lineWidth = mob ? 1.1 : 0.8;
     for (i = 0; i < links.length; i += 2) {
       var pa = parts[links[i]];
       var pb = parts[links[i + 1]];
@@ -3164,7 +3274,7 @@
       var ly = pa.y - pb.y;
       var ld = Math.sqrt(lx * lx + ly * ly);
       if (ld < maxLine) {
-        var op = (1 - ld / maxLine) * 0.44 * shimmer;
+        var op = (1 - ld / maxLine) * lineMul * shimmer;
         ctx.strokeStyle = 'rgba(' + GR + ',' + op + ')';
         ctx.beginPath();
         ctx.moveTo(pa.x, pa.y);
@@ -3178,15 +3288,17 @@
       var twinkle = 0.6 + 0.4 * Math.abs(Math.sin(q.a * 2 + i));
       var glow = twinkle * shimmer;
       var color = q.gold ? GR : GR2;
-      var glowMul = heroMotionIsMobileViewport_(W) ? 7 : 5;
+      var glowMul = mob ? 5.5 : 5;
       var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * glowMul);
-      gr.addColorStop(0, 'rgba(' + color + ',' + (glow * 0.55) + ')');
+      gr.addColorStop(0, 'rgba(' + color + ',' + (glow * (isLight ? 0.75 : 0.55)) + ')');
       gr.addColorStop(1, 'rgba(' + color + ',0)');
       ctx.fillStyle = gr;
       ctx.beginPath();
       ctx.arc(q.x, q.y, q.r * glowMul, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255,245,225,' + glow + ')';
+      ctx.fillStyle = isLight
+        ? ('rgba(48,36,14,' + Math.min(1, glow * 0.95) + ')')
+        : ('rgba(255,245,225,' + glow + ')');
       ctx.beginPath();
       ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2);
       ctx.fill();
@@ -4235,15 +4347,10 @@
     var sub = cartSub();
     var disc = currentDiscount(sub);
     var afterDisc = Math.max(0, sub - disc);
-    var ship = state.couponTipo === 'free_shipping' ? 0 : (afterDisc >= shippingThreshold() ? 0 : shippingFlat());
-    var pct = Math.min(100, (afterDisc / shippingThreshold()) * 100);
+    var ship = computeCartShipping(afterDisc);
 
     df.innerHTML =
-      (shippingEnabled() ? (
-      '<div class="ship-bar"><p class="ship-msg ' + (afterDisc >= shippingThreshold() ? 'ok' : '') + '">' +
-      (afterDisc >= shippingThreshold() ? esc(t().shipOk) : esc(t().shipNeed.replace('{n}', (shippingThreshold() - afterDisc).toFixed(2)))) +
-      '</p><div class="progress"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>'
-      ) : '') +
+      cartShipBarHtml(afterDisc) +
       '<div class="promo-sec"><span class="promo-lbl">' + esc(t().promoLbl) + '</span>' +
       '<div class="promo-row"><input id="promoIn" type="text" placeholder="' + esc(t().promoPH) + '" value="' + esc(state.promo) + '" oninput="Shop.setPromo(this.value)"/>' +
       '<button class="btn-validate" onclick="Shop.applyPromo()">' + esc(t().promoBtn) + '</button></div><p id="promoMsg"></p></div>' +
@@ -4251,7 +4358,7 @@
       '<div class="t-row"><span>' + esc(t().subT) + '</span><span>' + sub.toFixed(2) + ' €</span></div>' +
       (disc > 0 ? '<div class="t-row disc"><span>' + esc(t().discT) + (state.couponTipo === 'percent' && state.couponValor ? ' (-' + esc(String(state.couponValor)) + '%)' : '') + '</span><span>- ' + disc.toFixed(2) + ' €</span></div>' : '') +
       (state.couponTipo === 'free_shipping' ? '<div class="t-row disc"><span>' + esc(t().discT) + '</span><span>' + esc(t().promoOkShip) + '</span></div>' : '') +
-      '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + (ship === 0 ? esc(t().shipFree) : ship.toFixed(2) + ' €') + '</span></div>' +
+      (cartShowsShippingUi() ? '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + (ship === 0 ? esc(t().shipFree) : ship.toFixed(2) + ' €') + '</span></div>' : '') +
       '<div class="t-row grand"><span>' + esc(t().totalT) + '</span><span>' + (afterDisc + ship).toFixed(2) + ' €</span></div></div>' +
       '<button class="btn-checkout" onclick="Shop.openCo()">' + esc(t().checkoutBtn) + '</button>';
   }
@@ -4382,6 +4489,7 @@
             if (revs.reviews) {
               p.rev = revs.reviews.length;
               p.rate = parseFloat(revs.average) || 0;
+              p.approvedReviews = revs.reviews;
             }
           }
         }
@@ -4395,6 +4503,7 @@
     state.qvGalleryIndex = 0;
     state.qvGuide = false;
     state.qvViewMode = 'shop';
+    state.qvInfoTab = 'desc';
     state.qvAddedFlash = null;
     var colorOpts = productColorOptions(p);
     var sizeOpts = productSizeOptions(p);
@@ -4426,6 +4535,42 @@
   function setQvViewMode(mode) {
     state.qvViewMode = mode === 'photo' ? 'photo' : 'shop';
     renderQv();
+  }
+
+  function setQvInfoTab(tab) {
+    state.qvInfoTab = tab === 'reviews' ? 'reviews' : 'desc';
+    renderQv();
+  }
+
+  function renderQvReviewsList_(reviews) {
+    var tm = t();
+    if (!reviews || !reviews.length) {
+      return '<p class="acc-hint qv-review-empty">' + esc(tm.noReviewsYet || 'Aucun avis pour le moment.') + '</p>';
+    }
+    return '<ul class="qv-review-list">' + reviews.map(function (r) {
+      var nota = Math.max(1, Math.min(5, parseInt(r.nota, 10) || 5));
+      var txt = String(r.comentario || r.comment || '').trim();
+      return '<li class="qv-review-item">' +
+        '<p class="qv-review-stars" aria-label="' + esc(String(nota) + '/5') + '">' + stars(nota) + '</p>' +
+        (txt ? '<p class="qv-review-text">' + esc(txt) + '</p>' : '') +
+        '</li>';
+    }).join('') + '</ul>';
+  }
+
+  function renderQvInfoTabsBlock(p) {
+    var tab = state.qvInfoTab === 'reviews' ? 'reviews' : 'desc';
+    var tm = t();
+    var revCount = parseInt(p.rev, 10) || 0;
+    var reviewsLabel = tm.tabReviews || tm.reviews || 'Avis';
+    if (revCount > 0) reviewsLabel += ' (' + revCount + ')';
+    return '<div class="qv-info-section">' +
+      '<div class="tab-bar qv-tab-bar" role="tablist">' +
+      '<button type="button" role="tab" class="tab-btn' + (tab === 'desc' ? ' on' : '') + '" aria-selected="' + (tab === 'desc' ? 'true' : 'false') + '" onclick="Shop.setQvInfoTab(\'desc\')">' + esc(tm.tabDesc) + '</button>' +
+      '<button type="button" role="tab" class="tab-btn' + (tab === 'reviews' ? ' on' : '') + '" aria-selected="' + (tab === 'reviews' ? 'true' : 'false') + '" onclick="Shop.setQvInfoTab(\'reviews\')">' + esc(reviewsLabel) + '</button></div>' +
+      (tab === 'desc'
+        ? '<div class="tab-panel qv-desc" role="tabpanel"><p>' + esc(desc(p)) + '</p></div>'
+        : '<div class="qv-review-panel" role="tabpanel">' + renderQvReviewsList_(p.approvedReviews) + renderQvReviewFormBlock(p) + '</div>') +
+      '</div>';
   }
 
   function renderQvOptionsBlock(colorOptions, sizeOptions, canAdd) {
@@ -4575,25 +4720,25 @@
       '<h2 class="m-name">' + esc(nm(p)) + '</h2>' +
       '<p class="m-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ')</span></p>' +
       '<div class="m-price"><span class="c">' + displayPrice.toFixed(2) + ' €</span>' +
-      (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div></div>' +
-      '<div class="tab-panel qv-desc"><p>' + esc(desc(p)) + '</p></div>' +
-      renderQvReviewBlock(p) +
+      (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div>' +
+      productShippingHintHtml(p, displayPrice) + '</div>' +
+      renderQvInfoTabsBlock(p) +
       renderQvOptionsBlock(colorOptions, sizeOptions, canAdd) +
       renderQvCtaBlock(pid, canAdd, faved, tm) + '</div></div>';
   }
 
-  function renderQvReviewBlock(p) {
+  function renderQvReviewFormBlock(p) {
     if (!p || !p.id) return '';
     var tm = t();
     if (!state.clientId || !state.token) {
-      return '<div class="qv-review-block"><p class="acc-hint">' + esc(tm.reviewLoginHint || '') + '</p></div>';
+      return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(tm.reviewLoginHint || '') + '</p></div>';
     }
-    return '<div class="qv-review-block" style="margin:12px 0;padding:12px;border:1px solid var(--border-hard);border-radius:3px;">' +
-      '<p class="form-title" style="margin:0 0 8px;">' + esc(tm.reviewTitle || 'Review') + '</p>' +
-      '<div class="field" style="margin-bottom:8px;"><label>' + esc(tm.reviewRating || 'Rating') + '</label>' +
-      '<select id="qvReviewRating" style="width:100%;"><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></div>' +
-      '<div class="field" style="margin-bottom:8px;"><label>' + esc(tm.reviewComment || 'Comment') + '</label>' +
-      '<textarea id="qvReviewComment" rows="2" placeholder="' + esc(tm.reviewPlaceholder || '') + '" style="width:100%;"></textarea></div>' +
+    return '<div class="qv-review-block qv-review-form">' +
+      '<p class="form-title qv-review-form-title">' + esc(tm.reviewTitle || 'Review') + '</p>' +
+      '<div class="field qv-review-field"><label>' + esc(tm.reviewRating || 'Rating') + '</label>' +
+      '<select id="qvReviewRating" class="qv-review-select"><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></div>' +
+      '<div class="field qv-review-field"><label>' + esc(tm.reviewComment || 'Comment') + '</label>' +
+      '<textarea id="qvReviewComment" class="qv-review-textarea" rows="3" placeholder="' + esc(tm.reviewPlaceholder || '') + '"></textarea></div>' +
       '<button type="button" class="btn-ghost-sm" onclick="Shop.submitProductReview(\'' + esc(p.id).replace(/'/g, "\\'") + '\')">' + esc(tm.reviewSubmit || 'Submit') + '</button></div>';
   }
 
@@ -4619,6 +4764,8 @@
       }
       global.toast(t().reviewThanks || 'Thanks', 's');
       if (commentEl) commentEl.value = '';
+      state.qvInfoTab = 'reviews';
+      renderQv();
     } catch (e) { global.toast(e.message, 'e'); }
   }
 
@@ -4671,7 +4818,7 @@
     var sub = cartSub();
     var disc = currentDiscount(sub);
     var after = Math.max(0, sub - disc);
-    var ship = state.couponTipo === 'free_shipping' ? 0 : (after >= shippingThreshold() ? 0 : shippingFlat());
+    var ship = computeCartShipping(after);
     return { sub: sub, disc: disc, after: after, ship: ship, total: after + ship };
   }
 
@@ -4687,7 +4834,7 @@
     }
     if (shippingEnabled() && totals.ship > 0) {
       rows += '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + totals.ship.toFixed(2) + ' €</span></div>';
-    } else if (shippingEnabled()) {
+    } else if (cartShowsShippingUi()) {
       rows += '<div class="t-row"><span>' + esc(t().shipT) + '</span><span>' + esc(t().shipFree) + '</span></div>';
     }
     rows += '<div class="t-row grand"><span>' + esc(t().totalT) + '</span><span>' + totals.total.toFixed(2) + ' €</span></div></div>';
@@ -7181,6 +7328,7 @@
     setQvColor: setQvColor,
     setQvGallery: setQvGallery,
     setQvViewMode: setQvViewMode,
+    setQvInfoTab: setQvInfoTab,
     qvGalleryPrev: qvGalleryPrev,
     qvGalleryNext: qvGalleryNext,
     toggleQvGuide: toggleQvGuide,
