@@ -273,8 +273,10 @@
   }
 
   function shippingEnabled() {
+    if (cfgOn('shipping_enabled', false)) return true;
     var rate = cfgNum('shipping_flat_rate', 0);
-    return cfgOn('shipping_enabled', rate > 0);
+    var th = cfgNum('free_shipping_threshold', cfgNum('shipping_free_above', 0));
+    return rate > 0 || th > 0;
   }
   function shippingThreshold() {
     if (!shippingEnabled()) return 999999;
@@ -920,7 +922,11 @@
   function buildInfoDocHtml(pageKey) {
     var ic = global.InfoContent;
     if (!ic || !ic[pageKey]) return '';
-    var doc = ic[pageKey][state.lang] || ic[pageKey].pt;
+    var base = ic[pageKey][state.lang] || ic[pageKey].pt;
+    var overrides = state.infoContentOverrides || {};
+    var oPage = overrides[pageKey];
+    var oDoc = oPage && (oPage[state.lang] || oPage.pt);
+    var doc = oDoc ? Object.assign({}, base || {}, oDoc) : base;
     if (!doc) return '';
     var vars = legalVars();
     var html = '<article class="info-doc legal-doc">';
@@ -2449,6 +2455,7 @@
         if (sd.social && Object.keys(sd.social).length) state.store.social = sd.social;
         if (sd.colors) state.store.colors = sd.colors;
         if (sd.empresa && typeof sd.empresa === 'object') state.store.empresa = sd.empresa;
+        if (sd.infoContent && typeof sd.infoContent === 'object') state.infoContentOverrides = sd.infoContent;
       }
     } catch (e3) { /* ignore */ }
     if (!state.store) state.store = {};
@@ -2738,7 +2745,7 @@
 
   var heroMotionState_ = { raf: 0, particles: [], w: 0, h: 0, cssW: 0, cssH: 0, dpr: 1, bound: false, orientBound: false, visBound: false };
 
-  var AZV_HERO_MOTION_POOL_ = ['letters', 'letters_web', 'letters_stars', 'letters_pulse', 'letters_orbit'];
+  var AZV_HERO_MOTION_POOL_ = ['letters_luxe', 'letters_web', 'letters', 'letters_cascade', 'letters_stars', 'letters_orbit', 'letters_pulse', 'web', 'stars', 'sunmoon'];
 
   function heroMotionIsMobileViewport_(w) {
     w = w || heroMotionState_.w || 0;
@@ -2862,10 +2869,10 @@
     }
   }
 
-  /** Phase intro AZAVISION (~5,2 s) puis toile d'araignée classique (points reliés). */
+  /** Phase intro AZAVISION (~5,2 s desktop / ~6 s mobile) puis toile d'araignée classique. */
   function heroMotionIntroPhase_() {
     var elapsed = heroMotionState_.t || 0;
-    var INTRO = 5.2;
+    var INTRO = heroMotionIsMobileViewport_() ? 6 : 5.2;
     if (elapsed < INTRO) return { phase: 'intro', progress: Math.min(1, elapsed / INTRO) };
     return { phase: 'web', progress: 1 };
   }
@@ -2898,6 +2905,8 @@
     else if (style === 'letters_stars') heroMotionDrawLettersStars_(ctx, pal, W, H);
     else if (style === 'letters_pulse') heroMotionDrawLettersPulse_(ctx, pal, W, H);
     else if (style === 'letters_orbit') heroMotionDrawLettersOrbit_(ctx, pal, W, H);
+    else if (style === 'letters_luxe') heroMotionDrawLettersLuxe_(ctx, pal, W, H);
+    else if (style === 'letters_cascade') heroMotionDrawLettersCascade_(ctx, pal, W, H);
     else if (style === 'sunmoon') heroMotionDrawSunMoon_(ctx, pal, W, H);
     else heroMotionDrawWeb_(ctx, pal, W, H);
     heroMotionState_.raf = requestAnimationFrame(heroMotionDrawFrame_);
@@ -2908,9 +2917,12 @@
     var particles = heroMotionState_.particles;
     var GR = pal.gold;
     var GR2 = pal.gold2;
-    var D = 120;
+    var mob = heroMotionIsMobileViewport_(W);
+    var D = mob ? 95 : 120;
     var t = heroMotionState_.t || 0;
     var shimmer = 0.82 + 0.18 * Math.sin(t * 1.45);
+    var lineOp = mob ? 0.28 : 0.2;
+    var lineW = mob ? 0.72 : 0.55;
     var i;
     var j;
     for (i = 0; i < particles.length; i++) {
@@ -2919,10 +2931,10 @@
         var dy = particles[i].y - particles[j].y;
         var dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < D) {
-          var op = (1 - dist / D) * 0.2 * shimmer;
+          var op = (1 - dist / D) * lineOp * shimmer;
           ctx.beginPath();
           ctx.strokeStyle = 'rgba(' + GR + ',' + op + ')';
-          ctx.lineWidth = 0.55;
+          ctx.lineWidth = lineW;
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
           ctx.stroke();
@@ -2938,18 +2950,19 @@
       if (p.x > W) p.x = 0;
       if (p.y < 0) p.y = H;
       if (p.y > H) p.y = 0;
-      var alpha = 0.4 + 0.5 * Math.abs(Math.sin(p.a));
+      var alpha = (mob ? 0.55 : 0.4) + (mob ? 0.4 : 0.5) * Math.abs(Math.sin(p.a));
       var color = p.gold ? GR : GR2;
+      var pr = mob ? Math.max(p.r, 1.1) : p.r;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, pr, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(' + color + ',' + alpha + ')';
       ctx.fill();
-      if (p.gold && p.r > 1.2) {
-        var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
+      if (p.gold && pr > 1.2) {
+        var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, pr * (mob ? 3 : 4));
         g.addColorStop(0, 'rgba(' + GR + ',' + (alpha * 0.3) + ')');
         g.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, pr * (mob ? 3 : 4), 0, Math.PI * 2);
         ctx.fillStyle = g;
         ctx.fill();
       }
@@ -3061,8 +3074,8 @@
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     if (narrow || squareMob) {
-      fs = Math.min(W / (squareMob ? 5.2 : 5.6), H / (squareMob ? 4.6 : 5.8));
-      fs = Math.max(22, Math.round(fs));
+      fs = Math.min(W / (squareMob ? 4.6 : 5.0), H / (squareMob ? 4.0 : 5.2));
+      fs = Math.max(26, Math.round(fs));
       c.font = '700 ' + fs + 'px ' + font;
       c.lineWidth = Math.max(2, fs * 0.09);
       c.fillText('AZA', W / 2, H * 0.44);
@@ -3176,6 +3189,19 @@
     return { pts: pts, links: links, linkDist: linkDist };
   }
 
+  /** Silhouette typographique discrète — lisibilité mobile (sous les particules). */
+  function heroMotionDrawLetterGhost_(ctx, pal, W, H, alpha) {
+    alpha = alpha == null ? 0.14 : alpha;
+    if (alpha <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = pal.light ? 'rgba(48,36,14,1)' : 'rgba(' + pal.gold + ',1)';
+    ctx.strokeStyle = ctx.fillStyle;
+    heroMotionDrawLetterMask_(ctx, W, H);
+    ctx.restore();
+  }
+
   /** Liens « toile » dynamiques entre particules proches (positions courantes, jamais figées). */
   function heroMotionDrawLiveWebLinks_(ctx, parts, GR, maxDist, shimmer, step) {
     if (!parts || !parts.length) return;
@@ -3206,29 +3232,37 @@
     }
   }
 
-  /** Style « letters » — poussière dorée formant AZAVISION, reliée en toile animée, tout brille. */
+  /** Style « letters » — poussière dorée formant AZAVISION, reliée en toile animée. */
   function heroMotionDrawLetters_(ctx, pal, W, H, opts) {
     opts = opts || {};
+    var drawOpts = heroMotionState_.letterDrawOpts || {};
+    opts = Object.assign({}, drawOpts, opts);
     var introPh = opts.introOnly ? heroMotionIntroPhase_() : null;
     var introBoost = !!opts.introOnly && introPh && introPh.phase === 'intro';
     var st = heroMotionState_;
     var mob = heroMotionIsMobileViewport_(W);
     var isLight = !!(pal && pal.light);
-    var lineMul = isLight ? 0.78 : 0.44;
-    var composite = isLight ? 'source-over' : 'lighter';
+    var luxe = !!opts.luxe;
+    var cascade = !!opts.cascade;
+    var crisp = luxe || mob || isLight;
+    var lineMul = luxe ? 0.34 : (isLight ? 0.72 : (mob ? 0.38 : 0.44));
+    var composite = crisp ? 'source-over' : 'lighter';
+    var glowMul = luxe ? 2.1 : (mob ? 2.8 : 4.2);
+    var shimmer = (crisp ? 0.9 : 0.82) + (crisp ? 0.1 : 0.18) * Math.sin((st.t || 0) * 1.6);
     if (!st.letterData || st.letterW !== W || st.letterH !== H) {
       st.letterData = heroMotionBuildLetterTargets_(W, H);
       st.letterW = W;
       st.letterH = H;
       st.letterParts = st.letterData.pts.map(function (tg) {
         return {
-          x: Math.random() * W, y: Math.random() * H,
+          x: cascade ? (tg.x + (Math.random() - 0.5) * W * 0.15) : (Math.random() * W),
+          y: cascade ? (-Math.random() * H * 0.55 - 30) : (Math.random() * H),
           tx: tg.x, ty: tg.y,
           a: Math.random() * 6.28, va: (Math.random() - 0.5) * 0.05,
-          gold: Math.random() > 0.35,
-          r: (mob ? 1.8 : 1.1) + Math.random() * (mob ? 1.0 : 0.9),
-          orbitR: mob ? (0.25 + Math.random() * 0.55) : (0.9 + Math.random() * 2.4),
-          orbitSp: mob ? (0.12 + Math.random() * 0.18) : (0.22 + Math.random() * 0.38),
+          gold: Math.random() > (luxe ? 0.45 : 0.35),
+          r: (mob || luxe ? 2.0 : 1.1) + Math.random() * (mob || luxe ? 0.9 : 0.9),
+          orbitR: mob || luxe ? (0.2 + Math.random() * 0.45) : (0.9 + Math.random() * 2.4),
+          orbitSp: mob || luxe ? (0.1 + Math.random() * 0.14) : (0.22 + Math.random() * 0.38),
           orbitPh: Math.random() * 6.28
         };
       });
@@ -3240,32 +3274,38 @@
     var links = (st.letterData && st.letterData.links) || [];
     var LD = (st.letterData && st.letterData.linkDist) || 22;
     var maxLine = LD * 1.7;
-    var shimmer = 0.82 + 0.18 * Math.sin((st.t || 0) * 1.6);
     var t = st.t || 0;
     var i;
     for (i = 0; i < parts.length; i++) {
       var p = parts[i];
       if (p.orbitR == null) {
-        p.orbitR = 0.9 + Math.random() * 2.4;
-        p.orbitSp = 0.22 + Math.random() * 0.38;
+        p.orbitR = mob || luxe ? (0.2 + Math.random() * 0.45) : (0.9 + Math.random() * 2.4);
+        p.orbitSp = mob || luxe ? (0.1 + Math.random() * 0.14) : (0.22 + Math.random() * 0.38);
         p.orbitPh = Math.random() * 6.28;
       }
       p.a += p.va;
-      var orbitScale = introBoost ? Math.max(0.15, 1 - introPh.progress * 0.85) : 1;
+      var orbitScale = introBoost ? Math.max(0.12, 1 - introPh.progress * 0.88) : 1;
+      if (luxe) orbitScale *= 0.65;
       var ox = Math.sin(t * p.orbitSp + p.orbitPh + i * 0.17) * p.orbitR * orbitScale;
       var oy = Math.cos(t * (p.orbitSp * 0.86) + p.orbitPh + i * 0.13) * p.orbitR * orbitScale;
       var gx = p.tx + ox;
       var gy = p.ty + oy;
-      var lerp = introBoost ? (0.1 + introPh.progress * 0.12) : (mob ? 0.22 : 0.13);
+      var lerp = cascade ? 0.09 : (introBoost ? (0.1 + introPh.progress * 0.14) : (mob ? 0.24 : 0.13));
+      if (luxe) lerp = Math.min(lerp + 0.04, 0.28);
       p.x += (gx - p.x) * lerp;
       p.y += (gy - p.y) * lerp;
     }
-    if (isLight && mob) {
-      ctx.fillStyle = 'rgba(255,255,255,0.42)';
-      ctx.fillRect(W * 0.06, H * 0.28, W * 0.88, H * 0.44);
+    var ghostA = 0;
+    if (mob || luxe || introBoost) {
+      ghostA = luxe ? 0.1 : (introBoost ? (0.08 + introPh.progress * 0.12) : 0.11);
+    }
+    if (ghostA > 0) heroMotionDrawLetterGhost_(ctx, pal, W, H, ghostA);
+    if (mob || isLight) {
+      ctx.fillStyle = isLight ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.28)';
+      ctx.fillRect(W * 0.05, H * 0.26, W * 0.9, H * 0.48);
     }
     ctx.globalCompositeOperation = composite;
-    ctx.lineWidth = mob ? 1.1 : 0.8;
+    ctx.lineWidth = mob ? 1.05 : 0.8;
     for (i = 0; i < links.length; i += 2) {
       var pa = parts[links[i]];
       var pb = parts[links[i + 1]];
@@ -3282,23 +3322,27 @@
         ctx.stroke();
       }
     }
-    heroMotionDrawLiveWebLinks_(ctx, parts, GR, LD * 1.45, shimmer, parts.length > 220 ? 2 : 1);
+    if (!luxe) {
+      heroMotionDrawLiveWebLinks_(ctx, parts, GR, LD * (mob ? 1.25 : 1.45), shimmer * (mob ? 0.65 : 1), parts.length > 220 ? 3 : 2);
+    }
     for (i = 0; i < parts.length; i++) {
       var q = parts[i];
-      var twinkle = 0.6 + 0.4 * Math.abs(Math.sin(q.a * 2 + i));
-      var glow = twinkle * shimmer;
+      var twinkle = 0.72 + 0.28 * Math.abs(Math.sin(q.a * 2 + i));
+      var glow = Math.min(1, twinkle * shimmer);
       var color = q.gold ? GR : GR2;
-      var glowMul = mob ? 5.5 : 5;
-      var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * glowMul);
-      gr.addColorStop(0, 'rgba(' + color + ',' + (glow * (isLight ? 0.75 : 0.55)) + ')');
-      gr.addColorStop(1, 'rgba(' + color + ',0)');
-      ctx.fillStyle = gr;
-      ctx.beginPath();
-      ctx.arc(q.x, q.y, q.r * glowMul, 0, Math.PI * 2);
-      ctx.fill();
+      if (glowMul > 2.5) {
+        var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * glowMul);
+        gr.addColorStop(0, 'rgba(' + color + ',' + (glow * (isLight ? 0.55 : 0.42)) + ')');
+        gr.addColorStop(1, 'rgba(' + color + ',0)');
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, q.r * glowMul, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      var coreA = isLight ? Math.min(1, glow * 0.98) : Math.min(1, 0.82 + glow * 0.18);
       ctx.fillStyle = isLight
-        ? ('rgba(48,36,14,' + Math.min(1, glow * 0.95) + ')')
-        : ('rgba(255,245,225,' + glow + ')');
+        ? ('rgba(48,36,14,' + coreA + ')')
+        : ('rgba(255,245,225,' + coreA + ')');
       ctx.beginPath();
       ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2);
       ctx.fill();
@@ -3316,7 +3360,7 @@
         heroMotionDrawWeb_(ctx, pal, W, H);
         ctx.restore();
       }
-      heroMotionDrawLetters_(ctx, pal, W, H, { introOnly: true });
+      heroMotionDrawLetters_(ctx, pal, W, H, { introOnly: true, luxe: heroMotionIsMobileViewport_(W) });
       return;
     }
     heroMotionDrawWeb_(ctx, pal, W, H);
@@ -3328,20 +3372,36 @@
     ctx.globalAlpha = 0.5;
     heroMotionDrawStars_(ctx, pal, W, H);
     ctx.restore();
-    heroMotionDrawLetters_(ctx, pal, W, H);
+    heroMotionDrawLetters_(ctx, pal, W, H, heroMotionIsMobileViewport_(W) ? { luxe: true } : {});
   }
 
-  /** Combinaison AZAVISION + halo pulsant. */
+  /** AZAVISION lisible + élégant (recommandé mobile). */
+  function heroMotionDrawLettersLuxe_(ctx, pal, W, H) {
+    heroMotionDrawLetters_(ctx, pal, W, H, { luxe: true });
+  }
+
+  /** Particules en cascade puis formation AZAVISION + toile. */
+  function heroMotionDrawLettersCascade_(ctx, pal, W, H) {
+    heroMotionDrawLetters_(ctx, pal, W, H, { cascade: true });
+  }
+
+  /** Combinaison AZAVISION + halo pulsant (atténué sur mobile pour lisibilité). */
   function heroMotionDrawLettersPulse_(ctx, pal, W, H) {
     var st = heroMotionState_;
     var GR = pal.gold;
-    var pulse = 0.12 + 0.14 * Math.sin((st.t || 0) * 1.25);
-    var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.04, W / 2, H / 2, H * 0.58);
-    vg.addColorStop(0, 'rgba(' + GR + ',' + pulse + ')');
+    var mob = heroMotionIsMobileViewport_(W);
+    var pulse = mob
+      ? (0.03 + 0.05 * Math.sin((st.t || 0) * 1.1))
+      : (0.1 + 0.12 * Math.sin((st.t || 0) * 1.25));
+    var inner = mob ? H * 0.22 : H * 0.04;
+    var outer = mob ? H * 0.5 : H * 0.58;
+    var vg = ctx.createRadialGradient(W / 2, H / 2, inner, W / 2, H / 2, outer);
+    vg.addColorStop(0, 'rgba(' + GR + ',0)');
+    vg.addColorStop(0.45, 'rgba(' + GR + ',' + (pulse * 0.55) + ')');
     vg.addColorStop(1, 'rgba(' + GR + ',0)');
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, W, H);
-    heroMotionDrawLetters_(ctx, pal, W, H);
+    heroMotionDrawLetters_(ctx, pal, W, H, mob ? { luxe: true } : {});
   }
 
   /** Combinaison AZAVISION + particules en orbite. */
@@ -3374,7 +3434,7 @@
         ctx.fill();
       }
     }
-    heroMotionDrawLetters_(ctx, pal, W, H);
+    heroMotionDrawLetters_(ctx, pal, W, H, heroMotionIsMobileViewport_(W) ? { luxe: true } : {});
   }
 
   /** Style « sunmoon » — lune (croissant) et soleil rayonnant qui brillent. */
@@ -3485,6 +3545,8 @@
     if (['web', 'spider', 'toile', 'araignee', 'araignée', 'constellation', 'points', 'dots'].indexOf(v) >= 0) return 'web';
     if (['stars', 'star', 'etoiles', 'étoiles', 'etoile', 'étoile'].indexOf(v) >= 0) return 'stars';
     if (['letters', 'lettres', 'azavision', 'text', 'texte', 'mot'].indexOf(v) >= 0) return 'letters';
+    if (['letters_luxe', 'letterluxe', 'azavision_luxe', 'luxe', 'pro'].indexOf(v) >= 0) return 'letters_luxe';
+    if (['letters_cascade', 'lettercascade', 'azavision_cascade', 'cascade', 'chute'].indexOf(v) >= 0) return 'letters_cascade';
     if (['letters_web', 'letterweb', 'azavision_web', 'toile_azavision', 'web_azavision', 'letters_toile', 'toile_connectee'].indexOf(v) >= 0) return 'letters_web';
     if (['letters_stars', 'letterstars', 'azavision_stars', 'etoiles_azavision', 'stars_azavision'].indexOf(v) >= 0) return 'letters_stars';
     if (['letters_pulse', 'letterpulse', 'azavision_pulse', 'pulse_azavision', 'halo_azavision'].indexOf(v) >= 0) return 'letters_pulse';
@@ -3502,7 +3564,7 @@
       var pick = AZV_HERO_MOTION_POOL_[Math.floor(Math.random() * AZV_HERO_MOTION_POOL_.length)];
       sessionStorage.setItem(key, pick);
       return pick;
-    } catch (eS) { return 'letters_web'; }
+    } catch (eS) { return 'letters_luxe'; }
   }
 
   /** Style demandé via l'URL (?motion=stars) — sert aussi à activer le canvas pour essayer. */
@@ -3532,6 +3594,7 @@
     heroMotionState_.style = s;
     heroMotionState_.t = 0;
     heroMotionState_.letterData = null;
+    heroMotionState_.letterDrawOpts = null;
     startHeroMotionCanvas_();
     return s;
   }
