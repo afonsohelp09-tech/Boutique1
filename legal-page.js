@@ -51,10 +51,22 @@
       .replace(/\{\{livroUrl\}\}/g, vars.livroUrl || LIVRO_URL);
   }
 
-  function buildLegalDocHtml(pageKey, lang, vars) {
+  function mergeLegalOverride_(base, pageKey, lang, overrides) {
+    if (!base || !overrides || !overrides[pageKey]) return base;
+    var oDoc = overrides[pageKey][lang] || overrides[pageKey].pt;
+    if (!oDoc) return base;
+    var doc = Object.assign({}, base);
+    if (oDoc.title != null && String(oDoc.title).trim()) doc.title = oDoc.title;
+    if (oDoc.updated != null && String(oDoc.updated).trim()) doc.updated = oDoc.updated;
+    if (oDoc.sections && oDoc.sections.length) doc.sections = oDoc.sections.slice();
+    return doc;
+  }
+
+  function buildLegalDocHtml(pageKey, lang, vars, overrides) {
     var lc = global.LegalContent;
     if (!lc || !lc[pageKey]) return '<article class="legal-doc"><p>—</p></article>';
-    var doc = lc[pageKey][lang] || lc[pageKey].pt;
+    var base = lc[pageKey][lang] || lc[pageKey].pt;
+    var doc = mergeLegalOverride_(base, pageKey, lang, overrides);
     if (!doc) return '';
     var html = '<article class="legal-doc">';
     html += '<h1>' + esc(fillLegalText(doc.title, vars)) + '</h1>';
@@ -134,7 +146,8 @@
           address: 'Portugal',
           livroUrl: LIVRO_URL
         };
-        if (res.brand.empresa) return mergeEmpresaVars(base, res.brand.empresa);
+        if (res.brand.empresa) base = mergeEmpresaVars(base, res.brand.empresa);
+        base.infoContent = res.brand.infoContent || {};
         return base;
       }
       return apiPost('getConfig').then(function (cfgRes) {
@@ -183,13 +196,19 @@
     if (body) body.innerHTML = '<p class="legal-loading">' + esc(copy.loading) + '</p>';
 
     fetchConfigVars().then(function (vars) {
-      var html = buildLegalDocHtml(pageKey, lang, vars);
-      if (body) body.innerHTML = html;
-      try {
-        var lc = global.LegalContent;
-        var doc = lc && lc[pageKey] && (lc[pageKey][lang] || lc[pageKey].pt);
-        if (doc && doc.title) document.title = fillLegalText(doc.title, vars) + ' — AZAVISION';
-      } catch (eTitle) { /* ignore */ }
+      var overrides = vars.infoContent || null;
+      return (overrides ? Promise.resolve(overrides) : apiPost('getPublicBrand').then(function (br) {
+        return (br && br.success && br.brand && br.brand.infoContent) ? br.brand.infoContent : {};
+      }).catch(function () { return {}; })).then(function (infoOv) {
+        var html = buildLegalDocHtml(pageKey, lang, vars, infoOv);
+        if (body) body.innerHTML = html;
+        try {
+          var lc = global.LegalContent;
+          var base = lc && lc[pageKey] && (lc[pageKey][lang] || lc[pageKey].pt);
+          var doc = mergeLegalOverride_(base, pageKey, lang, infoOv);
+          if (doc && doc.title) document.title = fillLegalText(doc.title, vars) + ' — AZAVISION';
+        } catch (eTitle) { /* ignore */ }
+      });
     });
   }
 

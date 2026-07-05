@@ -87,6 +87,8 @@
     qvForceVariant: false,
     qvViewMode: 'shop',
     qvInfoTab: 'desc',
+    qvOpenReviewsTab: false,
+    reviewEligibility: {},
     qvAddedFlash: null,
     form: { name: '', email: '', phone: '', addr: '', city: '', zip: '', nif: '', acceptCheckoutTerms: false },
     payMethod: 'stripe_card',
@@ -273,10 +275,10 @@
   }
 
   function shippingEnabled() {
-    if (cfgOn('shipping_enabled', false)) return true;
-    var rate = cfgNum('shipping_flat_rate', 0);
-    var th = cfgNum('free_shipping_threshold', cfgNum('shipping_free_above', 0));
-    return rate > 0 || th > 0;
+    return cfgOn('shipping_enabled', false);
+  }
+  function shippingShowStorefront() {
+    return cfgOn('shipping_show_storefront', true);
   }
   function shippingThreshold() {
     if (!shippingEnabled()) return 999999;
@@ -302,6 +304,7 @@
   }
 
   function productShippingHintHtml(p, unitPrice) {
+    if (!shippingShowStorefront()) return '';
     var th = getProductEnvioGratisDesde(p);
     if (th === null) return '';
     var price = unitPrice != null ? unitPrice : (p.price || 0);
@@ -316,6 +319,7 @@
   }
 
   function cartShowsShippingUi() {
+    if (!shippingShowStorefront()) return false;
     if (state.couponTipo === 'free_shipping') return shippingEnabled() || cartHasProductShippingInfo();
     return shippingEnabled() || cartHasProductShippingInfo();
   }
@@ -837,15 +841,42 @@
     }).join('');
   }
 
+  function mergeInfoOverride_(base, pageKey, lang) {
+    var overrides = state.infoContentOverrides || {};
+    var oPage = overrides[pageKey];
+    var oDoc = oPage && (oPage[lang] || oPage.pt);
+    if (!oDoc || !base) return base;
+    var doc = Object.assign({}, base);
+    if (oDoc.title != null && String(oDoc.title).trim()) doc.title = oDoc.title;
+    if (oDoc.promise != null && String(oDoc.promise).trim()) doc.promise = oDoc.promise;
+    if (oDoc.updated != null && String(oDoc.updated).trim()) doc.updated = oDoc.updated;
+    if (oDoc.subtitle != null) doc.subtitle = oDoc.subtitle;
+    if (oDoc.howToTitle != null) doc.howToTitle = oDoc.howToTitle;
+    if (oDoc.steps && oDoc.steps.length) doc.steps = oDoc.steps.slice();
+    if (oDoc.rows && oDoc.rows.length) doc.rows = oDoc.rows.slice();
+    if (oDoc.cols && oDoc.cols.length) doc.cols = oDoc.cols.slice();
+    if (oDoc.colHint != null) doc.colHint = oDoc.colHint;
+    if (oDoc.unit != null) doc.unit = oDoc.unit;
+    if (oDoc.tip != null) doc.tip = oDoc.tip;
+    if (oDoc.note != null) doc.note = oDoc.note;
+    if (oDoc.oneSize != null) doc.oneSize = oDoc.oneSize;
+    if (oDoc.sections && oDoc.sections.length) doc.sections = oDoc.sections.slice();
+    return doc;
+  }
+
   function sizeGuideDoc() {
     var sg = global.SizeGuideContent;
     if (!sg) return null;
-    return sg[state.lang] || sg.pt || null;
+    var base = sg[state.lang] || sg.pt || null;
+    if (!base) return null;
+    var doc = Object.assign({}, base);
+    if (sg.rows && sg.rows.length && !doc.rows) doc.rows = sg.rows;
+    return mergeInfoOverride_(doc, 'sizeguide', state.lang);
   }
 
   function sizeGuideRowsFor(availableSizes) {
-    var sg = global.SizeGuideContent;
-    var all = (sg && sg.rows) ? sg.rows : [];
+    var doc = sizeGuideDoc();
+    var all = (doc && doc.rows && doc.rows.length) ? doc.rows : ((global.SizeGuideContent && global.SizeGuideContent.rows) ? global.SizeGuideContent.rows : []);
     if (!availableSizes || !availableSizes.length) return all;
     var norm = availableSizes.map(function (s) { return String(s || '').trim().toUpperCase(); });
     if (norm.length === 1 && (norm[0] === 'TU' || norm[0] === 'U' || norm[0] === 'ONE SIZE' || norm[0] === 'TAMANHO ÚNICO')) return [];
@@ -903,7 +934,8 @@
   function buildLegalDocHtml(pageKey) {
     var lc = global.LegalContent;
     if (!lc || !lc[pageKey]) return '<article class="info-doc legal-doc"><p>—</p></article>';
-    var doc = lc[pageKey][state.lang] || lc[pageKey].pt;
+    var base = lc[pageKey][state.lang] || lc[pageKey].pt;
+    var doc = mergeInfoOverride_(base, pageKey, state.lang);
     if (!doc) return '';
     var vars = legalVars();
     var html = '<article class="info-doc legal-doc">';
@@ -923,10 +955,7 @@
     var ic = global.InfoContent;
     if (!ic || !ic[pageKey]) return '';
     var base = ic[pageKey][state.lang] || ic[pageKey].pt;
-    var overrides = state.infoContentOverrides || {};
-    var oPage = overrides[pageKey];
-    var oDoc = oPage && (oPage[state.lang] || oPage.pt);
-    var doc = oDoc ? Object.assign({}, base || {}, oDoc) : base;
+    var doc = mergeInfoOverride_(base, pageKey, state.lang);
     if (!doc) return '';
     var vars = legalVars();
     var html = '<article class="info-doc legal-doc">';
@@ -954,7 +983,9 @@
     if (pageId === 'privacy' || pageId === 'terms' || pageId === 'legal') {
       return buildLegalDocHtml(pageId);
     }
-    return buildInfoDocHtml(pageId);
+    var html = buildInfoDocHtml(pageId);
+    if (html) return html;
+    return '<article class="info-doc legal-doc"><p>—</p></article>';
   }
 
   function renderInfoHub(pageId) {
@@ -4566,7 +4597,7 @@
     state.qvGalleryIndex = 0;
     state.qvGuide = false;
     state.qvViewMode = 'shop';
-    state.qvInfoTab = 'desc';
+    state.qvInfoTab = state.qvOpenReviewsTab ? 'reviews' : 'desc';
     state.qvAddedFlash = null;
     var colorOpts = productColorOptions(p);
     var sizeOpts = productSizeOptions(p);
@@ -4584,7 +4615,9 @@
     } else {
       state.qvSize = '';
     }
+    if (state.token && p && p.id) await fetchReviewEligibility([p.id]);
     renderQv();
+    state.qvOpenReviewsTab = false;
     $('qvBg').classList.add('open');
     updateScrollLock();
   }
@@ -4602,6 +4635,10 @@
 
   function setQvInfoTab(tab) {
     state.qvInfoTab = tab === 'reviews' ? 'reviews' : 'desc';
+    if (tab === 'reviews' && state.qvProd && state.qvProd.id && state.token) {
+      fetchReviewEligibility([state.qvProd.id]).then(function () { renderQv(); });
+      return;
+    }
     renderQv();
   }
 
@@ -4796,6 +4833,13 @@
     if (!state.clientId || !state.token) {
       return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(tm.reviewLoginHint || '') + '</p></div>';
     }
+    var elig = state.reviewEligibility[p.id];
+    if (elig && elig.hasReview) {
+      return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(tm.reviewAlreadyDone || 'You already reviewed this product.') + '</p></div>';
+    }
+    if (elig && !elig.canReview) {
+      return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(tm.reviewPurchaseRequired || 'Purchase this product to leave a review.') + '</p></div>';
+    }
     return '<div class="qv-review-block qv-review-form">' +
       '<p class="form-title qv-review-form-title">' + esc(tm.reviewTitle || 'Review') + '</p>' +
       '<div class="field qv-review-field"><label>' + esc(tm.reviewRating || 'Rating') + '</label>' +
@@ -4822,10 +4866,22 @@
     try {
       var res = await erpCall('createReview', { produtoId: produtoId, produto_id: produtoId, nota: nota, comentario: comentario }, state.token);
       if (!res || !res.success) {
+        var errCode = res && (res.code || res.error);
+        if (errCode === 'REVIEW_PURCHASE_REQUIRED') {
+          global.toast(t().reviewPurchaseRequired || 'Purchase required', 'e');
+          return;
+        }
+        if (errCode === 'REVIEW_ALREADY') {
+          global.toast(t().reviewAlreadyDone || 'Already reviewed', 'e');
+          state.reviewEligibility[produtoId] = { hasReview: true, canReview: false, purchased: true };
+          renderQv();
+          return;
+        }
         global.toast((res && res.error) || t().errGeneric || 'Error', 'e');
         return;
       }
       global.toast(t().reviewThanks || 'Thanks', 's');
+      state.reviewEligibility[produtoId] = { hasReview: true, canReview: false, purchased: true };
       if (commentEl) commentEl.value = '';
       state.qvInfoTab = 'reviews';
       renderQv();
@@ -6369,14 +6425,69 @@
       '<button type="button" class="btn-gold" style="width:100%;margin-top:8px;" onclick="Shop.saveNewAddress()">' + esc(editing ? a.save : a.save) + '</button>';
   }
 
+  function isOrderEligibleForReview_(o) {
+    if (!o) return false;
+    var estado = String(o.estado || '').toLowerCase();
+    if (estado === 'cancelado' || estado === 'cancelled' || estado === 'canceled') return false;
+    var pay = String(o.estado_pagamento || '').toLowerCase();
+    if (pay === 'aguardando_pagamento' || pay === 'pending') return false;
+    if (pay === 'pago' || pay === 'paid' || pay === 'pago_stripe') return true;
+    var confirmed = ['confirmado', 'paid', 'processando', 'preparacao', 'preparation', 'enviado', 'entregue', 'delivered', 'shipped', 'completed', 'concluido'];
+    return confirmed.indexOf(estado) >= 0;
+  }
+
+  function canReviewProduct_(produtoId) {
+    var e = state.reviewEligibility[String(produtoId || '')];
+    return !!(e && e.canReview);
+  }
+
+  function hasReviewProduct_(produtoId) {
+    var e = state.reviewEligibility[String(produtoId || '')];
+    return !!(e && e.hasReview);
+  }
+
+  async function fetchReviewEligibility(produtoIds) {
+    if (!state.token || !produtoIds || !produtoIds.length) return;
+    try {
+      var res = await erpCall('getClientReviewEligibility', { produtoIds: produtoIds }, state.token);
+      if (res && res.success && res.products) {
+        Object.keys(res.products).forEach(function (pid) {
+          state.reviewEligibility[pid] = res.products[pid];
+        });
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  async function openReviewForProduct(produtoId) {
+    produtoId = String(produtoId || '').trim();
+    if (!produtoId) return;
+    if (!state.token) {
+      global.toast(t().reviewLoginHint || accT().loginRequired, 'e');
+      return;
+    }
+    if ($('accBg')) $('accBg').classList.remove('open');
+    state.qvOpenReviewsTab = true;
+    await openQv(produtoId);
+  }
+
   function renderOrderDetail(o, details) {
     var a = accT();
     var lines = (details || []).map(function (d) {
       var meta = [];
       if (normalizeOptionValue(d.tamanho)) meta.push(t().sizeMeta + ': ' + d.tamanho);
       if (normalizeOptionValue(d.cor)) meta.push(t().colorMeta + ': ' + colorDisplayName(d.cor));
+      var pid = String(d.produto_id || '').trim();
+      var reviewHtml = '';
+      if (state.token && pid && isOrderEligibleForReview_(o)) {
+        if (hasReviewProduct_(pid)) {
+          reviewHtml = '<br><span style="font-size:9px;color:var(--gold);">' + esc(a.reviewDone || t().reviewAlreadyDone || '') + '</span>';
+        } else if (canReviewProduct_(pid)) {
+          reviewHtml = '<br><button type="button" class="btn-ghost-sm" style="margin-top:6px;font-size:9px;" onclick="Shop.openReviewForProduct(\'' + esc(pid).replace(/'/g, "\\'") + '\')">' + esc(a.reviewBtn || t().reviewBtn || 'Review') + '</button>';
+        }
+      }
       return '<li><strong>' + esc(d.nome_produto || d.produto_id) + '</strong> × ' + esc(d.quantidade) + ' — ' + esc(d.preco) + ' €' +
-        (meta.length ? '<br><span style="font-size:9px;color:var(--muted);">' + esc(meta.join(' · ')) + '</span>' : '') + '</li>';
+        (meta.length ? '<br><span style="font-size:9px;color:var(--muted);">' + esc(meta.join(' · ')) + '</span>' : '') +
+        reviewHtml + '</li>';
     }).join('');
     var backView = (state.token && state.clientId) ? 'dashboard' : 'track';
     var stripePayBlock = '';
@@ -6908,6 +7019,8 @@
       }
       state.selectedOrder = { order: res.order, details: res.details || [] };
       state.accountView = 'orderDetail';
+      var pids = (res.details || []).map(function (d) { return String(d.produto_id || '').trim(); }).filter(Boolean);
+      if (state.token && pids.length) await fetchReviewEligibility(pids);
       if (isPendingStripeOrder_(res.order)) startStripePaymentPoll_(orderId);
       else stopStripePaymentPoll_();
       if ($('accBg')) $('accBg').classList.add('open');
@@ -7434,6 +7547,7 @@
     deleteAddress: deleteAddress,
     loadMyOrders: loadMyOrders,
     openOrderDetail: openOrderDetail,
+    openReviewForProduct: openReviewForProduct,
     subscribeNewsletter: subscribeNewsletter,
     onThemeChange: onThemeChange,
     openContact: openContact,
