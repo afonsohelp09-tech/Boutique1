@@ -3272,14 +3272,17 @@
     var introBoost = !!opts.introOnly && introPh && introPh.phase === 'intro';
     var st = heroMotionState_;
     var mob = heroMotionIsMobileViewport_(W);
+    var still = mob;
     var isLight = !!(pal && pal.light);
-    var luxe = !!opts.luxe;
-    var cascade = !!opts.cascade;
-    var crisp = luxe || mob || isLight;
-    var lineMul = luxe ? 0.34 : (isLight ? 0.72 : (mob ? 0.38 : 0.44));
+    var luxe = !!opts.luxe && !still;
+    var cascade = !!opts.cascade && !still;
+    var crisp = still || luxe || isLight;
+    var lineMul = still ? (isLight ? 0.42 : 0.34) : (luxe ? 0.34 : (isLight ? 0.72 : (mob ? 0.38 : 0.44)));
     var composite = crisp ? 'source-over' : 'lighter';
-    var glowMul = luxe ? 2.1 : (mob ? 2.8 : 4.2);
-    var shimmer = (crisp ? 0.9 : 0.82) + (crisp ? 0.1 : 0.18) * Math.sin((st.t || 0) * 1.6);
+    var glowMul = still ? 0 : (luxe ? 2.1 : (mob ? 2.8 : 4.2));
+    var t = st.t || 0;
+    var webShimmer = 0.82 + 0.18 * Math.sin(t * 1.45);
+    var shimmer = still ? webShimmer : ((crisp ? 0.9 : 0.82) + (crisp ? 0.1 : 0.18) * Math.sin(t * 1.6));
     if (!st.letterData || st.letterW !== W || st.letterH !== H) {
       st.letterData = heroMotionBuildLetterTargets_(W, H);
       st.letterW = W;
@@ -3291,9 +3294,9 @@
           tx: tg.x, ty: tg.y,
           a: Math.random() * 6.28, va: (Math.random() - 0.5) * 0.05,
           gold: Math.random() > (luxe ? 0.45 : 0.35),
-          r: (mob || luxe ? 2.0 : 1.1) + Math.random() * (mob || luxe ? 0.9 : 0.9),
-          orbitR: mob || luxe ? (0.2 + Math.random() * 0.45) : (0.9 + Math.random() * 2.4),
-          orbitSp: mob || luxe ? (0.1 + Math.random() * 0.14) : (0.22 + Math.random() * 0.38),
+          r: still ? (2.2 + Math.random() * 0.5) : ((mob || luxe ? 2.0 : 1.1) + Math.random() * (mob || luxe ? 0.9 : 0.9)),
+          orbitR: still ? 0 : (mob || luxe ? (0.2 + Math.random() * 0.45) : (0.9 + Math.random() * 2.4)),
+          orbitSp: still ? 0 : (mob || luxe ? (0.1 + Math.random() * 0.14) : (0.22 + Math.random() * 0.38)),
           orbitPh: Math.random() * 6.28
         };
       });
@@ -3305,38 +3308,44 @@
     var links = (st.letterData && st.letterData.links) || [];
     var LD = (st.letterData && st.letterData.linkDist) || 22;
     var maxLine = LD * 1.7;
-    var t = st.t || 0;
+    if (still && !opts.skipWebBackdrop) heroMotionDrawWeb_(ctx, pal, W, H);
     var i;
     for (i = 0; i < parts.length; i++) {
       var p = parts[i];
       if (p.orbitR == null) {
-        p.orbitR = mob || luxe ? (0.2 + Math.random() * 0.45) : (0.9 + Math.random() * 2.4);
-        p.orbitSp = mob || luxe ? (0.1 + Math.random() * 0.14) : (0.22 + Math.random() * 0.38);
+        p.orbitR = still ? 0 : (mob || luxe ? (0.2 + Math.random() * 0.45) : (0.9 + Math.random() * 2.4));
+        p.orbitSp = still ? 0 : (mob || luxe ? (0.1 + Math.random() * 0.14) : (0.22 + Math.random() * 0.38));
         p.orbitPh = Math.random() * 6.28;
       }
-      p.a += p.va;
+      if (!still) p.a += p.va;
       var orbitScale = introBoost ? Math.max(0.12, 1 - introPh.progress * 0.88) : 1;
       if (luxe) orbitScale *= 0.65;
-      var ox = Math.sin(t * p.orbitSp + p.orbitPh + i * 0.17) * p.orbitR * orbitScale;
-      var oy = Math.cos(t * (p.orbitSp * 0.86) + p.orbitPh + i * 0.13) * p.orbitR * orbitScale;
+      var ox = 0;
+      var oy = 0;
+      if (!still) {
+        ox = Math.sin(t * p.orbitSp + p.orbitPh + i * 0.17) * p.orbitR * orbitScale;
+        oy = Math.cos(t * (p.orbitSp * 0.86) + p.orbitPh + i * 0.13) * p.orbitR * orbitScale;
+      }
       var gx = p.tx + ox;
       var gy = p.ty + oy;
-      var lerp = cascade ? 0.09 : (introBoost ? (0.1 + introPh.progress * 0.14) : (mob ? 0.24 : 0.13));
+      var lerp = still ? 0.42 : (cascade ? 0.09 : (introBoost ? (0.1 + introPh.progress * 0.14) : (mob ? 0.24 : 0.13)));
       if (luxe) lerp = Math.min(lerp + 0.04, 0.28);
       p.x += (gx - p.x) * lerp;
       p.y += (gy - p.y) * lerp;
     }
     var ghostA = 0;
-    if (mob || luxe || introBoost) {
+    if (still) {
+      ghostA = isLight ? 0.24 : 0.2;
+    } else if (mob || luxe || introBoost) {
       ghostA = luxe ? 0.1 : (introBoost ? (0.08 + introPh.progress * 0.12) : 0.11);
     }
     if (ghostA > 0) heroMotionDrawLetterGhost_(ctx, pal, W, H, ghostA);
-    if (mob || isLight) {
+    if (!still && (mob || isLight)) {
       ctx.fillStyle = isLight ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.28)';
       ctx.fillRect(W * 0.05, H * 0.26, W * 0.9, H * 0.48);
     }
     ctx.globalCompositeOperation = composite;
-    ctx.lineWidth = mob ? 1.05 : 0.8;
+    ctx.lineWidth = still ? 1.15 : (mob ? 1.05 : 0.8);
     for (i = 0; i < links.length; i += 2) {
       var pa = parts[links[i]];
       var pb = parts[links[i + 1]];
@@ -3358,10 +3367,10 @@
     }
     for (i = 0; i < parts.length; i++) {
       var q = parts[i];
-      var twinkle = 0.72 + 0.28 * Math.abs(Math.sin(q.a * 2 + i));
-      var glow = Math.min(1, twinkle * shimmer);
+      var twinkle = still ? 1 : (0.72 + 0.28 * Math.abs(Math.sin(q.a * 2 + i)));
+      var glow = still ? 0.94 : Math.min(1, twinkle * shimmer);
       var color = q.gold ? GR : GR2;
-      if (glowMul > 2.5) {
+      if (glowMul > 2.5 && !still) {
         var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * glowMul);
         gr.addColorStop(0, 'rgba(' + color + ',' + (glow * (isLight ? 0.55 : 0.42)) + ')');
         gr.addColorStop(1, 'rgba(' + color + ',0)');
@@ -3370,7 +3379,9 @@
         ctx.arc(q.x, q.y, q.r * glowMul, 0, Math.PI * 2);
         ctx.fill();
       }
-      var coreA = isLight ? Math.min(1, glow * 0.98) : Math.min(1, 0.82 + glow * 0.18);
+      var coreA = still
+        ? (isLight ? 0.98 : 0.92)
+        : (isLight ? Math.min(1, glow * 0.98) : Math.min(1, 0.82 + glow * 0.18));
       ctx.fillStyle = isLight
         ? ('rgba(48,36,14,' + coreA + ')')
         : ('rgba(255,245,225,' + coreA + ')');
@@ -3384,6 +3395,7 @@
   /** Présentation AZAVISION (~5 s) puis toile d'araignée classique (points flottants reliés entre eux). */
   function heroMotionDrawLettersWeb_(ctx, pal, W, H) {
     var ph = heroMotionIntroPhase_();
+    var mob = heroMotionIsMobileViewport_(W);
     if (ph.phase === 'intro') {
       if (ph.progress > 0.78) {
         ctx.save();
@@ -3391,7 +3403,11 @@
         heroMotionDrawWeb_(ctx, pal, W, H);
         ctx.restore();
       }
-      heroMotionDrawLetters_(ctx, pal, W, H, { introOnly: true, luxe: heroMotionIsMobileViewport_(W) });
+      heroMotionDrawLetters_(ctx, pal, W, H, { introOnly: true, skipWebBackdrop: true });
+      return;
+    }
+    if (mob) {
+      heroMotionDrawLetters_(ctx, pal, W, H, {});
       return;
     }
     heroMotionDrawWeb_(ctx, pal, W, H);
@@ -3399,11 +3415,13 @@
 
   /** Combinaison AZAVISION + ciel d'étoiles. */
   function heroMotionDrawLettersStars_(ctx, pal, W, H) {
-    ctx.save();
-    ctx.globalAlpha = 0.5;
-    heroMotionDrawStars_(ctx, pal, W, H);
-    ctx.restore();
-    heroMotionDrawLetters_(ctx, pal, W, H, heroMotionIsMobileViewport_(W) ? { luxe: true } : {});
+    if (!heroMotionIsMobileViewport_(W)) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      heroMotionDrawStars_(ctx, pal, W, H);
+      ctx.restore();
+    }
+    heroMotionDrawLetters_(ctx, pal, W, H, {});
   }
 
   /** AZAVISION lisible + élégant (recommandé mobile). */
@@ -3416,56 +3434,56 @@
     heroMotionDrawLetters_(ctx, pal, W, H, { cascade: true });
   }
 
-  /** Combinaison AZAVISION + halo pulsant (atténué sur mobile pour lisibilité). */
+  /** Combinaison AZAVISION + halo pulsant (désactivé sur mobile — lisibilité). */
   function heroMotionDrawLettersPulse_(ctx, pal, W, H) {
-    var st = heroMotionState_;
-    var GR = pal.gold;
     var mob = heroMotionIsMobileViewport_(W);
-    var pulse = mob
-      ? (0.03 + 0.05 * Math.sin((st.t || 0) * 1.1))
-      : (0.1 + 0.12 * Math.sin((st.t || 0) * 1.25));
-    var inner = mob ? H * 0.22 : H * 0.04;
-    var outer = mob ? H * 0.5 : H * 0.58;
-    var vg = ctx.createRadialGradient(W / 2, H / 2, inner, W / 2, H / 2, outer);
-    vg.addColorStop(0, 'rgba(' + GR + ',0)');
-    vg.addColorStop(0.45, 'rgba(' + GR + ',' + (pulse * 0.55) + ')');
-    vg.addColorStop(1, 'rgba(' + GR + ',0)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, W, H);
-    heroMotionDrawLetters_(ctx, pal, W, H, mob ? { luxe: true } : {});
+    if (!mob) {
+      var st = heroMotionState_;
+      var GR = pal.gold;
+      var pulse = 0.1 + 0.12 * Math.sin((st.t || 0) * 1.25);
+      var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.04, W / 2, H / 2, H * 0.58);
+      vg.addColorStop(0, 'rgba(' + GR + ',0)');
+      vg.addColorStop(0.45, 'rgba(' + GR + ',' + (pulse * 0.55) + ')');
+      vg.addColorStop(1, 'rgba(' + GR + ',0)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+    }
+    heroMotionDrawLetters_(ctx, pal, W, H, {});
   }
 
-  /** Combinaison AZAVISION + particules en orbite. */
+  /** Combinaison AZAVISION + particules en orbite (orbite masquée sur mobile). */
   function heroMotionDrawLettersOrbit_(ctx, pal, W, H) {
-    var st = heroMotionState_;
-    var t = st.t || 0;
-    var GR = pal.gold;
-    var cx = W / 2;
-    var cy = H / 2;
-    var baseR = Math.min(W, H) * (heroMotionIsMobileViewport_(W) ? 0.34 : 0.38);
-    var ring;
-    var k;
-    var ang;
-    var r;
-    var a;
-    var x;
-    var y;
-    var tw;
-    for (ring = 0; ring < 3; ring++) {
-      ang = t * (0.35 + ring * 0.12) + ring * 2.1;
-      r = baseR * (0.82 + ring * 0.14);
-      for (k = 0; k < 8; k++) {
-        a = ang + k * Math.PI / 4;
-        x = cx + Math.cos(a) * r;
-        y = cy + Math.sin(a) * r * 0.38;
-        tw = 0.35 + 0.55 * Math.abs(Math.sin(t * 2 + k + ring));
-        ctx.beginPath();
-        ctx.arc(x, y, 1.1 + ring * 0.35, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(' + GR + ',' + tw + ')';
-        ctx.fill();
+    if (!heroMotionIsMobileViewport_(W)) {
+      var st = heroMotionState_;
+      var t = st.t || 0;
+      var GR = pal.gold;
+      var cx = W / 2;
+      var cy = H / 2;
+      var baseR = Math.min(W, H) * 0.38;
+      var ring;
+      var k;
+      var ang;
+      var r;
+      var a;
+      var x;
+      var y;
+      var tw;
+      for (ring = 0; ring < 3; ring++) {
+        ang = t * (0.35 + ring * 0.12) + ring * 2.1;
+        r = baseR * (0.82 + ring * 0.14);
+        for (k = 0; k < 8; k++) {
+          a = ang + k * Math.PI / 4;
+          x = cx + Math.cos(a) * r;
+          y = cy + Math.sin(a) * r * 0.38;
+          tw = 0.35 + 0.55 * Math.abs(Math.sin(t * 2 + k + ring));
+          ctx.beginPath();
+          ctx.arc(x, y, 1.1 + ring * 0.35, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(' + GR + ',' + tw + ')';
+          ctx.fill();
+        }
       }
     }
-    heroMotionDrawLetters_(ctx, pal, W, H, heroMotionIsMobileViewport_(W) ? { luxe: true } : {});
+    heroMotionDrawLetters_(ctx, pal, W, H, {});
   }
 
   /** Style « sunmoon » — lune (croissant) et soleil rayonnant qui brillent. */
