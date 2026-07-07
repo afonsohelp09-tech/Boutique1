@@ -6,6 +6,7 @@
 
   var API = global.API_URL || global.ERP_API_URL_DEFAULT || '';
   var proApi = null;
+  var infoApi = null;
   var LS_TOKEN = 'azav_admin_token';
   var LS_USER = 'azav_admin_user';
   var LS_LANG = 'azav_admin_lang';
@@ -709,7 +710,7 @@
   async function login() {
     if (loginInFlight) return;
     var a = t();
-    var email = ($('loginEmail') && $('loginEmail').value || '').trim();
+    var email = ($('loginEmail') && $('loginEmail').value || '').trim().toLowerCase();
     var pass = ($('loginPass') && $('loginPass').value) || '';
     if (!email || !pass) { toast(a.noData, 'e'); return; }
     loginInFlight = true;
@@ -776,6 +777,7 @@
         await loadEmpresa();
       }
       else if (state.view === 'vitrine') await loadStorefront();
+      else if (state.view === 'infocenter' && infoApi) await infoApi.load();
       else if (state.view === 'team') await loadAdminUsers();
       else if (state.view === 'coupons') {
         var tasks = [loadCoupons()];
@@ -1071,7 +1073,11 @@
       { id: 'config', label: n.config },
       { id: 'coupons', label: (n.promotions || n.coupons) }
     ];
-    if (isAdminUser()) items.splice(items.length - 1, 0, { id: 'team', label: n.team });
+    if (isAdminUser()) {
+      var vitIdx = items.findIndex(function (it) { return it.id === 'vitrine'; });
+      if (vitIdx >= 0) items.splice(vitIdx + 1, 0, { id: 'infocenter', label: n.infocenter || 'Info' });
+      items.splice(items.length - 1, 0, { id: 'team', label: n.team });
+    }
     return items.filter(function (it) { return canAccessView(it.id); });
   }
 
@@ -1085,6 +1091,7 @@
       returns: (t().ret && t().ret.title) || 'Returns',
       clients: t().cli.title,
       vitrine: (t().vit && t().vit.title) || 'Vitrine',
+      infocenter: (t().info && t().info.title) || 'Info',
       team: (t().team && t().team.title) || 'Team',
       config: t().cfg.title,
       coupons: (t().promo && t().promo.title) || t().cup.title
@@ -1201,6 +1208,7 @@
     else if (state.view === 'returns') main.innerHTML = renderReturns();
     else if (state.view === 'clients') main.innerHTML = renderClients();
     else if (state.view === 'vitrine') main.innerHTML = renderVitrine();
+    else if (state.view === 'infocenter') main.innerHTML = infoApi ? infoApi.render() : '';
     else if (state.view === 'team') main.innerHTML = renderTeam();
     else if (state.view === 'config') main.innerHTML = renderConfig();
     else if (state.view === 'coupons') main.innerHTML = proApi ? proApi.renderPromotions() : renderCoupons();
@@ -1325,8 +1333,16 @@
     return '<p class="hint-block">' + esc(c.subtitle) + '</p>' +
       '<form class="config-form" onsubmit="event.preventDefault();Admin.saveConfig()">' +
       '<section class="panel"><h2>' + esc(c.shipping) + '</h2>' +
-      field('cfg_free_shipping', c.freeFrom, cfgVal('free_shipping_threshold', '150')) +
-      field('cfg_flat', c.flatRate, cfgVal('shipping_flat_rate', '7.9')) +
+      '<p class="hint-block">' + esc(c.shippingSectionHelp || '') + '</p>' +
+      check('cfg_shipping_enabled', c.shippingOn || 'Activer livraison', cfgVal('shipping_enabled', (cfgVal('shipping_flat_rate') || cfgVal('free_shipping_threshold')) ? '1' : '0')) +
+      check('cfg_shipping_show_storefront', c.shippingShowStore || 'Afficher les infos livraison sur la vitrine', cfgVal('shipping_show_storefront', '1')) +
+      '<p class="field-help">' + esc(c.shippingShowStoreHelp || '') + '</p>' +
+      field('cfg_flat', c.flatRate, cfgVal('shipping_flat_rate', '7.9'), {
+        help: c.flatRateHint || 'Montant facturé si le panier est sous le seuil de livraison gratuite.'
+      }) +
+      field('cfg_free_shipping', c.freeFrom, cfgVal('free_shipping_threshold', cfgVal('shipping_free_above', '150')), {
+        help: c.freeFromHint || 'Seuil global du panier : à partir de ce montant, les frais de port sont offerts (ex. 150).'
+      }) +
       '</section>' +
       '<section class="panel"><h2>' + esc(c.payments) + '</h2>' +
       check('cfg_stripe', c.stripe, cfgVal('pay_stripe_enabled', '1')) +
@@ -2961,9 +2977,15 @@
   }
 
   async function saveConfig() {
+    var freeShip = val('cfg_free_shipping');
+    var flatShip = val('cfg_flat');
+    var shipEnabled = chk('cfg_shipping_enabled');
     var patch = {
-      free_shipping_threshold: val('cfg_free_shipping'),
-      shipping_flat_rate: val('cfg_flat'),
+      shipping_enabled: shipEnabled,
+      shipping_show_storefront: chk('cfg_shipping_show_storefront'),
+      free_shipping_threshold: freeShip,
+      shipping_free_above: freeShip,
+      shipping_flat_rate: flatShip,
       pay_stripe_enabled: chk('cfg_stripe'),
       pay_cod_enabled: chk('cfg_cod'),
       pay_show_stripe: chk('cfg_show_stripe'),
@@ -3109,6 +3131,12 @@
     setPromoTab: function (tab) { if (proApi) proApi.setPromoTab(tab); },
     setCouponFilter: function (f) { if (proApi) proApi.setCouponFilter(f); },
     savePromoBanner: function () { if (proApi) proApi.savePromoBanner(); },
+    setInfoPage: function (p) { if (infoApi) infoApi.setPage(p); },
+    setInfoLang: function (l) { if (infoApi) infoApi.setLang(l); },
+    addInfoSection: function () { if (infoApi) infoApi.addSection(); },
+    removeInfoSection: function (i) { if (infoApi) infoApi.removeSection(i); },
+    resetInfoCurrent: function () { if (infoApi) infoApi.resetCurrent(); },
+    saveInfoContent: function () { if (infoApi) infoApi.save(); },
     setOrderSearch: setOrderSearch,
     setOrderFilter: setOrderFilter,
     refreshOrders: refreshOrders,
@@ -3177,6 +3205,17 @@
       categoryOptions: categoryOptions,
       cfgVal: cfgVal,
       Admin: global.Admin
+    });
+  }
+
+  if (global.AdminInfo) {
+    infoApi = global.AdminInfo.install({
+      state: state,
+      erpCall: erpCall,
+      esc: esc,
+      t: t,
+      toast: toast,
+      renderMain: renderMain
     });
   }
 
