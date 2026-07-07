@@ -259,7 +259,24 @@
     return (!hasSizeOptions(p) || !!normalizeOptionValue(size)) &&
       (!hasColorOptions(p) || !!normalizeOptionValue(color));
   }
-  function stars(r) { return '★'.repeat(Math.round(parseFloat(r) || 0)); }
+  function stars(r) {
+    var n = Math.max(0, Math.min(5, Math.round(parseFloat(r) || 0)));
+    return '★'.repeat(n) + '☆'.repeat(5 - n);
+  }
+
+  function starsGlyphsHtml(rate) {
+    var n = Math.max(0, Math.min(5, Math.round(parseFloat(rate) || 0)));
+    var chips = '';
+    for (var i = 1; i <= 5; i++) {
+      chips += '<span class="star-chip' + (i <= n ? ' on' : '') + '">' + (i <= n ? '★' : '☆') + '</span>';
+    }
+    return '<span class="stars-glyph" aria-hidden="true">' + chips + '</span>';
+  }
+
+  function productStarsHtml(rate, count) {
+    var rev = parseInt(count, 10) || 0;
+    return starsGlyphsHtml(rate) + ' <span class="stars-meta">(' + rev + ' ' + esc(t().reviews) + ')</span>';
+  }
 
   function cfgNum(key, fallback) {
     var v = state.config[key];
@@ -4106,7 +4123,7 @@
       '</div><div class="card-info">' +
       ((state.cat !== 'all' || getSearchQuery()) && p.cat ? '<span class="card-cat-tag">' + esc(p.cat) + '</span>' : '') +
       '<h3 class="card-name">' + esc(nm(p)) + '</h3>' +
-      '<p class="card-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ' ' + esc(t().reviews) + ')</span></p>' +
+      '<p class="card-stars product-stars">' + productStarsHtml(p.rate, p.rev) + '</p>' +
       '<div class="card-price"><span class="price-c">' + p.price.toFixed(2) + ' €</span>' +
       (p.old ? '<span class="price-o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div>' +
       (productColorOptions(p).length ? '<div class="swatches">' + productColorOptions(p).map(function (c) {
@@ -4669,7 +4686,7 @@
       var nota = Math.max(1, Math.min(5, parseInt(r.nota, 10) || 5));
       var txt = String(r.comentario || r.comment || '').trim();
       return '<li class="qv-review-item">' +
-        '<p class="qv-review-stars" aria-label="' + esc(String(nota) + '/5') + '">' + stars(nota) + '</p>' +
+        '<p class="qv-review-stars product-stars">' + starsGlyphsHtml(nota) + '</p>' +
         (txt ? '<p class="qv-review-text">' + esc(txt) + '</p>' : '') +
         '</li>';
     }).join('') + '</ul>';
@@ -4836,7 +4853,7 @@
       '<div class="qv-detail-col">' +
       '<div class="qv-head"><p class="m-cat">' + esc(catLabel) + '</p>' +
       '<h2 class="m-name">' + esc(nm(p)) + '</h2>' +
-      '<p class="m-stars">' + stars(p.rate) + ' <span>(' + (p.rev || 0) + ')</span></p>' +
+      '<p class="m-stars product-stars">' + productStarsHtml(p.rate, p.rev) + '</p>' +
       '<div class="m-price"><span class="c">' + displayPrice.toFixed(2) + ' €</span>' +
       (p.old ? '<span class="o">' + p.old.toFixed(2) + ' €</span>' : '') + '</div>' +
       productShippingHintHtml(p, displayPrice) + '</div>' +
