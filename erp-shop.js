@@ -7,6 +7,7 @@
   var API = global.API_URL || global.ERP_API_URL_DEFAULT || '';
   var STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY || '';
   var DEFAULT_CONTACT_EMAIL = 'azavision1@gmail.com';
+  var DEFAULT_COMPLAINT_EMAIL = 'azavision1@gmail.com';
 
   function refreshStripePk_() {
     if (!STRIPE_PK && global.STRIPE_PUBLISHABLE_KEY) STRIPE_PK = global.STRIPE_PUBLISHABLE_KEY;
@@ -7073,6 +7074,10 @@
       (emp && emp.email) || DEFAULT_CONTACT_EMAIL;
   }
 
+  function contactComplaintEmail() {
+    return state.config.contact_complaint_email || DEFAULT_COMPLAINT_EMAIL;
+  }
+
   function contactPhonePublic() {
     return state.config.contact_phone || '';
   }
@@ -7122,14 +7127,18 @@
       return;
     }
     var pubEmail = contactEmailPublic();
+    var complaintEmail = contactComplaintEmail();
     var waUrl = contactWhatsAppUrl();
     var phone = contactPhonePublic();
     var phoneUrl = contactPhoneTelUrl();
     var quick = '';
-    if (pubEmail || waUrl || phone) {
+    if (pubEmail || complaintEmail || waUrl || phone) {
       quick = '<p class="acc-hint" style="margin-top:8px;">' + esc(c.or) + '</p><div class="contact-quick">';
       if (pubEmail) {
         quick += '<a href="mailto:' + esc(pubEmail) + '">✉ ' + esc(c.emailUs) + '</a>';
+      }
+      if (complaintEmail) {
+        quick += '<a href="mailto:' + esc(complaintEmail) + '">⚖ ' + esc(c.complaintEmailUs || 'E-mail de reclamações') + '</a>';
       }
       if (phoneUrl) {
         quick += '<a href="' + esc(phoneUrl) + '">📞 ' + esc(c.phoneUs || 'Telefone') + ' · ' + esc(phone) + '</a>';
@@ -7144,6 +7153,7 @@
       { v: 'order', l: c.subjectOrder },
       { v: 'product', l: c.subjectProduct },
       { v: 'return', l: c.subjectReturn },
+      { v: 'complaint', l: c.subjectComplaint },
       { v: 'other', l: c.subjectOther }
     ];
     var subjHtml = subjects.map(function (s) {
@@ -7179,6 +7189,7 @@
     if (subjKey === 'order') subjLabel = c.subjectOrder;
     else if (subjKey === 'product') subjLabel = c.subjectProduct;
     else if (subjKey === 'return') subjLabel = c.subjectReturn;
+    else if (subjKey === 'complaint') subjLabel = c.subjectComplaint;
     else if (subjKey === 'other') subjLabel = c.subjectOther;
     var fullMsg = subjLabel ? '[' + subjLabel + ']\n\n' + msg : msg;
     var btn = $('ctSubmitBtn');
@@ -7192,7 +7203,7 @@
       return;
     }
     try {
-      var res = await erpCall('sendContactMessage', { name: nome, email: email, message: fullMsg });
+      var res = await erpCall('sendContactMessage', { name: nome, email: email, message: fullMsg, subject: subjKey });
       if (!res || !res.success) {
         global.toast((res && res.error) || c.send, 'e');
         if (btn) { btn.disabled = false; btn.textContent = c.send; }

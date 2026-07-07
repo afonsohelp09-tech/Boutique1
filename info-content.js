@@ -107,7 +107,7 @@
       sec('Onde enviamos', 'Portugal continental e ilhas, União Europeia e outros destinos quando disponível no checkout.'),
       sec('Transportadoras', 'DHL Express, CTT ou equivalente — rastreio enviado por e-mail após expedição.'),
       sec('Prazos de preparação', '1 a 3 dias úteis no nosso atelier em {{country}} (embalagem e verificação de qualidade).'),
-      sec('Prazos de entrega', 'Portugal: 1–3 dias úteis após expedição. UE: 3–7 dias úteis. Prazos indicativos por artigo na ficha de produto.'),
+      sec('Prazos de entrega', 'Prazos de entrega: até 7 dias úteis após expedição. O prazo indicativo por artigo consta na ficha de produto.'),
       sec('Portes de envio', 'Calculados no checkout. Envio grátis a partir do valor configurado na loja (ver barra promocional).'),
       sec('Acompanhamento', 'Utilize « Seguir encomenda » no rodapé ou na sua conta com o código de encomenda.')
     ]
@@ -120,7 +120,7 @@
       sec('Zones', 'Portugal, UE et destinations disponibles au checkout.'),
       sec('Transporteurs', 'DHL Express, CTT — suivi par e-mail.'),
       sec('Préparation', '1–3 jours ouvrés atelier {{country}}.'),
-      sec('Délais', 'Portugal 1–3 j · UE 3–7 j ouvrés.'),
+      sec('Délais', 'Délais de livraison : jusqu\'à 7 jours ouvrés après expédition. Délai indicatif par article sur la fiche produit.'),
       sec('Frais', 'Calculés au checkout. Livraison offerte dès le seuil affiché.'),
       sec('Suivi', 'Lien « Suivi de commande » ou espace client.')
     ]
@@ -133,7 +133,7 @@
       sec('Destinations', 'Portugal, EU and other countries when available at checkout.'),
       sec('Carriers', 'DHL Express, CTT — tracking by email.'),
       sec('Preparation', '1–3 business days at our {{country}} atelier.'),
-      sec('Delivery times', 'Portugal 1–3 days · EU 3–7 business days.'),
+      sec('Delivery times', 'Delivery times: up to 7 business days after dispatch. Indicative lead time per item on the product page.'),
       sec('Shipping costs', 'Calculated at checkout. Free shipping from the store threshold.'),
       sec('Tracking', 'Use « Track order » in the footer or your account.')
     ]
@@ -146,7 +146,7 @@
       sec('Destinos', 'Portugal, UE y otros según checkout.'),
       sec('Transportistas', 'DHL Express, CTT — seguimiento por email.'),
       sec('Preparación', '1–3 días laborables en {{country}}.'),
-      sec('Plazos', 'Portugal 1–3 d · UE 3–7 días laborables.'),
+      sec('Plazos', 'Plazos de entrega: hasta 7 días laborables tras el envío. El plazo indicativo por artículo figura en la ficha de producto.'),
       sec('Gastos', 'Calculados en checkout. Envío gratis desde el umbral indicado.'),
       sec('Seguimiento', '« Seguir pedido » en el pie o en su cuenta.')
     ]

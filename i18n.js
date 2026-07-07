@@ -210,11 +210,13 @@
       success: 'Message envoyé ! Nous vous répondrons sous 24–48 h.',
       or: 'Ou contactez-nous directement :',
       emailUs: 'Écrire un e-mail',
+      complaintEmailUs: 'E-mail réclamations',
       phoneUs: 'Réclamations & infos',
       whatsapp: 'WhatsApp',
       subjectOrder: 'Question commande',
       subjectProduct: 'Question produit',
       subjectReturn: 'Retour / échange',
+      subjectComplaint: 'Réclamation',
       subjectOther: 'Autre demande'
     },
     pt: {
@@ -231,11 +233,13 @@
       success: 'Mensagem enviada! Responderemos em 24–48 h.',
       or: 'Ou contacte-nos diretamente:',
       emailUs: 'Enviar e-mail',
+      complaintEmailUs: 'E-mail de reclamações',
       phoneUs: 'Reclamações e apoio',
       whatsapp: 'WhatsApp',
       subjectOrder: 'Encomenda',
       subjectProduct: 'Produto',
       subjectReturn: 'Troca / devolução',
+      subjectComplaint: 'Reclamação',
       subjectOther: 'Outro assunto'
     },
     en: {
@@ -252,11 +256,13 @@
       success: 'Message sent! We will reply within 24–48 hours.',
       or: 'Or reach us directly:',
       emailUs: 'Send an email',
+      complaintEmailUs: 'Complaints email',
       phoneUs: 'Claims & support',
       whatsapp: 'WhatsApp',
       subjectOrder: 'Order question',
       subjectProduct: 'Product question',
       subjectReturn: 'Return / exchange',
+      subjectComplaint: 'Complaint',
       subjectOther: 'Other'
     },
     es: {
@@ -273,11 +279,13 @@
       success: '¡Mensaje enviado! Responderemos en 24–48 h.',
       or: 'O contáctenos directamente:',
       emailUs: 'Enviar correo',
+      complaintEmailUs: 'Correo de reclamaciones',
       phoneUs: 'Reclamaciones y soporte',
       whatsapp: 'WhatsApp',
       subjectOrder: 'Pedido',
       subjectProduct: 'Producto',
       subjectReturn: 'Devolución / cambio',
+      subjectComplaint: 'Reclamación',
       subjectOther: 'Otro'
     }
   };
