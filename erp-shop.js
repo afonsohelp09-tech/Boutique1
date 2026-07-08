@@ -2257,6 +2257,7 @@
           prefillCheckoutFromProfile();
           renderAccount();
           global.toast(res.isNew ? (a.connected || 'Conta criada') : (a.connected || 'Ligado'), 's');
+          processPendingReviewDeepLink_();
         });
       })
       .catch(function (e) { global.toast((e && e.message) || (a.googleError || 'Google'), 'e'); });
@@ -4871,10 +4872,14 @@
     }
     var elig = state.reviewEligibility[p.id];
     if (elig && elig.hasReview) {
-      return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(tm.reviewAlreadyDone || 'You already reviewed this product.') + '</p></div>';
+      var pendingMsg = elig.reviewStatus === 'pendente'
+        ? (tm.reviewPendingModeration || tm.reviewThanks || 'Review pending moderation.')
+        : (tm.reviewAlreadyDone || 'You already reviewed this product.');
+      return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(pendingMsg) + '</p></div>';
     }
     if (elig && !elig.canReview) {
-      return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(tm.reviewPurchaseRequired || 'Purchase this product to leave a review.') + '</p></div>';
+      var blockMsg = tm.reviewDeliveryRequired || tm.reviewPurchaseRequired || 'Purchase this product to leave a review.';
+      return '<div class="qv-review-block qv-review-form"><p class="acc-hint">' + esc(blockMsg) + '</p></div>';
     }
     return '<div class="qv-review-block qv-review-form">' +
       '<p class="form-title qv-review-form-title">' + esc(tm.reviewTitle || 'Review') + '</p>' +
@@ -4903,13 +4908,13 @@
       var res = await erpCall('createReview', { produtoId: produtoId, produto_id: produtoId, nota: nota, comentario: comentario }, state.token);
       if (!res || !res.success) {
         var errCode = res && (res.code || res.error);
-        if (errCode === 'REVIEW_PURCHASE_REQUIRED') {
-          global.toast(t().reviewPurchaseRequired || 'Purchase required', 'e');
+        if (errCode === 'REVIEW_DELIVERY_REQUIRED' || errCode === 'REVIEW_PURCHASE_REQUIRED') {
+          global.toast(t().reviewDeliveryRequired || t().reviewPurchaseRequired || 'Purchase required', 'e');
           return;
         }
         if (errCode === 'REVIEW_ALREADY') {
           global.toast(t().reviewAlreadyDone || 'Already reviewed', 'e');
-          state.reviewEligibility[produtoId] = { hasReview: true, canReview: false, purchased: true };
+          state.reviewEligibility[produtoId] = { hasReview: true, canReview: false, purchased: true, reviewStatus: 'pendente' };
           renderQv();
           return;
         }
@@ -4917,7 +4922,7 @@
         return;
       }
       global.toast(t().reviewThanks || 'Thanks', 's');
-      state.reviewEligibility[produtoId] = { hasReview: true, canReview: false, purchased: true };
+      state.reviewEligibility[produtoId] = { hasReview: true, canReview: false, purchased: true, reviewStatus: 'pendente' };
       if (commentEl) commentEl.value = '';
       state.qvInfoTab = 'reviews';
       renderQv();
@@ -6465,11 +6470,50 @@
     if (!o) return false;
     var estado = String(o.estado || '').toLowerCase();
     if (estado === 'cancelado' || estado === 'cancelled' || estado === 'canceled') return false;
-    var pay = String(o.estado_pagamento || '').toLowerCase();
-    if (pay === 'aguardando_pagamento' || pay === 'pending') return false;
-    if (pay === 'pago' || pay === 'paid' || pay === 'pago_stripe') return true;
-    var confirmed = ['confirmado', 'paid', 'processando', 'preparacao', 'preparation', 'enviado', 'entregue', 'delivered', 'shipped', 'completed', 'concluido'];
-    return confirmed.indexOf(estado) >= 0;
+    var ship = String(o.estado_envio || '').toLowerCase();
+    return estado === 'delivered' || estado === 'entregue' || estado === 'entregada' ||
+      ship === 'delivered' || ship === 'entregue' || ship === 'entregada';
+  }
+
+  function captureReviewDeepLink_() {
+    try {
+      var sp = new URLSearchParams(global.location.search || '');
+      var pid = (sp.get('review') || '').trim();
+      if (!pid) return;
+      state.pendingReview = {
+        produtoId: pid,
+        orderId: (sp.get('order') || '').trim()
+      };
+    } catch (e) { /* ignore */ }
+  }
+
+  function clearReviewQueryFromUrl_() {
+    try {
+      var u = new URL(global.location.href);
+      u.searchParams.delete('review');
+      u.searchParams.delete('order');
+      var qs = u.searchParams.toString();
+      global.history.replaceState({}, '', u.pathname + (qs ? '?' + qs : '') + (u.hash || ''));
+    } catch (e) { /* ignore */ }
+  }
+
+  async function processPendingReviewDeepLink_() {
+    var pr = state.pendingReview;
+    if (!pr || !pr.produtoId) return;
+    if (!state.token) {
+      state.accountView = 'login';
+      if ($('accBg')) {
+        $('accBg').classList.add('open');
+        renderAccount();
+        updateScrollLock();
+      }
+      return;
+    }
+    state.pendingReview = null;
+    clearReviewQueryFromUrl_();
+    if (pr.produtoId && pr.orderId) await openReviewForProduct(pr.produtoId);
+    else if (pr.orderId) await openOrderDetail(pr.orderId);
+    else await openReviewForProduct(pr.produtoId);
   }
 
   function canReviewProduct_(produtoId) {
@@ -6516,7 +6560,11 @@
       var reviewHtml = '';
       if (state.token && pid && isOrderEligibleForReview_(o)) {
         if (hasReviewProduct_(pid)) {
-          reviewHtml = '<br><span style="font-size:9px;color:var(--gold);">' + esc(a.reviewDone || t().reviewAlreadyDone || '') + '</span>';
+          var eligRv = state.reviewEligibility[pid];
+          var rvMsg = (eligRv && eligRv.reviewStatus === 'pendente')
+            ? (a.reviewPending || t().reviewPendingModeration || t().reviewThanks || '')
+            : (a.reviewDone || t().reviewAlreadyDone || '');
+          reviewHtml = '<br><span style="font-size:9px;color:var(--gold);">' + esc(rvMsg) + '</span>';
         } else if (canReviewProduct_(pid)) {
           reviewHtml = '<br><button type="button" class="btn-ghost-sm" style="margin-top:6px;font-size:9px;" onclick="Shop.openReviewForProduct(\'' + esc(pid).replace(/'/g, "\\'") + '\')">' + esc(a.reviewBtn || t().reviewBtn || 'Review') + '</button>';
         }
@@ -6683,6 +6731,7 @@
       prefillCheckoutFromProfile();
       renderAccount();
       global.toast(a.connected, 's');
+      await processPendingReviewDeepLink_();
     } catch (e) { global.toast(e.message, 'e'); }
   }
 
@@ -6787,6 +6836,7 @@
       prefillCheckoutFromProfile();
       renderAccount();
       global.toast(a.created, 's');
+      await processPendingReviewDeepLink_();
     } catch (e) { global.toast(e.message, 'e'); }
     finally { state.registerInFlight = false; }
   }
@@ -7452,7 +7502,9 @@
       renderGrid();
       syncCartFromServer().catch(function () { /* ignore */ });
     });
-    if (state.token) restoreClientSession().catch(function () { /* ignore */ });
+    captureReviewDeepLink_();
+    if (state.token) restoreClientSession().then(function () { return processPendingReviewDeepLink_(); }).catch(function () { /* ignore */ });
+    else if (state.pendingReview) processPendingReviewDeepLink_();
     if (state.clientId) loadWishlistServer().catch(function () { /* ignore */ });
     handleOrderHash();
     global.addEventListener('hashchange', handleOrderHash);
