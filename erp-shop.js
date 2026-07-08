@@ -3188,7 +3188,8 @@
     try { data = c.getImageData(0, 0, W, H).data; } catch (e) { return empty; }
     var pts = [];
     var mobile = heroMotionIsMobileViewport_(W);
-    var step = Math.max(mobile ? 3 : 4, Math.round(fs / (mobile ? 20 : 18)));
+    /* Mobile : pas trop dense — sinon AZAVISION devient un blob brillant illisible. */
+    var step = Math.max(mobile ? 5 : 4, Math.round(fs / (mobile ? 13 : 18)));
     var y;
     var x;
     for (y = 0; y < H; y += step) {
@@ -3208,14 +3209,14 @@
       }
       try { data = c.getImageData(0, 0, W, H).data; } catch (e2) { return empty; }
       pts = [];
-      step = Math.max(2, Math.round(fs / 24));
+      step = Math.max(mobile ? 4 : 2, Math.round(fs / (mobile ? 16 : 24)));
       for (y = 0; y < H; y += step) {
         for (x = 0; x < W; x += step) {
           if (data[(y * W + x) * 4 + 3] > 80) pts.push({ x: x, y: y });
         }
       }
     }
-    var maxPts = mobile ? 420 : 560;
+    var maxPts = mobile ? 150 : 560;
     if (pts.length > maxPts) {
       var keep = [];
       var k = pts.length / maxPts;
@@ -3291,21 +3292,24 @@
     var introBoost = !!opts.introOnly && introPh && introPh.phase === 'intro';
     var st = heroMotionState_;
     var mob = heroMotionIsMobileViewport_(W);
+    /* Mobile : mot lisible (pas de halo/scintillement) ; toile de fond toujours animée. */
     var still = mob;
     var isLight = !!(pal && pal.light);
     var luxe = !!opts.luxe && !still;
     var cascade = !!opts.cascade && !still;
     var crisp = still || luxe || isLight;
-    var lineMul = still ? (isLight ? 0.42 : 0.34) : (luxe ? 0.34 : (isLight ? 0.72 : (mob ? 0.38 : 0.44)));
+    var lineMul = still ? (isLight ? 0.2 : 0.16) : (luxe ? 0.34 : (isLight ? 0.72 : (mob ? 0.38 : 0.44)));
     var composite = crisp ? 'source-over' : 'lighter';
     var glowMul = still ? 0 : (luxe ? 2.1 : (mob ? 2.8 : 4.2));
     var t = st.t || 0;
-    var webShimmer = 0.82 + 0.18 * Math.sin(t * 1.45);
-    var shimmer = still ? webShimmer : ((crisp ? 0.9 : 0.82) + (crisp ? 0.1 : 0.18) * Math.sin(t * 1.6));
-    if (!st.letterData || st.letterW !== W || st.letterH !== H) {
+    /* Sur mobile les fils DU MOT restent fixes (pas de pulsation) ; le fond web anime à part. */
+    var shimmer = still ? 1 : ((crisp ? 0.9 : 0.82) + (crisp ? 0.1 : 0.18) * Math.sin(t * 1.6));
+    var needRebuild = !st.letterData || st.letterW !== W || st.letterH !== H || (still && st.letterReadable !== 3) || (!still && st.letterReadable === 3);
+    if (needRebuild) {
       st.letterData = heroMotionBuildLetterTargets_(W, H);
       st.letterW = W;
       st.letterH = H;
+      st.letterReadable = still ? 3 : 0;
       st.letterParts = st.letterData.pts.map(function (tg) {
         return {
           x: cascade ? (tg.x + (Math.random() - 0.5) * W * 0.15) : (Math.random() * W),
@@ -3313,7 +3317,7 @@
           tx: tg.x, ty: tg.y,
           a: Math.random() * 6.28, va: (Math.random() - 0.5) * 0.05,
           gold: Math.random() > (luxe ? 0.45 : 0.35),
-          r: still ? (2.2 + Math.random() * 0.5) : ((mob || luxe ? 2.0 : 1.1) + Math.random() * (mob || luxe ? 0.9 : 0.9)),
+          r: still ? (1.05 + Math.random() * 0.3) : ((mob || luxe ? 2.0 : 1.1) + Math.random() * (mob || luxe ? 0.9 : 0.9)),
           orbitR: still ? 0 : (mob || luxe ? (0.2 + Math.random() * 0.45) : (0.9 + Math.random() * 2.4)),
           orbitSp: still ? 0 : (mob || luxe ? (0.1 + Math.random() * 0.14) : (0.22 + Math.random() * 0.38)),
           orbitPh: Math.random() * 6.28
@@ -3354,7 +3358,7 @@
     }
     var ghostA = 0;
     if (still) {
-      ghostA = isLight ? 0.24 : 0.2;
+      ghostA = isLight ? 0.46 : 0.4;
     } else if (mob || luxe || introBoost) {
       ghostA = luxe ? 0.1 : (introBoost ? (0.08 + introPh.progress * 0.12) : 0.11);
     }
@@ -3364,7 +3368,7 @@
       ctx.fillRect(W * 0.05, H * 0.26, W * 0.9, H * 0.48);
     }
     ctx.globalCompositeOperation = composite;
-    ctx.lineWidth = still ? 1.15 : (mob ? 1.05 : 0.8);
+    ctx.lineWidth = still ? 0.85 : (mob ? 1.05 : 0.8);
     for (i = 0; i < links.length; i += 2) {
       var pa = parts[links[i]];
       var pb = parts[links[i + 1]];
@@ -3381,13 +3385,14 @@
         ctx.stroke();
       }
     }
-    if (!luxe) {
+    /* Mobile : pas de liens dynamiques sur les lettres (ça blanchit le mot) — la toile = fond web. */
+    if (!luxe && !still) {
       heroMotionDrawLiveWebLinks_(ctx, parts, GR, LD * (mob ? 1.25 : 1.45), shimmer * (mob ? 0.65 : 1), parts.length > 220 ? 3 : 2);
     }
     for (i = 0; i < parts.length; i++) {
       var q = parts[i];
       var twinkle = still ? 1 : (0.72 + 0.28 * Math.abs(Math.sin(q.a * 2 + i)));
-      var glow = still ? 0.94 : Math.min(1, twinkle * shimmer);
+      var glow = still ? 0.72 : Math.min(1, twinkle * shimmer);
       var color = q.gold ? GR : GR2;
       if (glowMul > 2.5 && !still) {
         var gr = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * glowMul);
@@ -3399,11 +3404,14 @@
         ctx.fill();
       }
       var coreA = still
-        ? (isLight ? 0.98 : 0.92)
+        ? (isLight ? 0.88 : 0.7)
         : (isLight ? Math.min(1, glow * 0.98) : Math.min(1, 0.82 + glow * 0.18));
-      ctx.fillStyle = isLight
-        ? ('rgba(48,36,14,' + coreA + ')')
-        : ('rgba(255,245,225,' + coreA + ')');
+      /* Mobile : or mat (pas de blanc brillant qui noie le mot). */
+      ctx.fillStyle = still
+        ? (isLight ? ('rgba(48,36,14,' + coreA + ')') : ('rgba(' + color + ',' + coreA + ')'))
+        : (isLight
+          ? ('rgba(48,36,14,' + coreA + ')')
+          : ('rgba(255,245,225,' + coreA + ')'));
       ctx.beginPath();
       ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2);
       ctx.fill();
